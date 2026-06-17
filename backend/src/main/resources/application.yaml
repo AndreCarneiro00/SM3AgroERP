@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: SM3AgroERP
+
+  datasource:
+    url: jdbc:sqlite:agro.db
+    driver-class-name: org.sqlite.JDBC
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+    properties:
+      hibernate:
+        dialect: org.hibernate.community.dialect.SQLiteDialect
+
+  flyway:
+    enabled: true
