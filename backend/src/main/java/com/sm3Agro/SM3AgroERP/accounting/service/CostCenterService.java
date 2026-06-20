@@ -6,15 +6,11 @@ import com.sm3Agro.SM3AgroERP.accounting.entity.ActivityGroup;
 import com.sm3Agro.SM3AgroERP.accounting.entity.CostCenter;
 import com.sm3Agro.SM3AgroERP.accounting.repository.ActivityGroupRepository;
 import com.sm3Agro.SM3AgroERP.accounting.repository.CostCenterRepository;
-import com.sm3Agro.SM3AgroERP.accounting.enums.CostCenterType;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.EnumUtils;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
 
 import java.util.List;
-import java.util.Locale;
 
 @RequiredArgsConstructor
 @Service
