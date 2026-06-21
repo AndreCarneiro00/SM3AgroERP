@@ -9,6 +9,7 @@ import com.sm3Agro.SM3AgroERP.accounting.repository.CostCenterRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -23,6 +24,7 @@ public class CostCenterService {
         return costCenterRepository.findAll();
     }
 
+    @Transactional
     public CostCenter create(CreateCostCenterRequest request) {
         CostCenter newCostCenter = new CostCenter();
 
@@ -57,6 +59,7 @@ public class CostCenterService {
         return costCenterRepository.save(newCostCenter);
     }
 
+    @Transactional
     public CostCenter update(Long id, UpdateCostCenterRequest request) {
         CostCenter entity = costCenterRepository.findById(id)
                 .orElseThrow(() ->
@@ -98,7 +101,8 @@ public class CostCenterService {
 
         return costCenterRepository.save(entity);
     }
-//
+
+    @Transactional
     public void delete(Long id) {
         costCenterRepository.deleteById(id);
     }

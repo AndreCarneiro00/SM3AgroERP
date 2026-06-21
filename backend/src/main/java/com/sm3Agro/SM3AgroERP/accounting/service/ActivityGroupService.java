@@ -7,6 +7,7 @@ import com.sm3Agro.SM3AgroERP.accounting.repository.ActivityGroupRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -20,12 +21,14 @@ public class ActivityGroupService {
         return repository.findAll();
     }
 
+    @Transactional
     public ActivityGroup create(CreateActivityGroupRequest request) {
         ActivityGroup entity = new ActivityGroup();
         entity.setName(request.name());
         return repository.save(entity);
     }
 
+    @Transactional
     public ActivityGroup update(Long id, UpdateActivityGroupRequest request) {
         ActivityGroup entity = repository.findById(id)
                                 .orElseThrow(() ->
@@ -37,6 +40,7 @@ public class ActivityGroupService {
         return repository.save(entity);
     }
 
+    @Transactional
     public void delete(Long id) {
         repository.deleteById(id);
     }
