@@ -1,6 +1,8 @@
 spring:
   datasource:
-    url: jdbc:sqlite:target/test-db.sqlite
+    url: jdbc:sqlite:target/test-db.sqlite?journal_mode=WAL&busy_timeout=5000
+    hikari:
+      maximum-pool-size: 1
 
   jpa:
     database-platform: org.hibernate.community.dialect.SQLiteDialect
