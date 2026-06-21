@@ -26,14 +26,13 @@ public class CostCenterService {
 
     @Transactional
     public CostCenter create(CreateCostCenterRequest request) {
-        CostCenter newCostCenter = new CostCenter();
-
-        newCostCenter.setName(request.name());
-        newCostCenter.setDescription(request.description());
-        newCostCenter.setType(request.type());
-        newCostCenter.setAcceptsTransaction(request.acceptsTransaction());
-        newCostCenter.setActive(request.active());
-        newCostCenter.setCode(request.code());
+        CostCenter.CostCenterBuilder newCostCenterBuilder = CostCenter.builder()
+                .name(request.name())
+                .description(request.description())
+                .type(request.type())
+                .acceptsTransaction(request.acceptsTransaction())
+                .active(request.active())
+                .code(request.code());
 
         if (request.parentId() != null) {
             CostCenter parent = costCenterRepository
@@ -44,7 +43,7 @@ public class CostCenterService {
                             )
                     );
 
-            newCostCenter.setParent(parent);
+            newCostCenterBuilder.parent(parent);
         }
         ActivityGroup activityGroup = activityGroupRepository
                 .findById(request.activityGroupId())
@@ -54,9 +53,11 @@ public class CostCenterService {
                         )
                 );
 
-        newCostCenter.setActivityGroup(activityGroup);
-
-        return costCenterRepository.save(newCostCenter);
+        return costCenterRepository.save(
+                newCostCenterBuilder
+                        .activityGroup(activityGroup)
+                        .build()
+        );
     }
 
     @Transactional

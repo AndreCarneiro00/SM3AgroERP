@@ -11,12 +11,16 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Column;
 import com.sm3Agro.SM3AgroERP.accounting.enums.CostCenterType;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
+@Builder
+@AllArgsConstructor
 @NoArgsConstructor
 @Entity
 @Table(name = "cost_center")
@@ -36,6 +40,7 @@ public class CostCenter {
 
     private Boolean acceptsTransaction;
 
+    @Builder.Default
     private Boolean active = true;
 
     @ManyToOne

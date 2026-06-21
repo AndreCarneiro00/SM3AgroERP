@@ -23,8 +23,9 @@ public class ActivityGroupService {
 
     @Transactional
     public ActivityGroup create(CreateActivityGroupRequest request) {
-        ActivityGroup entity = new ActivityGroup();
-        entity.setName(request.name());
+        ActivityGroup entity = ActivityGroup.builder()
+                .name(request.name())
+                .build();
         return repository.save(entity);
     }
 
