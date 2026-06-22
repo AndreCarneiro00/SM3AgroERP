@@ -2,8 +2,10 @@ package com.sm3Agro.SM3AgroERP;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
+@ActiveProfiles("test")
 class Sm3AgroErpApplicationTests {
 
 	@Test
