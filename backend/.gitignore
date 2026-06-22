@@ -36,3 +36,5 @@ agro.db
 agro.db-journal
 agro.db-wal
 agro.db-shm
+
+*.db*
