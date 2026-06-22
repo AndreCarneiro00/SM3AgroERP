@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:sqlite:target/test-db.sqlite?journal_mode=WAL&busy_timeout=5000
+    url: jdbc:sqlite:target/test-db.sqlite?foreign_keys=on&journal_mode=WAL&busy_timeout=5000
     hikari:
       maximum-pool-size: 1
 
