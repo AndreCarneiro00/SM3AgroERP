@@ -91,6 +91,9 @@ public class CounterpartyService {
 
     @Transactional
     public void delete(Long id) {
+        if (!counterpartyRepository.existsById(id)) {
+            throw new EntityNotFoundException("Counterparty not found: " + id);
+        }
         counterpartyRepository.deleteById(id);
     }
 }

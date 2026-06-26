@@ -43,6 +43,9 @@ public class FieldService {
 
     @Transactional
     public void delete(Long id) {
+        if (!repository.existsById(id)) {
+            throw new EntityNotFoundException("Field not found: " + id);
+        }
         repository.deleteById(id);
     }
 }

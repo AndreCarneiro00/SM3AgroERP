@@ -61,6 +61,9 @@ public class BankAccountService {
 
     @Transactional
     public void delete(Long id) {
+        if (!repository.existsById(id)) {
+            throw new EntityNotFoundException("BankAccount not found: " + id);
+        }
         repository.deleteById(id);
     }
 }

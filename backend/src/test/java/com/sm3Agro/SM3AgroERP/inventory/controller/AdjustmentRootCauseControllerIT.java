@@ -88,4 +88,11 @@ class AdjustmentRootCauseControllerIT {
         mockMvc.perform(delete("/adjustment-root-cause/{id}", entity.getId()))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingAdjustmentRootCause() throws Exception {
+        mockMvc.perform(delete("/adjustment-root-cause/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("AdjustmentRootCause not found: 999"));
+    }
 }

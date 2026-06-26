@@ -131,6 +131,13 @@ class ChartOfAccountControllerIT {
     }
 
     @Test
+    void shouldReturnNotFoundWhenDeletingMissingChartOfAccount() throws Exception {
+        mockMvc.perform(delete("/chart-of-account/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("ChartOfAccount not found: 999"));
+    }
+
+    @Test
     void shouldReturnBadRequestForInvalidChartOfAccountType() throws Exception {
         String payload = """
                 {

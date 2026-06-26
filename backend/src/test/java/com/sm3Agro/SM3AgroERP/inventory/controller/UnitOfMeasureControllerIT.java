@@ -126,6 +126,13 @@ class UnitOfMeasureControllerIT {
     }
 
     @Test
+    void shouldReturnNotFoundWhenDeletingMissingUnitOfMeasure() throws Exception {
+        mockMvc.perform(delete("/unit-of-measure/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("UnitOfMeasure not found: 999"));
+    }
+
+    @Test
     void shouldReturnBadRequestWhenCreatingUnitOfMeasureWithInvalidConversionFactor() throws Exception {
         BaseUnit baseUnit = baseUnitRepository.save(BaseUnit.builder().name("Peso").build());
         CreateUnitOfMeasureRequest request = new CreateUnitOfMeasureRequest(

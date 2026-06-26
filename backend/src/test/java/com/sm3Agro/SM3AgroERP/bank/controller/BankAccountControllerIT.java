@@ -125,4 +125,11 @@ class BankAccountControllerIT {
         mockMvc.perform(delete("/bank-account/{id}", bankAccount.getId()))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingBankAccount() throws Exception {
+        mockMvc.perform(delete("/bank-account/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("BankAccount not found: 999"));
+    }
 }

@@ -41,6 +41,9 @@ public class BaseUnitService {
 
     @Transactional
     public void delete(Long id) {
+        if (!repository.existsById(id)) {
+            throw new EntityNotFoundException("BaseUnit not found: " + id);
+        }
         repository.deleteById(id);
     }
 }

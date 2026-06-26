@@ -97,4 +97,11 @@ class FieldControllerIT {
         mockMvc.perform(delete("/field/{id}", entity.getId()))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingField() throws Exception {
+        mockMvc.perform(delete("/field/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Field not found: 999"));
+    }
 }

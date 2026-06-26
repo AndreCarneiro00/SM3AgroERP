@@ -41,6 +41,9 @@ public class DocumentTypeService {
 
     @Transactional
     public void delete(Long id) {
+        if (!repository.existsById(id)) {
+            throw new EntityNotFoundException("DocumentType not found: " + id);
+        }
         repository.deleteById(id);
     }
 }

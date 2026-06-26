@@ -128,4 +128,11 @@ class MachineControllerIT {
         mockMvc.perform(delete("/machine/{id}", entity.getId()))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingMachine() throws Exception {
+        mockMvc.perform(delete("/machine/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Machine not found: 999"));
+    }
 }

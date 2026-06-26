@@ -41,6 +41,9 @@ public class AdjustmentRootCauseService {
 
     @Transactional
     public void delete(Long id) {
+        if (!repository.existsById(id)) {
+            throw new EntityNotFoundException("AdjustmentRootCause not found: " + id);
+        }
         repository.deleteById(id);
     }
 }

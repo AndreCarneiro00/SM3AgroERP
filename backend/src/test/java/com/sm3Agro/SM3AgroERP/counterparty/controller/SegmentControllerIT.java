@@ -84,4 +84,11 @@ class SegmentControllerIT {
         mockMvc.perform(delete("/segment/{id}", entity.getId()))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingSegment() throws Exception {
+        mockMvc.perform(delete("/segment/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Segment not found: 999"));
+    }
 }

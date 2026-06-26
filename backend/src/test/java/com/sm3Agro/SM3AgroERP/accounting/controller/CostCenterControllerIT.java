@@ -156,6 +156,13 @@ class CostCenterControllerIT {
     }
 
     @Test
+    void shouldReturnNotFoundWhenDeletingMissingCostCenter() throws Exception {
+        mockMvc.perform(delete("/cost-center/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("CostCenter not found: 999"));
+    }
+
+    @Test
     void shouldReturnBadRequestForInvalidEnum() throws Exception {
 
         String payload = """

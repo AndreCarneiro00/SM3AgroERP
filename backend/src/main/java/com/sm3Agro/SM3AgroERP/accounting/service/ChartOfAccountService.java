@@ -63,6 +63,9 @@ public class ChartOfAccountService {
 
     @Transactional
     public void delete(Long id) {
+        if (!chartOfAccountRepository.existsById(id)) {
+            throw new EntityNotFoundException("ChartOfAccount not found: " + id);
+        }
         chartOfAccountRepository.deleteById(id);
     }
 }

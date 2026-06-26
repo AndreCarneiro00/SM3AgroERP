@@ -105,6 +105,9 @@ public class CostCenterService {
 
     @Transactional
     public void delete(Long id) {
+        if (!costCenterRepository.existsById(id)) {
+            throw new EntityNotFoundException("CostCenter not found: " + id);
+        }
         costCenterRepository.deleteById(id);
     }
 }

@@ -41,6 +41,9 @@ public class SegmentService {
 
     @Transactional
     public void delete(Long id) {
+        if (!repository.existsById(id)) {
+            throw new EntityNotFoundException("Segment not found: " + id);
+        }
         repository.deleteById(id);
     }
 }

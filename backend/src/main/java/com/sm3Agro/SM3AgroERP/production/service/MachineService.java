@@ -58,6 +58,9 @@ public class MachineService {
 
     @Transactional
     public void delete(Long id) {
+        if (!repository.existsById(id)) {
+            throw new EntityNotFoundException("Machine not found: " + id);
+        }
         repository.deleteById(id);
     }
 }

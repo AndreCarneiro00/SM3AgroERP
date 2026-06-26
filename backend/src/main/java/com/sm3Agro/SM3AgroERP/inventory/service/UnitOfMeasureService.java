@@ -68,6 +68,9 @@ public class UnitOfMeasureService {
 
     @Transactional
     public void delete(Long id) {
+        if (!unitOfMeasureRepository.existsById(id)) {
+            throw new EntityNotFoundException("UnitOfMeasure not found: " + id);
+        }
         unitOfMeasureRepository.deleteById(id);
     }
 }

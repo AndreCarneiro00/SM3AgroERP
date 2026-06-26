@@ -84,4 +84,11 @@ class BaseUnitControllerIT {
         mockMvc.perform(delete("/base-unit/{id}", entity.getId()))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingBaseUnit() throws Exception {
+        mockMvc.perform(delete("/base-unit/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("BaseUnit not found: 999"));
+    }
 }

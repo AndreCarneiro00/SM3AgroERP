@@ -101,4 +101,11 @@ class ActivityGroupControllerIT {
         mockMvc.perform(delete("/activity-group/{id}", group.getId()))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingActivityGroup() throws Exception {
+        mockMvc.perform(delete("/activity-group/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("ActivityGroup not found: 999"));
+    }
 }

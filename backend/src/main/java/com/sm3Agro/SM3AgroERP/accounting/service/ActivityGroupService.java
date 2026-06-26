@@ -43,6 +43,9 @@ public class ActivityGroupService {
 
     @Transactional
     public void delete(Long id) {
+        if (!repository.existsById(id)) {
+            throw new EntityNotFoundException("ActivityGroup not found: " + id);
+        }
         repository.deleteById(id);
     }
 }

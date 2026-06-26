@@ -73,6 +73,9 @@ public class ProductService {
 
     @Transactional
     public void delete(Long id) {
+        if (!productRepository.existsById(id)) {
+            throw new EntityNotFoundException("Product not found: " + id);
+        }
         productRepository.deleteById(id);
     }
 }

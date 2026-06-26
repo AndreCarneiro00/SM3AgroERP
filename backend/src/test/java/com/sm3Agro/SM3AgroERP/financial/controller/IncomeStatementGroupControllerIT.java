@@ -96,4 +96,11 @@ class IncomeStatementGroupControllerIT {
         mockMvc.perform(delete("/income-statement-group/{id}", entity.getId()))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingIncomeStatementGroup() throws Exception {
+        mockMvc.perform(delete("/income-statement-group/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("IncomeStatementGroup not found: 999"));
+    }
 }

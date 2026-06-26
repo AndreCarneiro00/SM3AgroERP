@@ -43,6 +43,9 @@ public class IncomeStatementGroupService {
 
     @Transactional
     public void delete(Long id) {
+        if (!repository.existsById(id)) {
+            throw new EntityNotFoundException("IncomeStatementGroup not found: " + id);
+        }
         repository.deleteById(id);
     }
 }

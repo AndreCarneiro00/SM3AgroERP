@@ -41,6 +41,9 @@ public class ProductFamilyService {
 
     @Transactional
     public void delete(Long id) {
+        if (!repository.existsById(id)) {
+            throw new EntityNotFoundException("ProductFamily not found: " + id);
+        }
         repository.deleteById(id);
     }
 }

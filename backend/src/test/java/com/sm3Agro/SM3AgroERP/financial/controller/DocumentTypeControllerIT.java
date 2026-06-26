@@ -84,4 +84,11 @@ class DocumentTypeControllerIT {
         mockMvc.perform(delete("/document-type/{id}", entity.getId()))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingDocumentType() throws Exception {
+        mockMvc.perform(delete("/document-type/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("DocumentType not found: 999"));
+    }
 }

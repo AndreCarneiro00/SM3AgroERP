@@ -180,6 +180,13 @@ class ProductControllerIT {
     }
 
     @Test
+    void shouldReturnNotFoundWhenDeletingMissingProduct() throws Exception {
+        mockMvc.perform(delete("/product/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Product not found: 999"));
+    }
+
+    @Test
     void shouldReturnBadRequestForInvalidProductType() throws Exception {
         String payload = """
                 {

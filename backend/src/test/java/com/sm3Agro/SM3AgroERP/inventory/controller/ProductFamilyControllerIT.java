@@ -84,4 +84,11 @@ class ProductFamilyControllerIT {
         mockMvc.perform(delete("/product-family/{id}", entity.getId()))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingProductFamily() throws Exception {
+        mockMvc.perform(delete("/product-family/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("ProductFamily not found: 999"));
+    }
 }

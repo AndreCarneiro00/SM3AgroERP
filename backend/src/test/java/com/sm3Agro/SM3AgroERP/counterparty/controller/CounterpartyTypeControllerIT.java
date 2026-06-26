@@ -109,4 +109,11 @@ class CounterpartyTypeControllerIT {
         mockMvc.perform(delete("/counterparty-type/{id}", entity.getId()))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void shouldReturnNotFoundWhenDeletingMissingCounterpartyType() throws Exception {
+        mockMvc.perform(delete("/counterparty-type/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("CounterpartyType not found: 999"));
+    }
 }

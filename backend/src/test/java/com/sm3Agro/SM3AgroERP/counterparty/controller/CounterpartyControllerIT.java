@@ -150,6 +150,13 @@ class CounterpartyControllerIT {
     }
 
     @Test
+    void shouldReturnNotFoundWhenDeletingMissingCounterparty() throws Exception {
+        mockMvc.perform(delete("/counterparty/{id}", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Counterparty not found: 999"));
+    }
+
+    @Test
     void shouldReturnBadRequestForInvalidDocumentType() throws Exception {
         String payload = """
                 {
