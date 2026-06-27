@@ -1,4 +1,4 @@
-HELP.md
+backend/HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
@@ -15,9 +15,6 @@ target/
 
 ### IntelliJ IDEA ###
 .idea
-.idea/
-.idea*
-*.idea
 *.iws
 *.iml
 *.ipr
@@ -35,9 +32,33 @@ build/
 ### VS Code ###
 .vscode/
 
+### Node / JavaScript / TypeScript / React ###
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.pnpm-store/
+.yarn/
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+coverage/
+dist/
+build/
+vite.svg
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
 agro.db
 agro.db-journal
 agro.db-wal
 agro.db-shm
 
 *.db*
+.agents
