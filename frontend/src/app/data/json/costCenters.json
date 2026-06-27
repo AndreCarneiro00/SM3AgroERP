@@ -1,0 +1,15 @@
+[
+  { "id": 1,  "name": "PRODUÇÃO",               "code": "PROD",    "type": "OPEX",  "accepts_transaction": false, "active": true },
+  { "id": 2,  "name": "Corte e Secagem",         "code": "PROD.01", "type": "OPEX",  "accepts_transaction": true,  "active": true, "parent_id": 1, "activity_group_id": 2 },
+  { "id": 3,  "name": "Enfardamento",            "code": "PROD.02", "type": "OPEX",  "accepts_transaction": true,  "active": true, "parent_id": 1, "activity_group_id": 3 },
+  { "id": 4,  "name": "Armazenagem",             "code": "PROD.03", "type": "OPEX",  "accepts_transaction": true,  "active": true, "parent_id": 1, "activity_group_id": 1 },
+  { "id": 5,  "name": "COMERCIAL",               "code": "COM",     "type": "OPEX",  "accepts_transaction": false, "active": true },
+  { "id": 6,  "name": "Vendas",                  "code": "COM.01",  "type": "OPEX",  "accepts_transaction": true,  "active": true, "parent_id": 5, "activity_group_id": 4 },
+  { "id": 7,  "name": "Marketing",               "code": "COM.02",  "type": "OPEX",  "accepts_transaction": true,  "active": true, "parent_id": 5 },
+  { "id": 8,  "name": "ADMINISTRATIVO",          "code": "ADM",     "type": "OPEX",  "accepts_transaction": false, "active": true },
+  { "id": 9,  "name": "Gestão",                  "code": "ADM.01",  "type": "OPEX",  "accepts_transaction": true,  "active": true, "parent_id": 8, "activity_group_id": 5 },
+  { "id": 10, "name": "Financeiro",              "code": "ADM.02",  "type": "OPEX",  "accepts_transaction": true,  "active": true, "parent_id": 8, "activity_group_id": 5 },
+  { "id": 11, "name": "INFRAESTRUTURA",          "code": "INF",     "type": "CAPEX", "accepts_transaction": false, "active": true },
+  { "id": 12, "name": "Máquinas e Equipamentos", "code": "INF.01",  "type": "CAPEX", "accepts_transaction": true,  "active": true, "parent_id": 11, "activity_group_id": 6 },
+  { "id": 13, "name": "Benfeitorias",            "code": "INF.02",  "type": "CAPEX", "accepts_transaction": true,  "active": true, "parent_id": 11 }
+]

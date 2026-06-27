@@ -1,0 +1,7 @@
+[
+  { "id": 1, "name": "Agropecuária" },
+  { "id": 2, "name": "Transportadora" },
+  { "id": 3, "name": "Comércio" },
+  { "id": 4, "name": "Indústria" },
+  { "id": 5, "name": "Serviços" }
+]

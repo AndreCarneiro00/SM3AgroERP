@@ -1,0 +1,6 @@
+[
+  { "id": 1, "name": "Cliente", "description": "Clientes compradores de feno", "active": true },
+  { "id": 2, "name": "Fornecedor", "description": "Fornecedores de insumos e serviços", "active": true },
+  { "id": 3, "name": "Banco", "description": "Instituições financeiras", "active": true },
+  { "id": 4, "name": "Parceiro", "description": "Parceiros comerciais", "active": true }
+]

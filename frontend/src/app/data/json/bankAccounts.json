@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "account_type": "Conta Corrente",
+    "account_group": "Principal",
+    "name": "BB - Conta Corrente Principal",
+    "active": true,
+    "initial_balance": 45000.00,
+    "initial_balance_date": "2025-01-01",
+    "financial_institution": "Banco do Brasil",
+    "agency": "1234-5",
+    "account_number": "98765-4"
+  },
+  {
+    "id": 2,
+    "account_type": "Conta Corrente",
+    "account_group": "Operacional",
+    "name": "Sicoob - Conta Cooperativa",
+    "active": true,
+    "initial_balance": 22000.00,
+    "initial_balance_date": "2025-01-01",
+    "financial_institution": "Sicoob",
+    "agency": "0042",
+    "account_number": "55432-1"
+  },
+  {
+    "id": 3,
+    "account_type": "Poupança",
+    "account_group": "Reserva",
+    "name": "CEF - Poupança Reserva",
+    "active": true,
+    "initial_balance": 18500.00,
+    "initial_balance_date": "2025-01-01",
+    "financial_institution": "Caixa Econômica Federal",
+    "agency": "0987",
+    "account_number": "11223-0"
+  }
+]

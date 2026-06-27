@@ -1,0 +1,7 @@
+[
+  { "id": 1, "name": "Fardo de Tifton",    "unit_id": 1, "product_family_id": 1 },
+  { "id": 2, "name": "Fardo de Braquiária","unit_id": 1, "product_family_id": 1 },
+  { "id": 3, "name": "Rolo de Feno Premium","unit_id": 2, "product_family_id": 1 },
+  { "id": 4, "name": "Silagem de Sorgo",   "unit_id": 3, "product_family_id": 2 },
+  { "id": 5, "name": "Sementes de Tifton", "unit_id": 4, "product_family_id": 4 }
+]

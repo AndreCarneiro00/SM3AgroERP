@@ -1,0 +1,7 @@
+[
+  { "id": 1, "name": "Fardo",     "base_unit_id": 2, "conversion_factor": 1 },
+  { "id": 2, "name": "Rolo",      "base_unit_id": 2, "conversion_factor": 1 },
+  { "id": 3, "name": "Tonelada",  "base_unit_id": 1, "conversion_factor": 1000 },
+  { "id": 4, "name": "Quilograma","base_unit_id": 1, "conversion_factor": 1 },
+  { "id": 5, "name": "Litro",     "base_unit_id": 3, "conversion_factor": 1 }
+]

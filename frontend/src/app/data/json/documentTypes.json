@@ -1,0 +1,7 @@
+[
+  { "id": 1, "name": "Nota Fiscal" },
+  { "id": 2, "name": "Recibo" },
+  { "id": 3, "name": "Contrato" },
+  { "id": 4, "name": "Boleto" },
+  { "id": 5, "name": "Duplicata" }
+]

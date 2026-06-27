@@ -1,0 +1,8 @@
+[
+  { "id": 1, "name": "Produção de Feno" },
+  { "id": 2, "name": "Colheita e Corte" },
+  { "id": 3, "name": "Enfardamento" },
+  { "id": 4, "name": "Logística e Transporte" },
+  { "id": 5, "name": "Administração Geral" },
+  { "id": 6, "name": "Manutenção" }
+]

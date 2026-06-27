@@ -1,0 +1,8 @@
+[
+  { "id": 1, "product_id": 1, "code": "LOTE-2025-001", "quality_grade": "A",  "cut_id": 1, "batch_date": "2025-03-20", "status": "DISPONÍVEL",  "cost": 18500.00 },
+  { "id": 2, "product_id": 2, "code": "LOTE-2025-002", "quality_grade": "B",  "cut_id": 2, "batch_date": "2025-03-25", "status": "DISPONÍVEL",  "cost": 14200.00 },
+  { "id": 3, "product_id": 1, "code": "LOTE-2025-003", "quality_grade": "A",  "cut_id": 3, "batch_date": "2025-05-15", "status": "VENDIDO",     "cost": 22100.00 },
+  { "id": 4, "product_id": 3, "code": "LOTE-2025-004", "quality_grade": "A+", "cut_id": 4, "batch_date": "2025-04-10", "status": "DISPONÍVEL",  "cost": 31500.00 },
+  { "id": 5, "product_id": 2, "code": "LOTE-2025-005", "quality_grade": "A",  "cut_id": 5, "batch_date": "2025-06-05", "status": "PROCESSANDO", "cost": 16800.00 },
+  { "id": 6, "product_id": 1, "code": "LOTE-2025-006", "quality_grade": "B+", "cut_id": 6, "batch_date": "2025-07-25", "status": "PROCESSANDO", "cost": 19400.00 }
+]

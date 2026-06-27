@@ -1,0 +1,9 @@
+[
+  { "id": 1, "batch_id": 1, "movement_type": "ENTRADA", "quantity": 850, "unit_cost": 21.76, "movement_date": "2025-03-20" },
+  { "id": 2, "batch_id": 1, "movement_type": "SAÍDA",   "quantity": 285, "unit_cost": 21.76, "movement_date": "2025-06-01", "financial_transaction_item_id": 1 },
+  { "id": 3, "batch_id": 2, "movement_type": "ENTRADA", "quantity": 620, "unit_cost": 22.90, "movement_date": "2025-03-25" },
+  { "id": 4, "batch_id": 3, "movement_type": "ENTRADA", "quantity": 980, "unit_cost": 22.55, "movement_date": "2025-05-15" },
+  { "id": 5, "batch_id": 3, "movement_type": "SAÍDA",   "quantity": 420, "unit_cost": 22.55, "movement_date": "2025-05-20", "financial_transaction_item_id": 6 },
+  { "id": 6, "batch_id": 4, "movement_type": "ENTRADA", "quantity": 210, "unit_cost":150.00, "movement_date": "2025-04-10" },
+  { "id": 7, "batch_id": 5, "movement_type": "ENTRADA", "quantity": 730, "unit_cost": 23.01, "movement_date": "2025-06-05" }
+]
