@@ -256,14 +256,38 @@ CREATE TABLE financial_transaction (
                                            type IN ('INCOME', 'EXPENSE')
                                            ),
                                        observation TEXT,
-                                       document_type_id INTEGER,
                                        has_nf BOOLEAN NOT NULL DEFAULT 0,
-                                       document_path TEXT,
-                                       document_location TEXT,
                                        total_amount REAL NOT NULL DEFAULT 0,
 
-                                       FOREIGN KEY (counterparty_id) REFERENCES counterparty(id),
-                                       FOREIGN KEY (document_type_id) REFERENCES document_type(id)
+                                       FOREIGN KEY (counterparty_id) REFERENCES counterparty(id)
+);
+
+CREATE TABLE financial_transaction_attachment (
+                                                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                  financial_transaction_id INTEGER NOT NULL,
+                                                  file_name TEXT NOT NULL,
+                                                  declared_content_type TEXT,
+                                                  size_bytes INTEGER,
+                                                  document_type_id INTEGER NOT NULL,
+                                                  storage_provider TEXT NOT NULL CHECK (
+                                                      storage_provider IN ('LOCAL', 'ONEDRIVE')
+                                                      ),
+                                                  storage_path TEXT,
+                                                  external_file_id TEXT,
+                                                  external_parent_id TEXT,
+                                                  web_url TEXT,
+                                                  checksum_sha256 TEXT,
+                                                  uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                                  active BOOLEAN NOT NULL DEFAULT 1,
+                                                  observation TEXT,
+
+                                                  FOREIGN KEY (financial_transaction_id) REFERENCES financial_transaction(id),
+                                                  FOREIGN KEY (document_type_id) REFERENCES document_type(id),
+                                                  CHECK (
+                                                      storage_path IS NOT NULL
+                                                      OR external_file_id IS NOT NULL
+                                                      OR web_url IS NOT NULL
+                                                      )
 );
 
 CREATE TABLE financial_transaction_items (
