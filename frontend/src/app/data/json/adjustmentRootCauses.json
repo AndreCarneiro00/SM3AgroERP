@@ -1,0 +1,6 @@
+[
+  { "id": 1, "name": "Acerto de inventário" },
+  { "id": 2, "name": "Perda operacional" },
+  { "id": 3, "name": "Avaria / umidade" },
+  { "id": 4, "name": "Reclassificação interna" }
+]

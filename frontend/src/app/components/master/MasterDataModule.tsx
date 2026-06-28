@@ -36,11 +36,21 @@ function CounterpartyTypesTab() {
 }
 
 interface Props {
-  tab: 'counterparties' | 'counterparty-types' | 'segments' | 'activity-groups' | 'document-types';
+  tab: 'counterparties' | 'counterparty-types' | 'segments' | 'activity-groups' | 'document-types' | 'adjustment-root-causes';
 }
 
 export function MasterDataModule({ tab }: Props) {
-  const { segments, setSegments, activityGroups, setActivityGroups, documentTypes, setDocumentTypes, nextId } = useApp();
+  const {
+    segments,
+    setSegments,
+    activityGroups,
+    setActivityGroups,
+    documentTypes,
+    setDocumentTypes,
+    adjustmentRootCauses,
+    setAdjustmentRootCauses,
+    nextId,
+  } = useApp();
 
   if (tab === 'counterparties')     return <CounterpartiesTab />;
   if (tab === 'counterparty-types') return <CounterpartyTypesTab />;
@@ -63,6 +73,17 @@ export function MasterDataModule({ tab }: Props) {
         setItems={setActivityGroups}
         nextId={items => nextId(items)}
         entityLabel="Grupo de Atividade"
+      />
+    );
+  }
+
+  if (tab === 'adjustment-root-causes') {
+    return (
+      <SimpleListTab
+        items={adjustmentRootCauses}
+        setItems={setAdjustmentRootCauses}
+        nextId={items => nextId(items)}
+        entityLabel="Causa Raiz de Ajuste"
       />
     );
   }

@@ -1,34 +1,46 @@
 import React, { createContext, useContext, useState } from 'react';
 import type {
   IncomeStatementGroup, BaseUnit, ProductFamily, DocumentType,
-  CounterpartyType, Segment, ActivityGroup, BankAccount, Field,
-  UnitOfMeasure, ChartOfAccount, Cut, CostCenter, Product,
-  Counterparty, BankTransfer, Batch, FinancialTransaction,
-  FinancialTransactionItem, InventoryMovement, FinancialTransactionFulfillment,
-  PageId,
+  CounterpartyType, Segment, ActivityGroup, AdjustmentRootCause,
+  UnitOfMeasure, Field, Product, Machine, BankAccount, Counterparty,
+  ChartOfAccount, CostCenter, IncomeStatementRelationship, Cut,
+  FieldOperation, FieldOperationMachine, FinancialTransaction,
+  FinancialTransactionAttachment, FinancialTransactionItem,
+  FinancialTransactionFulfillment, BankTransfer, InventoryBatch,
+  InventoryMovement, InventoryAdjustment, ProductionBatch,
+  FieldOperationItem, PageId,
 } from '../data/types';
 import {
-  incomeStatementGroups as initialISG,
-  baseUnits as initialBU,
-  productFamilies as initialPF,
-  documentTypes as initialDT,
-  counterpartyTypes as initialCPT,
-  segments as initialSeg,
-  activityGroups as initialAG,
-  bankAccounts as initialBA,
+  incomeStatementGroups as initialIncomeStatementGroups,
+  baseUnits as initialBaseUnits,
+  productFamilies as initialProductFamilies,
+  documentTypes as initialDocumentTypes,
+  counterpartyTypes as initialCounterpartyTypes,
+  segments as initialSegments,
+  activityGroups as initialActivityGroups,
+  adjustmentRootCauses as initialAdjustmentRootCauses,
+  unitsOfMeasure as initialUnitsOfMeasure,
   fields as initialFields,
-  unitsOfMeasure as initialUOM,
-  chartOfAccounts as initialCOA,
-  cuts as initialCuts,
-  costCenters as initialCC,
   products as initialProducts,
-  counterparties as initialCP,
-  bankTransfers as initialBT,
-  batches as initialBatches,
-  financialTransactions as initialFT,
-  financialTransactionItems as initialFTI,
-  inventoryMovements as initialIM,
-  financialTransactionFulfillments as initialFTF,
+  machines as initialMachines,
+  bankAccounts as initialBankAccounts,
+  counterparties as initialCounterparties,
+  chartOfAccounts as initialChartOfAccounts,
+  costCenters as initialCostCenters,
+  incomeStatementRelationships as initialIncomeStatementRelationships,
+  cuts as initialCuts,
+  fieldOperations as initialFieldOperations,
+  fieldOperationMachines as initialFieldOperationMachines,
+  financialTransactions as initialFinancialTransactions,
+  financialTransactionAttachments as initialFinancialTransactionAttachments,
+  financialTransactionItems as initialFinancialTransactionItems,
+  financialTransactionFulfillments as initialFinancialTransactionFulfillments,
+  bankTransfers as initialBankTransfers,
+  inventoryBatches as initialInventoryBatches,
+  inventoryMovements as initialInventoryMovements,
+  inventoryAdjustments as initialInventoryAdjustments,
+  productionBatches as initialProductionBatches,
+  fieldOperationItems as initialFieldOperationItems,
 } from '../data/mockData';
 
 interface AppState {
@@ -40,20 +52,29 @@ interface AppState {
   counterpartyTypes: CounterpartyType[];
   segments: Segment[];
   activityGroups: ActivityGroup[];
-  bankAccounts: BankAccount[];
-  fields: Field[];
+  adjustmentRootCauses: AdjustmentRootCause[];
   unitsOfMeasure: UnitOfMeasure[];
-  chartOfAccounts: ChartOfAccount[];
-  cuts: Cut[];
-  costCenters: CostCenter[];
+  fields: Field[];
   products: Product[];
+  machines: Machine[];
+  bankAccounts: BankAccount[];
   counterparties: Counterparty[];
-  bankTransfers: BankTransfer[];
-  batches: Batch[];
+  chartOfAccounts: ChartOfAccount[];
+  costCenters: CostCenter[];
+  incomeStatementRelationships: IncomeStatementRelationship[];
+  cuts: Cut[];
+  fieldOperations: FieldOperation[];
+  fieldOperationMachines: FieldOperationMachine[];
   financialTransactions: FinancialTransaction[];
+  financialTransactionAttachments: FinancialTransactionAttachment[];
   financialTransactionItems: FinancialTransactionItem[];
-  inventoryMovements: InventoryMovement[];
   fulfillments: FinancialTransactionFulfillment[];
+  bankTransfers: BankTransfer[];
+  inventoryBatches: InventoryBatch[];
+  inventoryMovements: InventoryMovement[];
+  inventoryAdjustments: InventoryAdjustment[];
+  productionBatches: ProductionBatch[];
+  fieldOperationItems: FieldOperationItem[];
 }
 
 interface AppContextType extends AppState {
@@ -65,20 +86,29 @@ interface AppContextType extends AppState {
   setCounterpartyTypes: React.Dispatch<React.SetStateAction<CounterpartyType[]>>;
   setSegments: React.Dispatch<React.SetStateAction<Segment[]>>;
   setActivityGroups: React.Dispatch<React.SetStateAction<ActivityGroup[]>>;
-  setBankAccounts: React.Dispatch<React.SetStateAction<BankAccount[]>>;
-  setFields: React.Dispatch<React.SetStateAction<Field[]>>;
+  setAdjustmentRootCauses: React.Dispatch<React.SetStateAction<AdjustmentRootCause[]>>;
   setUnitsOfMeasure: React.Dispatch<React.SetStateAction<UnitOfMeasure[]>>;
-  setChartOfAccounts: React.Dispatch<React.SetStateAction<ChartOfAccount[]>>;
-  setCuts: React.Dispatch<React.SetStateAction<Cut[]>>;
-  setCostCenters: React.Dispatch<React.SetStateAction<CostCenter[]>>;
+  setFields: React.Dispatch<React.SetStateAction<Field[]>>;
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
+  setMachines: React.Dispatch<React.SetStateAction<Machine[]>>;
+  setBankAccounts: React.Dispatch<React.SetStateAction<BankAccount[]>>;
   setCounterparties: React.Dispatch<React.SetStateAction<Counterparty[]>>;
-  setBankTransfers: React.Dispatch<React.SetStateAction<BankTransfer[]>>;
-  setBatches: React.Dispatch<React.SetStateAction<Batch[]>>;
+  setChartOfAccounts: React.Dispatch<React.SetStateAction<ChartOfAccount[]>>;
+  setCostCenters: React.Dispatch<React.SetStateAction<CostCenter[]>>;
+  setIncomeStatementRelationships: React.Dispatch<React.SetStateAction<IncomeStatementRelationship[]>>;
+  setCuts: React.Dispatch<React.SetStateAction<Cut[]>>;
+  setFieldOperations: React.Dispatch<React.SetStateAction<FieldOperation[]>>;
+  setFieldOperationMachines: React.Dispatch<React.SetStateAction<FieldOperationMachine[]>>;
   setFinancialTransactions: React.Dispatch<React.SetStateAction<FinancialTransaction[]>>;
+  setFinancialTransactionAttachments: React.Dispatch<React.SetStateAction<FinancialTransactionAttachment[]>>;
   setFinancialTransactionItems: React.Dispatch<React.SetStateAction<FinancialTransactionItem[]>>;
-  setInventoryMovements: React.Dispatch<React.SetStateAction<InventoryMovement[]>>;
   setFulfillments: React.Dispatch<React.SetStateAction<FinancialTransactionFulfillment[]>>;
+  setBankTransfers: React.Dispatch<React.SetStateAction<BankTransfer[]>>;
+  setInventoryBatches: React.Dispatch<React.SetStateAction<InventoryBatch[]>>;
+  setInventoryMovements: React.Dispatch<React.SetStateAction<InventoryMovement[]>>;
+  setInventoryAdjustments: React.Dispatch<React.SetStateAction<InventoryAdjustment[]>>;
+  setProductionBatches: React.Dispatch<React.SetStateAction<ProductionBatch[]>>;
+  setFieldOperationItems: React.Dispatch<React.SetStateAction<FieldOperationItem[]>>;
   nextId: (items: { id: number }[]) => number;
 }
 
@@ -86,57 +116,108 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
-  const [incomeStatementGroups, setIncomeStatementGroups] = useState(initialISG);
-  const [baseUnits, setBaseUnits] = useState(initialBU);
-  const [productFamilies, setProductFamilies] = useState(initialPF);
-  const [documentTypes, setDocumentTypes] = useState(initialDT);
-  const [counterpartyTypes, setCounterpartyTypes] = useState(initialCPT);
-  const [segments, setSegments] = useState(initialSeg);
-  const [activityGroups, setActivityGroups] = useState(initialAG);
-  const [bankAccounts, setBankAccounts] = useState(initialBA);
+  const [incomeStatementGroups, setIncomeStatementGroups] = useState(initialIncomeStatementGroups);
+  const [baseUnits, setBaseUnits] = useState(initialBaseUnits);
+  const [productFamilies, setProductFamilies] = useState(initialProductFamilies);
+  const [documentTypes, setDocumentTypes] = useState(initialDocumentTypes);
+  const [counterpartyTypes, setCounterpartyTypes] = useState(initialCounterpartyTypes);
+  const [segments, setSegments] = useState(initialSegments);
+  const [activityGroups, setActivityGroups] = useState(initialActivityGroups);
+  const [adjustmentRootCauses, setAdjustmentRootCauses] = useState(initialAdjustmentRootCauses);
+  const [unitsOfMeasure, setUnitsOfMeasure] = useState(initialUnitsOfMeasure);
   const [fields, setFields] = useState(initialFields);
-  const [unitsOfMeasure, setUnitsOfMeasure] = useState(initialUOM);
-  const [chartOfAccounts, setChartOfAccounts] = useState(initialCOA);
-  const [cuts, setCuts] = useState(initialCuts);
-  const [costCenters, setCostCenters] = useState(initialCC);
   const [products, setProducts] = useState(initialProducts);
-  const [counterparties, setCounterparties] = useState(initialCP);
-  const [bankTransfers, setBankTransfers] = useState(initialBT);
-  const [batches, setBatches] = useState(initialBatches);
-  const [financialTransactions, setFinancialTransactions] = useState(initialFT);
-  const [financialTransactionItems, setFinancialTransactionItems] = useState(initialFTI);
-  const [inventoryMovements, setInventoryMovements] = useState(initialIM);
-  const [fulfillments, setFulfillments] = useState(initialFTF);
+  const [machines, setMachines] = useState(initialMachines);
+  const [bankAccounts, setBankAccounts] = useState(initialBankAccounts);
+  const [counterparties, setCounterparties] = useState(initialCounterparties);
+  const [chartOfAccounts, setChartOfAccounts] = useState(initialChartOfAccounts);
+  const [costCenters, setCostCenters] = useState(initialCostCenters);
+  const [incomeStatementRelationships, setIncomeStatementRelationships] = useState(initialIncomeStatementRelationships);
+  const [cuts, setCuts] = useState(initialCuts);
+  const [fieldOperations, setFieldOperations] = useState(initialFieldOperations);
+  const [fieldOperationMachines, setFieldOperationMachines] = useState(initialFieldOperationMachines);
+  const [financialTransactions, setFinancialTransactions] = useState(initialFinancialTransactions);
+  const [financialTransactionAttachments, setFinancialTransactionAttachments] = useState(initialFinancialTransactionAttachments);
+  const [financialTransactionItems, setFinancialTransactionItems] = useState(initialFinancialTransactionItems);
+  const [fulfillments, setFulfillments] = useState(initialFinancialTransactionFulfillments);
+  const [bankTransfers, setBankTransfers] = useState(initialBankTransfers);
+  const [inventoryBatches, setInventoryBatches] = useState(initialInventoryBatches);
+  const [inventoryMovements, setInventoryMovements] = useState(initialInventoryMovements);
+  const [inventoryAdjustments, setInventoryAdjustments] = useState(initialInventoryAdjustments);
+  const [productionBatches, setProductionBatches] = useState(initialProductionBatches);
+  const [fieldOperationItems, setFieldOperationItems] = useState(initialFieldOperationItems);
 
   const nextId = (items: { id: number }[]) =>
-    items.length > 0 ? Math.max(...items.map((i) => i.id)) + 1 : 1;
+    items.length > 0 ? Math.max(...items.map((item) => item.id)) + 1 : 1;
 
   return (
-    <AppContext.Provider value={{
-      currentPage, setCurrentPage,
-      incomeStatementGroups, setIncomeStatementGroups,
-      baseUnits, setBaseUnits,
-      productFamilies, setProductFamilies,
-      documentTypes, setDocumentTypes,
-      counterpartyTypes, setCounterpartyTypes,
-      segments, setSegments,
-      activityGroups, setActivityGroups,
-      bankAccounts, setBankAccounts,
-      fields, setFields,
-      unitsOfMeasure, setUnitsOfMeasure,
-      chartOfAccounts, setChartOfAccounts,
-      cuts, setCuts,
-      costCenters, setCostCenters,
-      products, setProducts,
-      counterparties, setCounterparties,
-      bankTransfers, setBankTransfers,
-      batches, setBatches,
-      financialTransactions, setFinancialTransactions,
-      financialTransactionItems, setFinancialTransactionItems,
-      inventoryMovements, setInventoryMovements,
-      fulfillments, setFulfillments,
-      nextId,
-    }}>
+    <AppContext.Provider
+      value={{
+        currentPage,
+        setCurrentPage,
+        incomeStatementGroups,
+        setIncomeStatementGroups,
+        baseUnits,
+        setBaseUnits,
+        productFamilies,
+        setProductFamilies,
+        documentTypes,
+        setDocumentTypes,
+        counterpartyTypes,
+        setCounterpartyTypes,
+        segments,
+        setSegments,
+        activityGroups,
+        setActivityGroups,
+        adjustmentRootCauses,
+        setAdjustmentRootCauses,
+        unitsOfMeasure,
+        setUnitsOfMeasure,
+        fields,
+        setFields,
+        products,
+        setProducts,
+        machines,
+        setMachines,
+        bankAccounts,
+        setBankAccounts,
+        counterparties,
+        setCounterparties,
+        chartOfAccounts,
+        setChartOfAccounts,
+        costCenters,
+        setCostCenters,
+        incomeStatementRelationships,
+        setIncomeStatementRelationships,
+        cuts,
+        setCuts,
+        fieldOperations,
+        setFieldOperations,
+        fieldOperationMachines,
+        setFieldOperationMachines,
+        financialTransactions,
+        setFinancialTransactions,
+        financialTransactionAttachments,
+        setFinancialTransactionAttachments,
+        financialTransactionItems,
+        setFinancialTransactionItems,
+        fulfillments,
+        setFulfillments,
+        bankTransfers,
+        setBankTransfers,
+        inventoryBatches,
+        setInventoryBatches,
+        inventoryMovements,
+        setInventoryMovements,
+        inventoryAdjustments,
+        setInventoryAdjustments,
+        productionBatches,
+        setProductionBatches,
+        fieldOperationItems,
+        setFieldOperationItems,
+        nextId,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );

@@ -18,11 +18,15 @@ export function ProductDialog({ open, onClose, editing, onSave }: Props) {
   const [name, setName] = useState('');
   const [familyId, setFamilyId] = useState('');
   const [unitId, setUnitId] = useState('');
+  const [productType, setProductType] = useState<Product['product_type']>('FINISHED_GOOD');
+  const [active, setActive] = useState(true);
 
   useEffect(() => {
     setName(editing?.name ?? '');
     setFamilyId(String(editing?.product_family_id ?? ''));
     setUnitId(String(editing?.unit_id ?? ''));
+    setProductType(editing?.product_type ?? 'FINISHED_GOOD');
+    setActive(editing?.active ?? true);
   }, [editing, open]);
 
   return (
@@ -49,6 +53,25 @@ export function ProductDialog({ open, onClose, editing, onSave }: Props) {
               ))}
             </Select>
           </FormControl>
+          <Stack direction="row" spacing={1.5}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Tipo do Produto</InputLabel>
+              <Select value={productType} label="Tipo do Produto" onChange={e => setProductType(e.target.value as Product['product_type'])}>
+                <MenuItem value="RAW_MATERIAL">Matéria-prima</MenuItem>
+                <MenuItem value="FINISHED_GOOD">Produto acabado</MenuItem>
+                <MenuItem value="CONSUMABLE">Consumível</MenuItem>
+                <MenuItem value="SPARE_PART">Peça de reposição</MenuItem>
+                <MenuItem value="SERVICE">Serviço</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Status</InputLabel>
+              <Select value={active ? 'active' : 'inactive'} label="Status" onChange={e => setActive(e.target.value === 'active')}>
+                <MenuItem value="active">Ativo</MenuItem>
+                <MenuItem value="inactive">Inativo</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -58,6 +81,8 @@ export function ProductDialog({ open, onClose, editing, onSave }: Props) {
             name,
             product_family_id: familyId ? Number(familyId) : undefined,
             unit_id: unitId ? Number(unitId) : undefined,
+            product_type: productType,
+            active,
           })}>
           Salvar
         </Button>

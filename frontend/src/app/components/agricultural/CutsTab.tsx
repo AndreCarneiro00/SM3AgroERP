@@ -12,7 +12,7 @@ import { CutDialog } from './CutDialog';
 const fmtDate = (s?: string) => s ? new Date(s + 'T12:00:00').toLocaleDateString('pt-BR') : '-';
 
 export function CutsTab() {
-  const { cuts, setCuts, fields, nextId } = useApp();
+  const { cuts, setCuts, fields, productFamilies, nextId } = useApp();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Cut | undefined>();
   const sorted = [...cuts].sort((a, b) => (b.cut_date ?? '').localeCompare(a.cut_date ?? ''));
@@ -35,6 +35,7 @@ export function CutsTab() {
           <TableHead>
             <TableRow>
               <TableCell>Campo</TableCell>
+              <TableCell>Família</TableCell>
               <TableCell>Nº Corte</TableCell>
               <TableCell>Data</TableCell>
               <TableCell>Dias desde último</TableCell>
@@ -45,9 +46,11 @@ export function CutsTab() {
           <TableBody>
             {sorted.map(c => {
               const field = fields.find(f => f.id === c.field_id);
+              const family = productFamilies.find((item) => item.id === c.product_family_id);
               return (
                 <TableRow key={c.id}>
                   <TableCell><Typography variant="body2" fontWeight={500}>{field?.name ?? '-'}</Typography></TableCell>
+                  <TableCell>{family?.name ?? '-'}</TableCell>
                   <TableCell>
                     <Chip label={`#${c.cut_number ?? '-'}`} size="small" color="primary" sx={{ height: 20 }} />
                   </TableCell>
@@ -67,7 +70,7 @@ export function CutsTab() {
                 </TableRow>
               );
             })}
-            {sorted.length === 0 && <EmptyTableRow colSpan={6} />}
+            {sorted.length === 0 && <EmptyTableRow colSpan={7} />}
           </TableBody>
         </Table>
       </Card>

@@ -15,15 +15,14 @@ export interface TransactionFormData {
   status: string;
   type: string;
   observation: string;
-  document_type_id: string;
-  has_NF: boolean;
+  has_nf: boolean;
   total_amount: string;
 }
 
 const empty: TransactionFormData = {
   description: '', counterparty_id: '', issue_date: '', due_date: '',
   document_number: '', status: 'PENDING', type: 'EXPENSE',
-  observation: '', document_type_id: '', has_NF: false, total_amount: '',
+  observation: '', has_nf: false, total_amount: '',
 };
 
 function fromTransaction(t: FinancialTransaction): TransactionFormData {
@@ -36,8 +35,7 @@ function fromTransaction(t: FinancialTransaction): TransactionFormData {
     status: t.status,
     type: t.type,
     observation: t.observation ?? '',
-    document_type_id: String(t.document_type_id ?? ''),
-    has_NF: t.has_NF ?? false,
+    has_nf: t.has_nf ?? false,
     total_amount: String(t.total_amount ?? ''),
   };
 }
@@ -50,7 +48,7 @@ interface Props {
 }
 
 export function TransactionDialog({ open, onClose, editing, onSave }: Props) {
-  const { counterparties, documentTypes } = useApp();
+  const { counterparties } = useApp();
   const [form, setForm] = useState<TransactionFormData>(editing ? fromTransaction(editing) : empty);
   const set = <K extends keyof TransactionFormData>(k: K, v: TransactionFormData[K]) =>
     setForm(f => ({ ...f, [k]: v }));
@@ -73,7 +71,6 @@ export function TransactionDialog({ open, onClose, editing, onSave }: Props) {
               <Select value={form.type} label="Tipo" onChange={e => set('type', e.target.value)}>
                 <MenuItem value="INCOME">Receita</MenuItem>
                 <MenuItem value="EXPENSE">Despesa</MenuItem>
-                <MenuItem value="TRANSFER">Transferência</MenuItem>
               </Select>
             </FormControl>
             <FormControl fullWidth size="small">
@@ -91,12 +88,12 @@ export function TransactionDialog({ open, onClose, editing, onSave }: Props) {
             <InputLabel>Contraparte</InputLabel>
             <Select value={form.counterparty_id} label="Contraparte"
               onChange={e => set('counterparty_id', e.target.value)}>
-              <MenuItem value="">— Nenhuma —</MenuItem>
-              {counterparties.map(c => (
-                <MenuItem key={c.id} value={String(c.id)}>{c.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+                <MenuItem value="">— Nenhuma —</MenuItem>
+                {counterparties.map(c => (
+                  <MenuItem key={c.id} value={String(c.id)}>{c.trade_name ?? c.legal_name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
           <Stack direction="row" spacing={1.5}>
             <TextField label="Emissão" type="date" value={form.issue_date}
@@ -105,23 +102,19 @@ export function TransactionDialog({ open, onClose, editing, onSave }: Props) {
               onChange={e => set('due_date', e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
           </Stack>
 
-          <Stack direction="row" spacing={1.5}>
-            <TextField label="Nº Documento" value={form.document_number}
-              onChange={e => set('document_number', e.target.value)} fullWidth />
-            <FormControl fullWidth size="small">
-              <InputLabel>Tipo Doc.</InputLabel>
-              <Select value={form.document_type_id} label="Tipo Doc."
-                onChange={e => set('document_type_id', e.target.value)}>
-                <MenuItem value="">— Nenhum —</MenuItem>
-                {documentTypes.map(d => (
-                  <MenuItem key={d.id} value={String(d.id)}>{d.name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Stack>
+          <TextField label="Nº Documento" value={form.document_number}
+            onChange={e => set('document_number', e.target.value)} fullWidth />
 
           <TextField label="Valor Total (R$)" type="number" value={form.total_amount}
             onChange={e => set('total_amount', e.target.value)} fullWidth />
+          <FormControl fullWidth size="small">
+            <InputLabel>Possui NF?</InputLabel>
+            <Select value={form.has_nf ? 'yes' : 'no'} label="Possui NF?"
+              onChange={e => set('has_nf', e.target.value === 'yes')}>
+              <MenuItem value="yes">Sim</MenuItem>
+              <MenuItem value="no">Não</MenuItem>
+            </Select>
+          </FormControl>
           <TextField label="Observação" value={form.observation}
             onChange={e => set('observation', e.target.value)} fullWidth multiline rows={2} />
         </Stack>

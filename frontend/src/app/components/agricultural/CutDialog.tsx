@@ -14,8 +14,9 @@ interface Props {
 }
 
 export function CutDialog({ open, onClose, editing, onSave }: Props) {
-  const { fields } = useApp();
+  const { fields, productFamilies } = useApp();
   const [fieldId, setFieldId] = useState('');
+  const [productFamilyId, setProductFamilyId] = useState('');
   const [cutDate, setCutDate] = useState('');
   const [cutNumber, setCutNumber] = useState('');
   const [days, setDays] = useState('');
@@ -23,6 +24,7 @@ export function CutDialog({ open, onClose, editing, onSave }: Props) {
 
   useEffect(() => {
     setFieldId(String(editing?.field_id ?? ''));
+    setProductFamilyId(String(editing?.product_family_id ?? ''));
     setCutDate(editing?.cut_date ?? '');
     setCutNumber(String(editing?.cut_number ?? ''));
     setDays(String(editing?.days_since_last_cut ?? ''));
@@ -40,6 +42,14 @@ export function CutDialog({ open, onClose, editing, onSave }: Props) {
               {fields.map(f => <MenuItem key={f.id} value={String(f.id)}>{f.name}</MenuItem>)}
             </Select>
           </FormControl>
+          <FormControl fullWidth size="small">
+            <InputLabel>Família de Produto</InputLabel>
+            <Select value={productFamilyId} label="Família de Produto" onChange={e => setProductFamilyId(e.target.value)}>
+              {productFamilies.map((family) => (
+                <MenuItem key={family.id} value={String(family.id)}>{family.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <Stack direction="row" spacing={1.5}>
             <TextField label="Nº do Corte" type="number" value={cutNumber}
               onChange={e => setCutNumber(e.target.value)} fullWidth />
@@ -54,9 +64,10 @@ export function CutDialog({ open, onClose, editing, onSave }: Props) {
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" disabled={!fieldId}
+        <Button variant="contained" disabled={!fieldId || !productFamilyId}
           onClick={() => onSave({
             field_id: Number(fieldId),
+            product_family_id: Number(productFamilyId),
             cut_date: cutDate || undefined,
             cut_number: cutNumber ? Number(cutNumber) : undefined,
             observation: observation || undefined,

@@ -1,0 +1,4 @@
+[
+  { "id": 1, "field_operation_id": 1, "product_id": 5, "quantity": 20, "unit_cost": 12.50, "amount": 250.00, "inventory_movement_id": 9, "observation": "Sementes usadas na reforma do talhão" },
+  { "id": 2, "field_operation_id": 4, "product_id": 6, "quantity": 350, "unit_cost": 4.20, "amount": 1470.00, "inventory_movement_id": 10, "observation": "Aplicação de fertilizante de cobertura" }
+]

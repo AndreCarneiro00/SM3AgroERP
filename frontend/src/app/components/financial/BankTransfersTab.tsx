@@ -22,7 +22,7 @@ export function BankTransfersTab() {
     setBankTransfers(ts =>
       editing
         ? ts.map(t => t.id === editing.id ? { ...editing, ...d } : t)
-        : [...ts, { id: nextId(bankTransfers), ...d } as BankTransfer]
+        : [...ts, { id: nextId(ts), ...d } as BankTransfer]
     );
     setDialogOpen(false);
   };

@@ -6,6 +6,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import type { Counterparty } from '../../data/types';
 import { useApp } from '../../context/AppContext';
+import { getCounterpartyName } from '../../data/display';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
 import { EmptyTableRow } from '../shared/EmptyTableRow';
@@ -23,7 +24,8 @@ export function CounterpartiesTab() {
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(c =>
-        c.name.toLowerCase().includes(q) ||
+        getCounterpartyName(c).toLowerCase().includes(q) ||
+        c.legal_name.toLowerCase().includes(q) ||
         c.document?.includes(search) ||
         c.email?.toLowerCase().includes(q)
       );
@@ -36,7 +38,7 @@ export function CounterpartiesTab() {
     setCounterparties(cs =>
       editing
         ? cs.map(c => c.id === editing.id ? { ...editing, ...d } : c)
-        : [...cs, { id: nextId(counterparties), active: true, ...d } as Counterparty]
+        : [...cs, { id: nextId(cs), active: true, ...d } as Counterparty]
     );
     setDialogOpen(false);
   };
@@ -90,7 +92,10 @@ export function CounterpartiesTab() {
               return (
                 <TableRow key={c.id}>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500}>{c.name}</Typography>
+                    <Typography variant="body2" fontWeight={500}>{getCounterpartyName(c)}</Typography>
+                    {c.trade_name && (
+                      <Typography variant="caption" color="text.secondary">{c.legal_name}</Typography>
+                    )}
                     {c.email && (
                       <Typography variant="caption" color="text.secondary">{c.email}</Typography>
                     )}

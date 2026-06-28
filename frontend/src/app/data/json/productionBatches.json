@@ -1,0 +1,8 @@
+[
+  { "id": 1, "inventory_batch_id": 1, "quality_grade": "A", "cut_id": 1, "observation": "Lote originado do primeiro corte do Campo Norte" },
+  { "id": 2, "inventory_batch_id": 2, "quality_grade": "B", "cut_id": 2, "observation": "Umidade controlada dentro do esperado" },
+  { "id": 3, "inventory_batch_id": 3, "quality_grade": "A", "cut_id": 3, "observation": "Lote premium já comercializado" },
+  { "id": 4, "inventory_batch_id": 4, "quality_grade": "A+", "cut_id": 4, "observation": "Produção especial de rolos premium" },
+  { "id": 5, "inventory_batch_id": 5, "quality_grade": "A", "cut_id": 5, "observation": "Lote ainda em processamento de conferência" },
+  { "id": 6, "inventory_batch_id": 6, "quality_grade": "B+", "cut_id": 6, "observation": "Terceiro corte com produtividade consistente" }
+]

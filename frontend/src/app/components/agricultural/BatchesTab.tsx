@@ -1,105 +1,107 @@
-import { useState } from 'react';
 import {
-  Box, Card, Typography, Chip, Table, TableBody, TableCell, TableHead, TableRow,
+  FormControl, InputLabel, MenuItem, Select, TextField, Typography,
 } from '@mui/material';
-import type { Batch } from '../../data/types';
 import { useApp } from '../../context/AppContext';
-import { PageHeader } from '../shared/PageHeader';
-import { RowActions } from '../shared/RowActions';
-import { EmptyTableRow } from '../shared/EmptyTableRow';
-import { BatchDialog } from './BatchDialog';
-
-const fmtDate = (s?: string) => s ? new Date(s + 'T12:00:00').toLocaleDateString('pt-BR') : '-';
-const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-const BATCH_STATUS_COLOR: Record<string, 'success' | 'default' | 'info'> = {
-  'DISPONÍVEL': 'success', 'VENDIDO': 'default', 'PROCESSANDO': 'info',
-};
-const QUALITY_COLOR: Record<string, 'success' | 'warning' | 'error'> = {
-  'A+': 'success', 'A': 'success', 'B+': 'warning', 'B': 'warning', 'C': 'error',
-};
+import { CrudTable } from '../shared/CrudTable';
+import type { ProductionBatch } from '../../data/types';
 
 export function BatchesTab() {
-  const { batches, setBatches, products, cuts, fields, nextId } = useApp();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Batch | undefined>();
-  const sorted = [...batches].sort((a, b) => (b.batch_date ?? '').localeCompare(a.batch_date ?? ''));
-
-  const handleSave = (d: Partial<Batch>) => {
-    setBatches(bs =>
-      editing
-        ? bs.map(b => b.id === editing.id ? { ...editing, ...d } : b)
-        : [...bs, { id: nextId(batches), ...d } as Batch]
-    );
-    setDialogOpen(false);
-  };
+  const {
+    productionBatches,
+    setProductionBatches,
+    inventoryBatches,
+    products,
+    cuts,
+    fields,
+    nextId,
+  } = useApp();
 
   return (
-    <Box>
-      <PageHeader actionLabel="Novo Lote" onAction={() => { setEditing(undefined); setDialogOpen(true); }} />
-
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Código</TableCell>
-              <TableCell>Produto</TableCell>
-              <TableCell>Corte</TableCell>
-              <TableCell>Qualidade</TableCell>
-              <TableCell>Data</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Custo</TableCell>
-              <TableCell align="center">Ações</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {sorted.map(b => {
-              const product = products.find(p => p.id === b.product_id);
-              const cut = cuts.find(c => c.id === b.cut_id);
-              const field = cut ? fields.find(f => f.id === cut.field_id) : undefined;
-              return (
-                <TableRow key={b.id}>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={600} sx={{ fontFamily: 'monospace' }}>
-                      {b.code ?? '-'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{product?.name ?? '-'}</TableCell>
-                  <TableCell sx={{ color: 'text.secondary' }}>
-                    {cut ? `${field?.name} #${cut.cut_number}` : '-'}
-                  </TableCell>
-                  <TableCell>
-                    {b.quality_grade && (
-                      <Chip label={b.quality_grade} size="small" fontWeight={700}
-                        color={QUALITY_COLOR[b.quality_grade] ?? 'default'}
-                        sx={{ height: 20, fontWeight: 700 }} />
-                    )}
-                  </TableCell>
-                  <TableCell>{fmtDate(b.batch_date)}</TableCell>
-                  <TableCell>
-                    {b.status && (
-                      <Chip label={b.status} size="small"
-                        color={BATCH_STATUS_COLOR[b.status] ?? 'default'} sx={{ height: 20 }} />
-                    )}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2" fontWeight={600}>{fmtBRL(b.cost ?? 0)}</Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <RowActions
-                      onEdit={() => { setEditing(b); setDialogOpen(true); }}
-                      onDelete={() => setBatches(bs => bs.filter(x => x.id !== b.id))}
-                    />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {sorted.length === 0 && <EmptyTableRow colSpan={8} />}
-          </TableBody>
-        </Table>
-      </Card>
-
-      <BatchDialog open={dialogOpen} onClose={() => setDialogOpen(false)} editing={editing} onSave={handleSave} />
-    </Box>
+    <CrudTable<ProductionBatch>
+      items={productionBatches}
+      setItems={setProductionBatches}
+      nextId={nextId}
+      actionLabel="Novo Lote de Produção"
+      dialogTitle={(editing) => editing ? 'Editar Lote de Produção' : 'Novo Lote de Produção'}
+      createInitial={() => ({})}
+      columns={[
+        {
+          label: 'Lote de Estoque',
+          render: (item) => {
+            const inventoryBatch = inventoryBatches.find((batch) => batch.id === item.inventory_batch_id);
+            const product = products.find((entry) => entry.id === inventoryBatch?.product_id);
+            return (
+              <Typography variant="body2" fontWeight={500}>
+                {inventoryBatch?.code ?? '-'} {product ? `• ${product.name}` : ''}
+              </Typography>
+            );
+          },
+        },
+        {
+          label: 'Corte',
+          render: (item) => {
+            const cut = cuts.find((entry) => entry.id === item.cut_id);
+            const field = fields.find((entry) => entry.id === cut?.field_id);
+            return cut ? `${field?.name ?? 'Campo'} • #${cut.cut_number}` : '-';
+          },
+        },
+        { label: 'Qualidade', render: (item) => item.quality_grade ?? '-' },
+        { label: 'Observação', render: (item) => item.observation ?? '-' },
+      ]}
+      renderForm={({ form, setForm }) => (
+        <>
+          <FormControl fullWidth size="small">
+            <InputLabel>Lote de Estoque</InputLabel>
+            <Select
+              value={String(form.inventory_batch_id ?? '')}
+              label="Lote de Estoque"
+              onChange={(event) => setForm((current) => ({ ...current, inventory_batch_id: Number(event.target.value) }))}
+            >
+              {inventoryBatches.map((batch) => {
+                const product = products.find((entry) => entry.id === batch.product_id);
+                return (
+                  <MenuItem key={batch.id} value={String(batch.id)}>
+                    {batch.code} — {product?.name ?? 'Produto'}
+                  </MenuItem>
+                );
+              })}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small">
+            <InputLabel>Corte</InputLabel>
+            <Select
+              value={String(form.cut_id ?? '')}
+              label="Corte"
+              onChange={(event) => setForm((current) => ({ ...current, cut_id: Number(event.target.value) }))}
+            >
+              {cuts.map((cut) => {
+                const field = fields.find((entry) => entry.id === cut.field_id);
+                return (
+                  <MenuItem key={cut.id} value={String(cut.id)}>
+                    {field?.name ?? 'Campo'} — Corte #{cut.cut_number}
+                  </MenuItem>
+                );
+              })}
+            </Select>
+          </FormControl>
+          <TextField
+            label="Qualidade"
+            value={form.quality_grade ?? ''}
+            onChange={(event) => setForm((current) => ({ ...current, quality_grade: event.target.value || undefined }))}
+            fullWidth
+          />
+          <TextField
+            label="Observação"
+            value={form.observation ?? ''}
+            onChange={(event) => setForm((current) => ({ ...current, observation: event.target.value || undefined }))}
+            fullWidth
+            multiline
+            rows={2}
+          />
+        </>
+      )}
+      isSaveDisabled={(form) => !form.inventory_batch_id || !form.cut_id}
+      emptyMessage="Nenhum lote de produção cadastrado."
+    />
   );
 }

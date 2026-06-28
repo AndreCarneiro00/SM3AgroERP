@@ -16,7 +16,8 @@ interface Props {
 export function CounterpartyDialog({ open, onClose, editing, onSave }: Props) {
   const { counterpartyTypes, segments } = useApp();
 
-  const [name, setName] = useState('');
+  const [legalName, setLegalName] = useState('');
+  const [tradeName, setTradeName] = useState('');
   const [typeId, setTypeId] = useState('');
   const [segmentId, setSegmentId] = useState('');
   const [docType, setDocType] = useState('');
@@ -28,7 +29,8 @@ export function CounterpartyDialog({ open, onClose, editing, onSave }: Props) {
   const [active, setActive] = useState(true);
 
   useEffect(() => {
-    setName(editing?.name ?? '');
+    setLegalName(editing?.legal_name ?? '');
+    setTradeName(editing?.trade_name ?? '');
     setTypeId(String(editing?.counterparty_type_id ?? ''));
     setSegmentId(String(editing?.segment_id ?? ''));
     setDocType(editing?.document_type ?? '');
@@ -42,7 +44,8 @@ export function CounterpartyDialog({ open, onClose, editing, onSave }: Props) {
 
   const handleSave = () => {
     onSave({
-      name,
+      legal_name: legalName,
+      trade_name: tradeName || undefined,
       counterparty_type_id: typeId ? Number(typeId) : undefined,
       segment_id: segmentId ? Number(segmentId) : undefined,
       document_type: docType as Counterparty['document_type'] || undefined,
@@ -60,7 +63,8 @@ export function CounterpartyDialog({ open, onClose, editing, onSave }: Props) {
       <DialogTitle>{editing ? 'Editar Contraparte' : 'Nova Contraparte'}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField label="Nome / Razão Social" value={name} onChange={e => setName(e.target.value)} fullWidth />
+          <TextField label="Razão Social / Nome Legal" value={legalName} onChange={e => setLegalName(e.target.value)} fullWidth />
+          <TextField label="Nome Fantasia" value={tradeName} onChange={e => setTradeName(e.target.value)} fullWidth />
 
           <Stack direction="row" spacing={1.5}>
             <FormControl fullWidth size="small">
@@ -117,7 +121,7 @@ export function CounterpartyDialog({ open, onClose, editing, onSave }: Props) {
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" disabled={!name} onClick={handleSave}>Salvar</Button>
+        <Button variant="contained" disabled={!legalName} onClick={handleSave}>Salvar</Button>
       </DialogActions>
     </Dialog>
   );

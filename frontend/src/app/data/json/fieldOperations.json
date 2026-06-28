@@ -1,0 +1,7 @@
+[
+  { "id": 1, "field_id": 5, "operation_type": "PLANTING", "operation_date": "2025-02-12", "status": "DONE", "observation": "Reforma da área experimental com Tifton" },
+  { "id": 2, "field_id": 1, "cut_id": 1, "operation_type": "MOWING", "operation_date": "2025-03-14", "status": "DONE", "observation": "Abertura do primeiro corte da safra" },
+  { "id": 3, "field_id": 1, "cut_id": 1, "operation_type": "BALING", "operation_date": "2025-03-20", "status": "DONE", "observation": "Enfardamento do lote principal" },
+  { "id": 4, "field_id": 2, "operation_type": "FERTILIZATION", "operation_date": "2025-04-18", "status": "DONE", "observation": "Cobertura pós-chuva" },
+  { "id": 5, "field_id": 4, "operation_type": "IRRIGATION", "operation_date": "2025-06-09", "status": "PLANNED", "observation": "Aguardando janela operacional" }
+]

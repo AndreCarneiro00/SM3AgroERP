@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box, Card, Typography, Stack, Table, TableBody, TableCell, TableHead, TableRow,
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
@@ -16,6 +16,12 @@ function UoMDialog({ open, onClose, editing, onSave }: {
   const [name, setName] = useState(editing?.name ?? '');
   const [baseUnitId, setBaseUnitId] = useState(String(editing?.base_unit_id ?? ''));
   const [factor, setFactor] = useState(String(editing?.conversion_factor ?? '1'));
+
+  useEffect(() => {
+    setName(editing?.name ?? '');
+    setBaseUnitId(String(editing?.base_unit_id ?? ''));
+    setFactor(String(editing?.conversion_factor ?? '1'));
+  }, [editing, open]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
@@ -63,7 +69,7 @@ export function UnitsTab() {
     setUnitsOfMeasure(us =>
       editingUom
         ? us.map(u => u.id === editingUom.id ? { ...editingUom, ...d } : u)
-        : [...us, { id: nextId(unitsOfMeasure), ...d } as UnitOfMeasure]
+        : [...us, { id: nextId(us), ...d } as UnitOfMeasure]
     );
     setUomOpen(false);
   };
@@ -78,7 +84,7 @@ export function UnitsTab() {
     setBaseUnits(bs =>
       editingBase
         ? bs.map(b => b.id === editingBase.id ? { ...b, name: baseName } : b)
-        : [...bs, { id: nextId(baseUnits), name: baseName }]
+        : [...bs, { id: nextId(bs), name: baseName }]
     );
     setBaseOpen(false);
   };

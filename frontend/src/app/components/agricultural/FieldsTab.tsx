@@ -8,7 +8,7 @@ import { RowActions } from '../shared/RowActions';
 import { FieldDialog } from './FieldDialog';
 
 export function FieldsTab() {
-  const { fields, setFields, productFamilies, nextId } = useApp();
+  const { fields, setFields, nextId } = useApp();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Field | undefined>();
 
@@ -36,7 +36,6 @@ export function FieldsTab() {
             <TableRow>
               <TableCell>Nome</TableCell>
               <TableCell>Área (ha)</TableCell>
-              <TableCell>Família de Produto</TableCell>
               <TableCell align="center">Ações</TableCell>
             </TableRow>
           </TableHead>
@@ -45,7 +44,6 @@ export function FieldsTab() {
               <TableRow key={f.id}>
                 <TableCell><Typography variant="body2" fontWeight={500}>{f.name}</Typography></TableCell>
                 <TableCell>{f.area_hectares?.toFixed(1) ?? '-'} ha</TableCell>
-                <TableCell>{productFamilies.find(pf => pf.id === f.product_family_id)?.name ?? '-'}</TableCell>
                 <TableCell align="center">
                   <RowActions
                     onEdit={() => { setEditing(f); setDialogOpen(true); }}

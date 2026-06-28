@@ -7,6 +7,7 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import type { FinancialTransaction } from '../../data/types';
 import { useApp } from '../../context/AppContext';
+import { getCounterpartyName } from '../../data/display';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
 import { EmptyTableRow } from '../shared/EmptyTableRow';
@@ -51,8 +52,7 @@ export function TransactionsTab() {
   }), [filtered]);
 
   const handleSave = (d: TransactionFormData) => {
-    const tx: FinancialTransaction = {
-      id: editing?.id ?? nextId(financialTransactions),
+    const tx: Omit<FinancialTransaction, 'id'> = {
       description: d.description,
       counterparty_id: d.counterparty_id ? Number(d.counterparty_id) : undefined,
       issue_date: d.issue_date || undefined,
@@ -61,12 +61,13 @@ export function TransactionsTab() {
       status: d.status as FinancialTransaction['status'],
       type: d.type as FinancialTransaction['type'],
       observation: d.observation || undefined,
-      document_type_id: d.document_type_id ? Number(d.document_type_id) : undefined,
-      has_NF: d.has_NF,
+      has_nf: d.has_nf,
       total_amount: d.total_amount ? Number(d.total_amount) : undefined,
     };
     setFinancialTransactions(ts =>
-      editing ? ts.map(t => t.id === editing.id ? tx : t) : [...ts, tx]
+      editing
+        ? ts.map(t => t.id === editing.id ? { ...tx, id: editing.id } : t)
+        : [...ts, { ...tx, id: nextId(ts) }]
     );
     setDialogOpen(false);
   };
@@ -74,16 +75,17 @@ export function TransactionsTab() {
   const handleFulfill = (bankId: number, date: string, amount: number, obs: string) => {
     if (!fulfillTarget) return;
     const txId = fulfillTarget.id;
+    const paidBefore = fulfillments
+      .filter(f => f.financial_transaction_id === txId)
+      .reduce((s, f) => s + f.amount_paid, 0);
     setFulfillments(fs => [...fs, {
-      id: nextId(fulfillments), financial_transaction_id: txId,
+      id: nextId(fs), financial_transaction_id: txId,
       bank_account_id: bankId, payment_date: date, amount_paid: amount,
       observation: obs || undefined,
     }]);
     setFinancialTransactions(ts => ts.map(t => {
       if (t.id !== txId) return t;
-      const paid = fulfillments
-        .filter(f => f.financial_transaction_id === txId)
-        .reduce((s, f) => s + f.amount_paid, 0) + amount;
+      const paid = paidBefore + amount;
       return { ...t, status: paid >= (t.total_amount ?? 0) ? 'PAID' : 'PARTIAL' };
     }));
     setFulfillTarget(undefined);
@@ -164,20 +166,20 @@ export function TransactionsTab() {
                   <TableCell>
                     <Typography variant="body2"
                       sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {cp?.name ?? '-'}
+                      {getCounterpartyName(cp)}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     <Chip size="small" variant="outlined" sx={{ height: 20 }}
-                      label={t.type === 'INCOME' ? 'Receita' : t.type === 'EXPENSE' ? 'Despesa' : 'Transf.'}
-                      color={t.type === 'INCOME' ? 'success' : t.type === 'EXPENSE' ? 'error' : 'default'} />
+                      label={t.type === 'INCOME' ? 'Receita' : 'Despesa'}
+                      color={t.type === 'INCOME' ? 'success' : 'error'} />
                   </TableCell>
                   <TableCell>{fmtDate(t.issue_date)}</TableCell>
                   <TableCell sx={{ color: isOverdue ? 'error.main' : 'inherit', fontWeight: isOverdue ? 600 : 400 }}>
                     {fmtDate(t.due_date)}
                   </TableCell>
                   <TableCell>
-                    {t.has_NF && (
+                    {t.has_nf && (
                       <Chip label="NF" size="small" color="info" sx={{ height: 18, fontSize: '0.66rem' }} />
                     )}
                   </TableCell>
