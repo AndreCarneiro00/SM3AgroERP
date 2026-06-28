@@ -18,7 +18,7 @@ export function CostCentersTab() {
     setCostCenters(cs =>
       editing
         ? cs.map(c => c.id === editing.id ? { ...editing, ...d } : c)
-        : [...cs, { id: nextId(costCenters), active: true, ...d } as CostCenter]
+        : [...cs, { id: nextId(cs), active: true, ...d } as CostCenter]
     );
     setDialogOpen(false);
   };

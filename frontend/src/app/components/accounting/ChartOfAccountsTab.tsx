@@ -25,7 +25,7 @@ export function ChartOfAccountsTab() {
     setChartOfAccounts(cs =>
       editing
         ? cs.map(c => c.id === editing.id ? { ...editing, ...d } : c)
-        : [...cs, { id: nextId(chartOfAccounts), active: true, ...d } as ChartOfAccount]
+        : [...cs, { id: nextId(cs), active: true, ...d } as ChartOfAccount]
     );
     setDialogOpen(false);
   };

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
-  TableRow, TableCell, Stack, Typography, Chip, IconButton, Collapse,
-  Table, TableBody, Box, Tooltip,
+  TableRow, TableCell, Stack, Typography, Chip, IconButton, Box, Tooltip,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -79,30 +78,18 @@ export function TreeNode<T extends TreeItem>({
         </TableCell>
       </TableRow>
 
-      {hasChildren && open && (
-        <TableRow sx={{ p: 0 }}>
-          <TableCell colSpan={10} sx={{ p: 0, border: 0 }}>
-            <Collapse in timeout="auto">
-              <Table size="small">
-                <TableBody>
-                  {children.map(child => (
-                    <TreeNode
-                      key={child.id}
-                      node={child}
-                      allNodes={allNodes}
-                      depth={depth + 1}
-                      onEdit={onEdit}
-                      onDelete={onDelete}
-                      onAddChild={onAddChild}
-                      renderExtraCells={renderExtraCells}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </Collapse>
-          </TableCell>
-        </TableRow>
-      )}
+      {hasChildren && open && children.map(child => (
+        <TreeNode
+          key={child.id}
+          node={child}
+          allNodes={allNodes}
+          depth={depth + 1}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onAddChild={onAddChild}
+          renderExtraCells={renderExtraCells}
+        />
+      ))}
     </>
   );
 }
