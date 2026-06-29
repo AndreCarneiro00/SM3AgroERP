@@ -1,8 +1,8 @@
 [
-  { "id": 1, "name": "Fardo de Tifton", "unit_id": 1, "product_family_id": 1, "product_type": "FINISHED_GOOD", "active": true },
-  { "id": 2, "name": "Fardo de Braquiária", "unit_id": 1, "product_family_id": 1, "product_type": "FINISHED_GOOD", "active": true },
-  { "id": 3, "name": "Rolo de Feno Premium", "unit_id": 2, "product_family_id": 1, "product_type": "FINISHED_GOOD", "active": true },
-  { "id": 4, "name": "Silagem de Sorgo", "unit_id": 3, "product_family_id": 2, "product_type": "FINISHED_GOOD", "active": true },
-  { "id": 5, "name": "Sementes de Tifton", "unit_id": 4, "product_family_id": 4, "product_type": "RAW_MATERIAL", "active": true },
-  { "id": 6, "name": "Fertilizante NPK 20-05-20", "unit_id": 4, "product_type": "CONSUMABLE", "active": true }
+  { "id": 1, "name": "Fardo de Tifton", "unitId": 1, "productFamilyId": 1, "productType": "FINISHED_GOOD", "active": true },
+  { "id": 2, "name": "Fardo de Braquiária", "unitId": 1, "productFamilyId": 1, "productType": "FINISHED_GOOD", "active": true },
+  { "id": 3, "name": "Rolo de Feno Premium", "unitId": 2, "productFamilyId": 1, "productType": "FINISHED_GOOD", "active": true },
+  { "id": 4, "name": "Silagem de Sorgo", "unitId": 3, "productFamilyId": 2, "productType": "FINISHED_GOOD", "active": true },
+  { "id": 5, "name": "Sementes de Tifton", "unitId": 4, "productFamilyId": 4, "productType": "RAW_MATERIAL", "active": true },
+  { "id": 6, "name": "Fertilizante NPK 20-05-20", "unitId": 4, "productType": "CONSUMABLE", "active": true }
 ]

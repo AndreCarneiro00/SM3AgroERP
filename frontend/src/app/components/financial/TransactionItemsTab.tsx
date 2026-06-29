@@ -1,84 +1,196 @@
 import {
-  FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material';
-import { useApp } from '../../context/AppContext';
+import {
+  selectChartOfAccountDisplayName,
+  selectChartOfAccountLabelById,
+  selectCostCenterDisplayName,
+  selectCostCenterLabelById,
+} from '../../../domains/accounting/selectors/selectors';
+import { useAccountingCatalogData } from '../../../domains/accounting/ui/hooks';
+import type {
+  FinancialTransactionItem,
+  FinancialTransactionItemInput,
+} from '../../../domains/financial/model/entities';
+import {
+  selectFinancialTransactionLabelById,
+} from '../../../domains/financial/selectors/selectors';
+import {
+  useFinancialCatalogData,
+  useFinancialMutations,
+} from '../../../domains/financial/ui/hooks';
+import { useProductsCatalogData } from '../../../domains/products/ui/hooks';
 import { CrudTable } from '../shared/CrudTable';
-import type { FinancialTransactionItem } from '../../data/types';
 
-const fmtBRL = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtBRL = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+function toFinancialTransactionItemInput(
+  form: Partial<FinancialTransactionItem>,
+): FinancialTransactionItemInput {
+  return {
+    financialTransactionId: form.financialTransactionId,
+    chartOfAccountId: form.chartOfAccountId,
+    costCenterId: form.costCenterId,
+    quantity: form.quantity,
+    unitPrice: form.unitPrice,
+    amount: form.amount,
+    productId: form.productId,
+  };
+}
 
 export function TransactionItemsTab() {
   const {
+    catalog: financialCatalog,
     financialTransactionItems,
-    setFinancialTransactionItems,
     financialTransactions,
-    chartOfAccounts,
-    costCenters,
-    products,
-    nextId,
-  } = useApp();
+  } = useFinancialCatalogData();
+  const {
+    createFinancialTransactionItem,
+    updateFinancialTransactionItem,
+    deleteFinancialTransactionItem,
+  } = useFinancialMutations();
+  const {
+    catalog: accountingCatalog,
+    postableChartOfAccounts,
+    postableCostCenters,
+  } = useAccountingCatalogData();
+  const { catalog: productsCatalog, products } = useProductsCatalogData();
+
+  const getProductName = (productId?: number) =>
+    productsCatalog.products.byId[productId ?? -1]?.name ?? '-';
 
   return (
     <CrudTable<FinancialTransactionItem>
       items={financialTransactionItems}
-      setItems={setFinancialTransactionItems}
-      nextId={nextId}
+      onCreate={(input) =>
+        createFinancialTransactionItem.mutateAsync(
+          toFinancialTransactionItemInput(input),
+        )
+      }
+      onUpdate={({ id, input }) =>
+        updateFinancialTransactionItem.mutateAsync({
+          id,
+          input: toFinancialTransactionItemInput(input),
+        })
+      }
+      onDelete={(id) => deleteFinancialTransactionItem.mutateAsync(id)}
       actionLabel="Novo Item Financeiro"
-      dialogTitle={(editing) => editing ? 'Editar Item Financeiro' : 'Novo Item Financeiro'}
+      dialogTitle={(editing) =>
+        editing ? 'Editar Item Financeiro' : 'Novo Item Financeiro'
+      }
       createInitial={() => ({})}
       columns={[
         {
-          label: 'Transação',
+          label: 'Transacao',
           render: (item) => (
             <Typography variant="body2" fontWeight={500}>
-              {financialTransactions.find((transaction) => transaction.id === item.financial_transaction_id)?.description ?? '-'}
+              {selectFinancialTransactionLabelById(
+                financialCatalog,
+                item.financialTransactionId,
+              )}
             </Typography>
           ),
         },
-        { label: 'Conta', render: (item) => chartOfAccounts.find((account) => account.id === item.chart_of_account_id)?.name ?? '-' },
-        { label: 'Centro de Custo', render: (item) => costCenters.find((center) => center.id === item.cost_center_id)?.name ?? '-' },
-        { label: 'Produto', render: (item) => products.find((product) => product.id === item.product_id)?.name ?? '-' },
-        { label: 'Quantidade', align: 'right', render: (item) => item.quantity?.toLocaleString('pt-BR') ?? '-' },
-        { label: 'Preço Unit.', align: 'right', render: (item) => item.unit_price ? fmtBRL(item.unit_price) : '-' },
-        { label: 'Valor', align: 'right', render: (item) => item.amount ? fmtBRL(item.amount) : '-' },
+        {
+          label: 'Conta',
+          render: (item) =>
+            selectChartOfAccountLabelById(
+              accountingCatalog,
+              item.chartOfAccountId,
+            ),
+        },
+        {
+          label: 'Centro de Custo',
+          render: (item) =>
+            selectCostCenterLabelById(accountingCatalog, item.costCenterId),
+        },
+        { label: 'Produto', render: (item) => getProductName(item.productId) },
+        {
+          label: 'Quantidade',
+          align: 'right',
+          render: (item) => item.quantity?.toLocaleString('pt-BR') ?? '-',
+        },
+        {
+          label: 'Preco Unit.',
+          align: 'right',
+          render: (item) => (item.unitPrice ? fmtBRL(item.unitPrice) : '-'),
+        },
+        {
+          label: 'Valor',
+          align: 'right',
+          render: (item) => (item.amount ? fmtBRL(item.amount) : '-'),
+        },
       ]}
       renderForm={({ form, setForm }) => (
         <>
           <FormControl fullWidth size="small">
-            <InputLabel>Transação</InputLabel>
+            <InputLabel>Transacao</InputLabel>
             <Select
-              value={String(form.financial_transaction_id ?? '')}
-              label="Transação"
-              onChange={(event) => setForm((current) => ({ ...current, financial_transaction_id: Number(event.target.value) }))}
+              value={String(form.financialTransactionId ?? '')}
+              label="Transacao"
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  financialTransactionId: Number(event.target.value),
+                }))
+              }
             >
-              {financialTransactions.map((transaction) => (
-                <MenuItem key={transaction.id} value={String(transaction.id)}>{transaction.description}</MenuItem>
+              {financialTransactions.map((financialTransaction) => (
+                <MenuItem
+                  key={financialTransaction.id}
+                  value={String(financialTransaction.id)}
+                >
+                  {financialTransaction.description}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
           <Stack direction="row" spacing={1.5}>
             <FormControl fullWidth size="small">
-              <InputLabel>Conta Contábil</InputLabel>
+              <InputLabel>Conta Contabil</InputLabel>
               <Select
-                value={String(form.chart_of_account_id ?? '')}
-                label="Conta Contábil"
-                onChange={(event) => setForm((current) => ({ ...current, chart_of_account_id: Number(event.target.value) }))}
+                value={String(form.chartOfAccountId ?? '')}
+                label="Conta Contabil"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    chartOfAccountId: Number(event.target.value),
+                  }))
+                }
               >
-                {chartOfAccounts.filter((account) => account.accepts_transaction).map((account) => (
-                  <MenuItem key={account.id} value={String(account.id)}>{account.name}</MenuItem>
+                {postableChartOfAccounts.map((account) => (
+                  <MenuItem key={account.id} value={String(account.id)}>
+                    {selectChartOfAccountDisplayName(account)}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
             <FormControl fullWidth size="small">
               <InputLabel>Centro de Custo</InputLabel>
               <Select
-                value={String(form.cost_center_id ?? '')}
+                value={String(form.costCenterId ?? '')}
                 label="Centro de Custo"
-                onChange={(event) => setForm((current) => ({ ...current, cost_center_id: event.target.value ? Number(event.target.value) : undefined }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    costCenterId: event.target.value
+                      ? Number(event.target.value)
+                      : undefined,
+                  }))
+                }
               >
-                <MenuItem value="">— Nenhum —</MenuItem>
-                {costCenters.map((center) => (
-                  <MenuItem key={center.id} value={String(center.id)}>{center.name}</MenuItem>
+                <MenuItem value="">- Nenhum -</MenuItem>
+                {postableCostCenters.map((center) => (
+                  <MenuItem key={center.id} value={String(center.id)}>
+                    {selectCostCenterDisplayName(center)}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -87,13 +199,22 @@ export function TransactionItemsTab() {
             <FormControl fullWidth size="small">
               <InputLabel>Produto</InputLabel>
               <Select
-                value={String(form.product_id ?? '')}
+                value={String(form.productId ?? '')}
                 label="Produto"
-                onChange={(event) => setForm((current) => ({ ...current, product_id: event.target.value ? Number(event.target.value) : undefined }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    productId: event.target.value
+                      ? Number(event.target.value)
+                      : undefined,
+                  }))
+                }
               >
-                <MenuItem value="">— Nenhum —</MenuItem>
+                <MenuItem value="">- Nenhum -</MenuItem>
                 {products.map((product) => (
-                  <MenuItem key={product.id} value={String(product.id)}>{product.name}</MenuItem>
+                  <MenuItem key={product.id} value={String(product.id)}>
+                    {product.name}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -101,29 +222,52 @@ export function TransactionItemsTab() {
               label="Quantidade"
               type="number"
               value={String(form.quantity ?? '')}
-              onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value ? Number(event.target.value) : undefined }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  quantity: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
+                }))
+              }
               fullWidth
             />
           </Stack>
           <Stack direction="row" spacing={1.5}>
             <TextField
-              label="Preço Unitário"
+              label="Preco Unitario"
               type="number"
-              value={String(form.unit_price ?? '')}
-              onChange={(event) => setForm((current) => ({ ...current, unit_price: event.target.value ? Number(event.target.value) : undefined }))}
+              value={String(form.unitPrice ?? '')}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  unitPrice: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
+                }))
+              }
               fullWidth
             />
             <TextField
               label="Valor"
               type="number"
               value={String(form.amount ?? '')}
-              onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value ? Number(event.target.value) : undefined }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  amount: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
+                }))
+              }
               fullWidth
             />
           </Stack>
         </>
       )}
-      isSaveDisabled={(form) => !form.financial_transaction_id || !form.chart_of_account_id || !form.amount}
+      isSaveDisabled={(form) =>
+        !form.financialTransactionId || !form.chartOfAccountId || !form.amount
+      }
       emptyMessage="Nenhum item financeiro cadastrado."
     />
   );

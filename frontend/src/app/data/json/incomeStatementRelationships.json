@@ -1,7 +1,7 @@
 [
-  { "id": 1, "chart_of_account_id": 3, "income_statement_group_id": 1 },
-  { "id": 2, "chart_of_account_id": 5, "income_statement_group_id": 1 },
-  { "id": 3, "chart_of_account_id": 13, "income_statement_group_id": 2 },
-  { "id": 4, "chart_of_account_id": 22, "income_statement_group_id": 3 },
-  { "id": 5, "chart_of_account_id": 26, "income_statement_group_id": 4 }
+  { "id": 1, "chartOfAccountId": 3, "incomeStatementGroupId": 1 },
+  { "id": 2, "chartOfAccountId": 5, "incomeStatementGroupId": 1 },
+  { "id": 3, "chartOfAccountId": 13, "incomeStatementGroupId": 2 },
+  { "id": 4, "chartOfAccountId": 22, "incomeStatementGroupId": 3 },
+  { "id": 5, "chartOfAccountId": 26, "incomeStatementGroupId": 4 }
 ]

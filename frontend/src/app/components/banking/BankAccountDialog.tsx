@@ -1,98 +1,207 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Stack, TextField, FormControl, InputLabel, Select, MenuItem,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Stack,
 } from '@mui/material';
-import type { BankAccount } from '../../data/types';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { FormTextField } from '../../forms/FormTextField';
+import {
+  optionalNumberFromInput,
+  optionalTextFromInput,
+  requiredTextFromInput,
+  toInputValue,
+  todayIsoDate,
+} from '../../forms/valueParsers';
+import { zodResolver } from '../../forms/zodResolver';
+import type {
+  BankAccount,
+  BankAccountInput,
+} from '../../../domains/banking/model/entities';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   editing?: BankAccount;
-  onSave: (data: Partial<BankAccount>) => void;
+  onSave: (data: BankAccountInput) => void | Promise<void>;
+  saving?: boolean;
 }
 
-export function BankAccountDialog({ open, onClose, editing, onSave }: Props) {
-  const [name, setName] = useState('');
-  const [accountType, setAccountType] = useState('Conta Corrente');
-  const [accountGroup, setAccountGroup] = useState('');
-  const [institution, setInstitution] = useState('');
-  const [agency, setAgency] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
-  const [balance, setBalance] = useState('');
-  const [balanceDate, setBalanceDate] = useState('');
-  const [active, setActive] = useState(true);
+const bankAccountStatusValues = ['ativo', 'inativo'] as const;
+
+const bankAccountSchema = z.object({
+  name: z.string().trim().min(1, 'Informe o nome da conta.'),
+  accountType: z.string().trim().min(1, 'Selecione o tipo de conta.'),
+  accountGroup: z.string(),
+  institution: z.string(),
+  agency: z.string(),
+  accountNumber: z.string(),
+  balance: z
+    .string()
+    .trim()
+    .refine(
+      (value) => !value || !Number.isNaN(Number(value)),
+      'Informe um saldo inicial valido.',
+    ),
+  balanceDate: z.string(),
+  active: z.enum(bankAccountStatusValues),
+});
+
+type BankAccountFormValues = z.infer<typeof bankAccountSchema>;
+
+function getDefaultValues(editing?: BankAccount): BankAccountFormValues {
+  return {
+    name: editing?.name ?? '',
+    accountType: editing?.accountType ?? 'Conta Corrente',
+    accountGroup: editing?.accountGroup ?? '',
+    institution: editing?.financialInstitution ?? '',
+    agency: editing?.agency ?? '',
+    accountNumber: editing?.accountNumber ?? '',
+    balance: toInputValue(editing?.initialBalance),
+    balanceDate: editing?.initialBalanceDate ?? todayIsoDate(),
+    active: editing?.active === false ? 'inativo' : 'ativo',
+  };
+}
+
+export function BankAccountDialog({
+  open,
+  onClose,
+  editing,
+  onSave,
+  saving = false,
+}: Props) {
+  const { control, formState, handleSubmit, reset } =
+    useForm<BankAccountFormValues>({
+      defaultValues: getDefaultValues(editing),
+      resolver: zodResolver(bankAccountSchema),
+    });
 
   useEffect(() => {
-    setName(editing?.name ?? '');
-    setAccountType(editing?.account_type ?? 'Conta Corrente');
-    setAccountGroup(editing?.account_group ?? '');
-    setInstitution(editing?.financial_institution ?? '');
-    setAgency(editing?.agency ?? '');
-    setAccountNumber(editing?.account_number ?? '');
-    setBalance(String(editing?.initial_balance ?? ''));
-    setBalanceDate(editing?.initial_balance_date ?? new Date().toISOString().split('T')[0]);
-    setActive(editing?.active ?? true);
-  }, [editing, open]);
+    reset(getDefaultValues(editing));
+  }, [editing, open, reset]);
+
+  const disabled = saving || formState.isSubmitting;
+
+  const handleFormSubmit = handleSubmit(async (values) => {
+    await onSave({
+      name: requiredTextFromInput(values.name),
+      accountType: optionalTextFromInput(values.accountType),
+      accountGroup: optionalTextFromInput(values.accountGroup),
+      financialInstitution: optionalTextFromInput(values.institution),
+      agency: optionalTextFromInput(values.agency),
+      accountNumber: optionalTextFromInput(values.accountNumber),
+      initialBalance: optionalNumberFromInput(values.balance),
+      initialBalanceDate: optionalTextFromInput(values.balanceDate),
+      active: values.active === 'ativo',
+    });
+  });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{editing ? 'Editar Conta Bancária' : 'Nova Conta Bancária'}</DialogTitle>
+      <DialogTitle>
+        {editing ? 'Editar Conta Bancaria' : 'Nova Conta Bancaria'}
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField label="Nome da Conta" value={name} onChange={e => setName(e.target.value)} fullWidth />
+          <FormTextField
+            control={control}
+            name="name"
+            label="Nome da Conta"
+            fullWidth
+          />
 
           <Stack direction="row" spacing={1.5}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Tipo de Conta</InputLabel>
-              <Select value={accountType} label="Tipo de Conta" onChange={e => setAccountType(e.target.value)}>
-                <MenuItem value="Conta Corrente">Conta Corrente</MenuItem>
-                <MenuItem value="Poupança">Poupança</MenuItem>
-                <MenuItem value="Investimento">Investimento</MenuItem>
-                <MenuItem value="Caixa">Caixa</MenuItem>
-                <MenuItem value="Crédito Rural">Crédito Rural</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField label="Grupo" value={accountGroup}
-              onChange={e => setAccountGroup(e.target.value)} fullWidth />
+            <FormTextField
+              control={control}
+              name="accountType"
+              label="Tipo de Conta"
+              select
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="Conta Corrente">Conta Corrente</MenuItem>
+              <MenuItem value="Poupanca">Poupanca</MenuItem>
+              <MenuItem value="Investimento">Investimento</MenuItem>
+              <MenuItem value="Caixa">Caixa</MenuItem>
+              <MenuItem value="Credito Rural">Credito Rural</MenuItem>
+            </FormTextField>
+            <FormTextField
+              control={control}
+              name="accountGroup"
+              label="Grupo"
+              fullWidth
+            />
           </Stack>
 
-          <TextField label="Instituição Financeira" value={institution}
-            onChange={e => setInstitution(e.target.value)} fullWidth />
+          <FormTextField
+            control={control}
+            name="institution"
+            label="Instituicao Financeira"
+            fullWidth
+          />
 
           <Stack direction="row" spacing={1.5}>
-            <TextField label="Agência" value={agency} onChange={e => setAgency(e.target.value)} fullWidth />
-            <TextField label="Número da Conta" value={accountNumber}
-              onChange={e => setAccountNumber(e.target.value)} fullWidth />
+            <FormTextField
+              control={control}
+              name="agency"
+              label="Agencia"
+              fullWidth
+            />
+            <FormTextField
+              control={control}
+              name="accountNumber"
+              label="Numero da Conta"
+              fullWidth
+            />
           </Stack>
 
           <Stack direction="row" spacing={1.5}>
-            <TextField label="Saldo Inicial (R$)" type="number" value={balance}
-              onChange={e => setBalance(e.target.value)} fullWidth />
-            <TextField label="Data Saldo Inicial" type="date" value={balanceDate}
-              onChange={e => setBalanceDate(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
+            <FormTextField
+              control={control}
+              name="balance"
+              label="Saldo Inicial (R$)"
+              type="number"
+              fullWidth
+            />
+            <FormTextField
+              control={control}
+              name="balanceDate"
+              label="Data Saldo Inicial"
+              type="date"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+            />
           </Stack>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>Status</InputLabel>
-            <Select value={active ? 'ativo' : 'inativo'} label="Status"
-              onChange={e => setActive(e.target.value === 'ativo')}>
-              <MenuItem value="ativo">Ativa</MenuItem>
-              <MenuItem value="inativo">Inativa</MenuItem>
-            </Select>
-          </FormControl>
+          <FormTextField
+            control={control}
+            name="active"
+            label="Status"
+            select
+            fullWidth
+            size="small"
+          >
+            <MenuItem value="ativo">Ativa</MenuItem>
+            <MenuItem value="inativo">Inativa</MenuItem>
+          </FormTextField>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" disabled={!name}
-          onClick={() => onSave({
-            name, account_type: accountType, account_group: accountGroup || undefined,
-            financial_institution: institution || undefined, agency: agency || undefined,
-            account_number: accountNumber || undefined,
-            initial_balance: balance ? Number(balance) : undefined,
-            initial_balance_date: balanceDate || undefined, active,
-          })}>
+        <Button onClick={onClose} disabled={disabled}>
+          Cancelar
+        </Button>
+        <Button
+          variant="contained"
+          disabled={disabled}
+          onClick={() => {
+            void handleFormSubmit();
+          }}
+        >
           Salvar
         </Button>
       </DialogActions>

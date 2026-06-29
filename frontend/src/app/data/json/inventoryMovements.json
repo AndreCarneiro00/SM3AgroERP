@@ -1,14 +1,14 @@
 [
-  { "id": 1, "batch_id": 1, "movement_type": "PRODUCTION_IN", "quantity": 850, "unit_cost": 21.76, "movement_date": "2025-03-20" },
-  { "id": 2, "batch_id": 1, "movement_type": "SALE_OUT", "quantity": 285, "unit_cost": 21.76, "movement_date": "2025-06-01", "financial_transaction_item_id": 1 },
-  { "id": 3, "batch_id": 2, "movement_type": "PRODUCTION_IN", "quantity": 620, "unit_cost": 22.90, "movement_date": "2025-03-25" },
-  { "id": 4, "batch_id": 3, "movement_type": "PRODUCTION_IN", "quantity": 980, "unit_cost": 22.55, "movement_date": "2025-05-15" },
-  { "id": 5, "batch_id": 3, "movement_type": "SALE_OUT", "quantity": 980, "unit_cost": 22.55, "movement_date": "2025-05-20", "financial_transaction_item_id": 6 },
-  { "id": 6, "batch_id": 4, "movement_type": "PRODUCTION_IN", "quantity": 210, "unit_cost": 150.00, "movement_date": "2025-04-10" },
-  { "id": 7, "batch_id": 7, "movement_type": "PURCHASE_IN", "quantity": 200, "unit_cost": 12.50, "movement_date": "2025-02-10" },
-  { "id": 8, "batch_id": 8, "movement_type": "PURCHASE_IN", "quantity": 500, "unit_cost": 4.20, "movement_date": "2025-04-16" },
-  { "id": 9, "batch_id": 7, "movement_type": "CONSUMPTION_OUT", "quantity": 20, "unit_cost": 12.50, "movement_date": "2025-02-12" },
-  { "id": 10, "batch_id": 8, "movement_type": "CONSUMPTION_OUT", "quantity": 350, "unit_cost": 4.20, "movement_date": "2025-04-18" },
-  { "id": 11, "batch_id": 1, "movement_type": "ADJUSTMENT_OUT", "quantity": 5, "unit_cost": 21.76, "movement_date": "2025-06-18" },
-  { "id": 12, "batch_id": 4, "movement_type": "ADJUSTMENT_IN", "quantity": 10, "unit_cost": 150.00, "movement_date": "2025-06-22" }
+  { "id": 1, "batchId": 1, "movementType": "PRODUCTION_IN", "quantity": 850, "unitCost": 21.76, "movementDate": "2025-03-20" },
+  { "id": 2, "batchId": 1, "movementType": "SALE_OUT", "quantity": 285, "unitCost": 21.76, "movementDate": "2025-06-01", "financialTransactionItemId": 1 },
+  { "id": 3, "batchId": 2, "movementType": "PRODUCTION_IN", "quantity": 620, "unitCost": 22.90, "movementDate": "2025-03-25" },
+  { "id": 4, "batchId": 3, "movementType": "PRODUCTION_IN", "quantity": 980, "unitCost": 22.55, "movementDate": "2025-05-15" },
+  { "id": 5, "batchId": 3, "movementType": "SALE_OUT", "quantity": 980, "unitCost": 22.55, "movementDate": "2025-05-20", "financialTransactionItemId": 6 },
+  { "id": 6, "batchId": 4, "movementType": "PRODUCTION_IN", "quantity": 210, "unitCost": 150.00, "movementDate": "2025-04-10" },
+  { "id": 7, "batchId": 7, "movementType": "PURCHASE_IN", "quantity": 200, "unitCost": 12.50, "movementDate": "2025-02-10" },
+  { "id": 8, "batchId": 8, "movementType": "PURCHASE_IN", "quantity": 500, "unitCost": 4.20, "movementDate": "2025-04-16" },
+  { "id": 9, "batchId": 7, "movementType": "CONSUMPTION_OUT", "quantity": 20, "unitCost": 12.50, "movementDate": "2025-02-12" },
+  { "id": 10, "batchId": 8, "movementType": "CONSUMPTION_OUT", "quantity": 350, "unitCost": 4.20, "movementDate": "2025-04-18" },
+  { "id": 11, "batchId": 1, "movementType": "ADJUSTMENT_OUT", "quantity": 5, "unitCost": 21.76, "movementDate": "2025-06-18" },
+  { "id": 12, "batchId": 4, "movementType": "ADJUSTMENT_IN", "quantity": 10, "unitCost": 150.00, "movementDate": "2025-06-22" }
 ]

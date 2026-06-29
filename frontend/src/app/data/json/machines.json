@@ -1,6 +1,6 @@
 [
-  { "id": 1, "name": "Trator JD 6110J", "machine_type": "TRACTOR", "manufacturer": "John Deere", "model": "6110J", "year": 2022, "active": true, "observation": "Usado no preparo e transporte interno" },
-  { "id": 2, "name": "Enfardadeira NH Roll Belt", "machine_type": "BALER", "manufacturer": "New Holland", "model": "Roll Belt 150", "year": 2021, "active": true },
-  { "id": 3, "name": "Segadeira Kuhn GMD", "machine_type": "MOWER", "manufacturer": "Kuhn", "model": "GMD 280", "year": 2020, "active": true },
-  { "id": 4, "name": "Pulverizador Jacto Uniport", "machine_type": "SPRAYER", "manufacturer": "Jacto", "model": "Uniport 3030", "year": 2019, "active": false, "observation": "Em revisão preventiva" }
+  { "id": 1, "name": "Trator JD 6110J", "machineType": "TRACTOR", "manufacturer": "John Deere", "model": "6110J", "year": 2022, "active": true, "observation": "Usado no preparo e transporte interno" },
+  { "id": 2, "name": "Enfardadeira NH Roll Belt", "machineType": "BALER", "manufacturer": "New Holland", "model": "Roll Belt 150", "year": 2021, "active": true },
+  { "id": 3, "name": "Segadeira Kuhn GMD", "machineType": "MOWER", "manufacturer": "Kuhn", "model": "GMD 280", "year": 2020, "active": true },
+  { "id": 4, "name": "Pulverizador Jacto Uniport", "machineType": "SPRAYER", "manufacturer": "Jacto", "model": "Uniport 3030", "year": 2019, "active": false, "observation": "Em revisão preventiva" }
 ]

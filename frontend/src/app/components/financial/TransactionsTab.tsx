@@ -1,112 +1,222 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Box, Card, Typography, Stack, Chip, IconButton, Tooltip, Paper,
-  Table, TableBody, TableCell, TableHead, TableRow,
-  FormControl, InputLabel, Select, MenuItem, ToggleButtonGroup, ToggleButton,
+  Box,
+  Card,
+  Chip,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  Typography,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import type { FinancialTransaction } from '../../data/types';
-import { useApp } from '../../context/AppContext';
-import { getCounterpartyName } from '../../data/display';
+import { useBankAccountsData } from '../../../domains/banking/ui/hooks';
+import type {
+  FinancialTransaction,
+  FinancialTransactionFulfillmentInput,
+  FinancialTransactionInput,
+} from '../../../domains/financial/model/entities';
+import {
+  useFinancialCatalogData,
+  useFinancialMutations,
+} from '../../../domains/financial/ui/hooks';
+import {
+  selectCounterpartyLabelById,
+} from '../../../domains/master-data/selectors/selectors';
+import { useMasterDataCatalogData } from '../../../domains/master-data/ui/hooks';
+import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
-import { EmptyTableRow } from '../shared/EmptyTableRow';
-import { TransactionDialog, type TransactionFormData } from './TransactionDialog';
-import { FulfillmentDialog } from './FulfillmentDialog';
+import {
+  FulfillmentDialog,
+} from './FulfillmentDialog';
+import {
+  TransactionDialog,
+  type TransactionFormData,
+} from './TransactionDialog';
 
-const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtDate = (s?: string) => s ? new Date(s + 'T12:00:00').toLocaleDateString('pt-BR') : '-';
+const fmtBRL = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-const STATUS_COLOR: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
-  PAID: 'success', PENDING: 'warning', CANCELED: 'error', PARTIAL: 'info',
+const fmtDate = (value?: string) =>
+  value ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR') : '-';
+
+const STATUS_COLOR: Record<
+  string,
+  'success' | 'warning' | 'error' | 'info'
+> = {
+  PAID: 'success',
+  PENDING: 'warning',
+  CANCELED: 'error',
+  PARTIAL: 'info',
 };
+
 const STATUS_LABEL: Record<string, string> = {
-  PAID: 'Pago', PENDING: 'Pendente', CANCELED: 'Cancelado', PARTIAL: 'Parcial',
+  PAID: 'Pago',
+  PENDING: 'Pendente',
+  CANCELED: 'Cancelado',
+  PARTIAL: 'Parcial',
 };
+
+function toFinancialTransactionInput(
+  form: TransactionFormData,
+): FinancialTransactionInput {
+  return {
+    description: form.description,
+    counterpartyId: form.counterpartyId ? Number(form.counterpartyId) : undefined,
+    issueDate: form.issueDate || undefined,
+    dueDate: form.dueDate || undefined,
+    documentNumber: form.documentNumber || undefined,
+    status: form.status as FinancialTransaction['status'],
+    type: form.type as FinancialTransaction['type'],
+    observation: form.observation || undefined,
+    hasNf: form.hasNf,
+    totalAmount: form.totalAmount ? Number(form.totalAmount) : undefined,
+  };
+}
 
 export function TransactionsTab() {
+  const { activeBankAccounts } = useBankAccountsData();
   const {
-    financialTransactions, setFinancialTransactions,
-    fulfillments, setFulfillments,
-    counterparties, nextId,
-  } = useApp();
+    financialTransactions,
+  } = useFinancialCatalogData();
+  const {
+    createFinancialTransaction,
+    updateFinancialTransaction,
+    deleteFinancialTransaction,
+    createFinancialTransactionFulfillment,
+  } = useFinancialMutations();
+  const { catalog, counterparties } = useMasterDataCatalogData();
 
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'INCOME' | 'EXPENSE'>('ALL');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'INCOME' | 'EXPENSE'>(
+    'ALL',
+  );
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<FinancialTransaction | undefined>();
-  const [fulfillTarget, setFulfillTarget] = useState<FinancialTransaction | undefined>();
+  const [fulfillTarget, setFulfillTarget] = useState<
+    FinancialTransaction | undefined
+  >();
 
   const today = new Date();
 
   const filtered = useMemo(() => {
     let list = financialTransactions;
-    if (typeFilter !== 'ALL') list = list.filter(t => t.type === typeFilter);
-    if (statusFilter !== 'ALL') list = list.filter(t => t.status === statusFilter);
-    return [...list].sort((a, b) => (b.issue_date ?? '').localeCompare(a.issue_date ?? ''));
-  }, [financialTransactions, typeFilter, statusFilter]);
 
-  const totals = useMemo(() => ({
-    income: filtered.filter(t => t.type === 'INCOME').reduce((s, t) => s + (t.total_amount ?? 0), 0),
-    expense: filtered.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + (t.total_amount ?? 0), 0),
-  }), [filtered]);
+    if (typeFilter !== 'ALL') {
+      list = list.filter(
+        (financialTransaction) => financialTransaction.type === typeFilter,
+      );
+    }
 
-  const handleSave = (d: TransactionFormData) => {
-    const tx: Omit<FinancialTransaction, 'id'> = {
-      description: d.description,
-      counterparty_id: d.counterparty_id ? Number(d.counterparty_id) : undefined,
-      issue_date: d.issue_date || undefined,
-      due_date: d.due_date || undefined,
-      document_number: d.document_number || undefined,
-      status: d.status as FinancialTransaction['status'],
-      type: d.type as FinancialTransaction['type'],
-      observation: d.observation || undefined,
-      has_nf: d.has_nf,
-      total_amount: d.total_amount ? Number(d.total_amount) : undefined,
-    };
-    setFinancialTransactions(ts =>
-      editing
-        ? ts.map(t => t.id === editing.id ? { ...tx, id: editing.id } : t)
-        : [...ts, { ...tx, id: nextId(ts) }]
+    if (statusFilter !== 'ALL') {
+      list = list.filter(
+        (financialTransaction) => financialTransaction.status === statusFilter,
+      );
+    }
+
+    return [...list].sort((left, right) =>
+      (right.issueDate ?? '').localeCompare(left.issueDate ?? ''),
     );
+  }, [financialTransactions, statusFilter, typeFilter]);
+
+  const totals = useMemo(
+    () => ({
+      income: filtered
+        .filter((financialTransaction) => financialTransaction.type === 'INCOME')
+        .reduce(
+          (sum, financialTransaction) =>
+            sum + (financialTransaction.totalAmount ?? 0),
+          0,
+        ),
+      expense: filtered
+        .filter((financialTransaction) => financialTransaction.type === 'EXPENSE')
+        .reduce(
+          (sum, financialTransaction) =>
+            sum + (financialTransaction.totalAmount ?? 0),
+          0,
+        ),
+    }),
+    [filtered],
+  );
+
+  const handleSave = async (form: TransactionFormData) => {
+    const input = toFinancialTransactionInput(form);
+
+    if (editing) {
+      await updateFinancialTransaction.mutateAsync({ id: editing.id, input });
+    } else {
+      await createFinancialTransaction.mutateAsync(input);
+    }
+
     setDialogOpen(false);
+    setEditing(undefined);
   };
 
-  const handleFulfill = (bankId: number, date: string, amount: number, obs: string) => {
+  const handleFulfill = async (
+    bankId: number,
+    date: string,
+    amount: number,
+    observation: string,
+  ) => {
     if (!fulfillTarget) return;
-    const txId = fulfillTarget.id;
-    const paidBefore = fulfillments
-      .filter(f => f.financial_transaction_id === txId)
-      .reduce((s, f) => s + f.amount_paid, 0);
-    setFulfillments(fs => [...fs, {
-      id: nextId(fs), financial_transaction_id: txId,
-      bank_account_id: bankId, payment_date: date, amount_paid: amount,
-      observation: obs || undefined,
-    }]);
-    setFinancialTransactions(ts => ts.map(t => {
-      if (t.id !== txId) return t;
-      const paid = paidBefore + amount;
-      return { ...t, status: paid >= (t.total_amount ?? 0) ? 'PAID' : 'PARTIAL' };
-    }));
+
+    const input: FinancialTransactionFulfillmentInput = {
+      financialTransactionId: fulfillTarget.id,
+      bankAccountId: bankId,
+      paymentDate: date,
+      amountPaid: amount,
+      observation: observation || undefined,
+    };
+
+    await createFinancialTransactionFulfillment.mutateAsync(input);
     setFulfillTarget(undefined);
   };
 
-  const openCreate = () => { setEditing(undefined); setDialogOpen(true); };
-  const openEdit = (t: FinancialTransaction) => { setEditing(t); setDialogOpen(true); };
-
   return (
     <Box>
-      <PageHeader actionLabel="Nova Transação" onAction={openCreate}>
-        <ToggleButtonGroup value={typeFilter} exclusive size="small"
-          onChange={(_, v) => v && setTypeFilter(v)}>
-          <ToggleButton value="ALL"     sx={{ px: 2, fontSize: '0.76rem' }}>Todas</ToggleButton>
-          <ToggleButton value="INCOME"  sx={{ px: 2, fontSize: '0.76rem' }}>Receitas</ToggleButton>
-          <ToggleButton value="EXPENSE" sx={{ px: 2, fontSize: '0.76rem' }}>Despesas</ToggleButton>
+      <PageHeader
+        actionLabel="Nova Transacao"
+        onAction={() => {
+          setEditing(undefined);
+          setDialogOpen(true);
+        }}
+      >
+        <ToggleButtonGroup
+          value={typeFilter}
+          exclusive
+          size="small"
+          onChange={(_, value) => value && setTypeFilter(value)}
+        >
+          <ToggleButton value="ALL" sx={{ px: 2, fontSize: '0.76rem' }}>
+            Todas
+          </ToggleButton>
+          <ToggleButton value="INCOME" sx={{ px: 2, fontSize: '0.76rem' }}>
+            Receitas
+          </ToggleButton>
+          <ToggleButton value="EXPENSE" sx={{ px: 2, fontSize: '0.76rem' }}>
+            Despesas
+          </ToggleButton>
         </ToggleButtonGroup>
 
         <FormControl size="small" sx={{ minWidth: 130 }}>
           <InputLabel>Status</InputLabel>
-          <Select value={statusFilter} label="Status" onChange={e => setStatusFilter(e.target.value)}>
+          <Select
+            value={statusFilter}
+            label="Status"
+            onChange={(event) => setStatusFilter(event.target.value)}
+          >
             <MenuItem value="ALL">Todos</MenuItem>
             <MenuItem value="PENDING">Pendente</MenuItem>
             <MenuItem value="PAID">Pago</MenuItem>
@@ -118,17 +228,35 @@ export function TransactionsTab() {
 
       <Stack direction="row" spacing={2} mb={1.5}>
         <Paper sx={{ px: 2, py: 1, borderLeft: '3px solid #2E7D32', flex: 1 }}>
-          <Typography variant="caption" color="text.secondary">Total Receitas</Typography>
-          <Typography variant="subtitle2" color="success.main" fontWeight={700}>{fmtBRL(totals.income)}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            Total Receitas
+          </Typography>
+          <Typography variant="subtitle2" color="success.main" fontWeight={700}>
+            {fmtBRL(totals.income)}
+          </Typography>
         </Paper>
         <Paper sx={{ px: 2, py: 1, borderLeft: '3px solid #D32F2F', flex: 1 }}>
-          <Typography variant="caption" color="text.secondary">Total Despesas</Typography>
-          <Typography variant="subtitle2" color="error.main" fontWeight={700}>{fmtBRL(totals.expense)}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            Total Despesas
+          </Typography>
+          <Typography variant="subtitle2" color="error.main" fontWeight={700}>
+            {fmtBRL(totals.expense)}
+          </Typography>
         </Paper>
         <Paper sx={{ px: 2, py: 1, borderLeft: '3px solid #1565C0', flex: 1 }}>
-          <Typography variant="caption" color="text.secondary">Saldo Período</Typography>
-          <Typography variant="subtitle2" fontWeight={700}
-            sx={{ color: totals.income - totals.expense >= 0 ? 'success.main' : 'error.main' }}>
+          <Typography variant="caption" color="text.secondary">
+            Saldo Periodo
+          </Typography>
+          <Typography
+            variant="subtitle2"
+            fontWeight={700}
+            sx={{
+              color:
+                totals.income - totals.expense >= 0
+                  ? 'success.main'
+                  : 'error.main',
+            }}
+          >
             {fmtBRL(totals.income - totals.expense)}
           </Typography>
         </Paper>
@@ -138,85 +266,177 @@ export function TransactionsTab() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Descrição</TableCell>
+              <TableCell>Descricao</TableCell>
               <TableCell>Contraparte</TableCell>
               <TableCell>Tipo</TableCell>
-              <TableCell>Emissão</TableCell>
+              <TableCell>Emissao</TableCell>
               <TableCell>Vencimento</TableCell>
               <TableCell>NF</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">Valor</TableCell>
-              <TableCell align="center">Ações</TableCell>
+              <TableCell align="center">Acoes</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filtered.map(t => {
-              const cp = counterparties.find(c => c.id === t.counterparty_id);
-              const isOverdue = t.due_date && new Date(t.due_date) < today
-                && t.status !== 'PAID' && t.status !== 'CANCELED';
-              const isPending = t.status === 'PENDING' || t.status === 'PARTIAL';
+            {filtered.map((financialTransaction) => {
+              const counterpartyLabel = selectCounterpartyLabelById(
+                catalog,
+                financialTransaction.counterpartyId,
+              );
+              const isOverdue =
+                financialTransaction.dueDate &&
+                new Date(financialTransaction.dueDate) < today &&
+                financialTransaction.status !== 'PAID' &&
+                financialTransaction.status !== 'CANCELED';
+              const isPending =
+                financialTransaction.status === 'PENDING' ||
+                financialTransaction.status === 'PARTIAL';
+
               return (
-                <TableRow key={t.id}>
+                <TableRow key={financialTransaction.id}>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500}>{t.description}</Typography>
-                    {t.document_number && (
-                      <Typography variant="caption" color="text.secondary">{t.document_number}</Typography>
+                    <Typography variant="body2" fontWeight={500}>
+                      {financialTransaction.description}
+                    </Typography>
+                    {financialTransaction.documentNumber && (
+                      <Typography variant="caption" color="text.secondary">
+                        {financialTransaction.documentNumber}
+                      </Typography>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2"
-                      sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {getCounterpartyName(cp)}
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        maxWidth: 150,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {counterpartyLabel}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip size="small" variant="outlined" sx={{ height: 20 }}
-                      label={t.type === 'INCOME' ? 'Receita' : 'Despesa'}
-                      color={t.type === 'INCOME' ? 'success' : 'error'} />
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      sx={{ height: 20 }}
+                      label={
+                        financialTransaction.type === 'INCOME'
+                          ? 'Receita'
+                          : 'Despesa'
+                      }
+                      color={
+                        financialTransaction.type === 'INCOME'
+                          ? 'success'
+                          : 'error'
+                      }
+                    />
                   </TableCell>
-                  <TableCell>{fmtDate(t.issue_date)}</TableCell>
-                  <TableCell sx={{ color: isOverdue ? 'error.main' : 'inherit', fontWeight: isOverdue ? 600 : 400 }}>
-                    {fmtDate(t.due_date)}
+                  <TableCell>{fmtDate(financialTransaction.issueDate)}</TableCell>
+                  <TableCell
+                    sx={{
+                      color: isOverdue ? 'error.main' : 'inherit',
+                      fontWeight: isOverdue ? 600 : 400,
+                    }}
+                  >
+                    {fmtDate(financialTransaction.dueDate)}
                   </TableCell>
                   <TableCell>
-                    {t.has_nf && (
-                      <Chip label="NF" size="small" color="info" sx={{ height: 18, fontSize: '0.66rem' }} />
+                    {financialTransaction.hasNf && (
+                      <Chip
+                        label="NF"
+                        size="small"
+                        color="info"
+                        sx={{ height: 18, fontSize: '0.66rem' }}
+                      />
                     )}
                   </TableCell>
                   <TableCell>
-                    <Chip label={STATUS_LABEL[t.status]} size="small"
-                      color={STATUS_COLOR[t.status]} sx={{ height: 20 }} />
+                    <Chip
+                      label={STATUS_LABEL[financialTransaction.status]}
+                      size="small"
+                      color={STATUS_COLOR[financialTransaction.status]}
+                      sx={{ height: 20 }}
+                    />
                   </TableCell>
                   <TableCell align="right">
-                    <Typography variant="body2" fontWeight={700}
-                      sx={{ color: t.type === 'INCOME' ? 'success.main' : 'error.main' }}>
-                      {fmtBRL(t.total_amount ?? 0)}
+                    <Typography
+                      variant="body2"
+                      fontWeight={700}
+                      sx={{
+                        color:
+                          financialTransaction.type === 'INCOME'
+                            ? 'success.main'
+                            : 'error.main',
+                      }}
+                    >
+                      {fmtBRL(financialTransaction.totalAmount ?? 0)}
                     </Typography>
                   </TableCell>
                   <TableCell align="center">
                     <RowActions
-                      onEdit={() => openEdit(t)}
-                      onDelete={() => setFinancialTransactions(ts => ts.filter(x => x.id !== t.id))}
-                      extraActions={isPending ? (
-                        <Tooltip title="Registrar Pagamento">
-                          <IconButton size="small" color="success" onClick={() => setFulfillTarget(t)}>
-                            <CheckCircleIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                      ) : undefined}
+                      onEdit={() => {
+                        setEditing(financialTransaction);
+                        setDialogOpen(true);
+                      }}
+                      onDelete={() => {
+                        void deleteFinancialTransaction.mutateAsync(
+                          financialTransaction.id,
+                        );
+                      }}
+                      extraActions={
+                        isPending ? (
+                          <Tooltip title="Registrar Pagamento">
+                            <IconButton
+                              size="small"
+                              color="success"
+                              onClick={() => setFulfillTarget(financialTransaction)}
+                            >
+                              <CheckCircleIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        ) : undefined
+                      }
                     />
                   </TableCell>
                 </TableRow>
               );
             })}
-            {filtered.length === 0 && <EmptyTableRow colSpan={9} message="Nenhuma transação encontrada." />}
+            {filtered.length === 0 && (
+              <EmptyTableRow
+                colSpan={9}
+                message="Nenhuma transacao encontrada."
+              />
+            )}
           </TableBody>
         </Table>
       </Card>
 
-      <TransactionDialog open={dialogOpen} onClose={() => setDialogOpen(false)} editing={editing} onSave={handleSave} />
-      <FulfillmentDialog open={!!fulfillTarget} onClose={() => setFulfillTarget(undefined)}
-        transaction={fulfillTarget} onSave={handleFulfill} />
+      <TransactionDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        editing={editing}
+        counterparties={counterparties}
+        saving={
+          createFinancialTransaction.isPending ||
+          updateFinancialTransaction.isPending
+        }
+        onSave={(form) => {
+          void handleSave(form);
+        }}
+      />
+      <FulfillmentDialog
+        open={!!fulfillTarget}
+        onClose={() => setFulfillTarget(undefined)}
+        transaction={fulfillTarget}
+        activeBankAccounts={activeBankAccounts}
+        saving={createFinancialTransactionFulfillment.isPending}
+        onSave={(bankId, date, amount, observation) => {
+          void handleFulfill(bankId, date, amount, observation);
+        }}
+      />
     </Box>
   );
 }

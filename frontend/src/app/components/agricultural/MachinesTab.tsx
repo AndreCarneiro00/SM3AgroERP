@@ -1,9 +1,23 @@
 import {
-  Chip, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography,
+  Chip,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material';
-import { useApp } from '../../context/AppContext';
+import type { MachineType } from '../../../domains/agricultural/api/dtos';
+import type {
+  Machine,
+  MachineInput,
+} from '../../../domains/agricultural/model/entities';
+import {
+  useAgriculturalCatalogData,
+  useAgriculturalMutations,
+} from '../../../domains/agricultural/ui/hooks';
 import { CrudTable } from '../shared/CrudTable';
-import type { Machine, MachineType } from '../../data/types';
 
 const MACHINE_TYPE_LABEL: Record<MachineType, string> = {
   TRACTOR: 'Trator',
@@ -11,22 +25,41 @@ const MACHINE_TYPE_LABEL: Record<MachineType, string> = {
   MOWER: 'Segadeira',
   SPRAYER: 'Pulverizador',
   FERTILIZER_SPREADER: 'Distribuidor',
-  IRRIGATION: 'Irrigação',
+  IRRIGATION: 'Irrigacao',
   PUMP: 'Bomba',
   OTHER: 'Outro',
 };
 
+function toMachineInput(form: Partial<Machine>): MachineInput {
+  return {
+    name: form.name ?? '',
+    machineType: form.machineType ?? 'TRACTOR',
+    manufacturer: form.manufacturer,
+    model: form.model,
+    year: form.year,
+    active: form.active ?? true,
+    observation: form.observation,
+  };
+}
+
 export function MachinesTab() {
-  const { machines, setMachines, nextId } = useApp();
+  const { machines } = useAgriculturalCatalogData();
+  const { createMachine, updateMachine, deleteMachine } =
+    useAgriculturalMutations();
 
   return (
     <CrudTable<Machine>
       items={machines}
-      setItems={setMachines}
-      nextId={nextId}
-      actionLabel="Nova Máquina"
-      dialogTitle={(editing) => editing ? 'Editar Máquina' : 'Nova Máquina'}
-      createInitial={() => ({ machine_type: 'TRACTOR', active: true })}
+      onCreate={(input) => createMachine.mutateAsync(toMachineInput(input))}
+      onUpdate={({ id, input }) =>
+        updateMachine.mutateAsync({ id, input: toMachineInput(input) })
+      }
+      onDelete={(id) => deleteMachine.mutateAsync(id)}
+      actionLabel="Nova Maquina"
+      dialogTitle={(editing) =>
+        editing ? 'Editar Maquina' : 'Nova Maquina'
+      }
+      createInitial={() => ({ machineType: 'TRACTOR', active: true })}
       columns={[
         {
           label: 'Nome',
@@ -36,13 +69,25 @@ export function MachinesTab() {
             </Typography>
           ),
         },
-        { label: 'Tipo', render: (item) => MACHINE_TYPE_LABEL[item.machine_type] },
-        { label: 'Fabricante / Modelo', render: (item) => [item.manufacturer, item.model].filter(Boolean).join(' / ') || '-' },
+        {
+          label: 'Tipo',
+          render: (item) => MACHINE_TYPE_LABEL[item.machineType],
+        },
+        {
+          label: 'Fabricante / Modelo',
+          render: (item) =>
+            [item.manufacturer, item.model].filter(Boolean).join(' / ') || '-',
+        },
         { label: 'Ano', render: (item) => item.year ?? '-' },
         {
           label: 'Status',
           render: (item) => (
-            <Chip label={item.active ? 'Ativa' : 'Inativa'} size="small" color={item.active ? 'success' : 'default'} sx={{ height: 20 }} />
+            <Chip
+              label={item.active ? 'Ativa' : 'Inativa'}
+              size="small"
+              color={item.active ? 'success' : 'default'}
+              sx={{ height: 20 }}
+            />
           ),
         },
       ]}
@@ -51,19 +96,28 @@ export function MachinesTab() {
           <TextField
             label="Nome"
             value={form.name ?? ''}
-            onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+            onChange={(event) =>
+              setForm((current) => ({ ...current, name: event.target.value }))
+            }
             fullWidth
           />
           <Stack direction="row" spacing={1.5}>
             <FormControl fullWidth size="small">
               <InputLabel>Tipo</InputLabel>
               <Select
-                value={String(form.machine_type ?? 'TRACTOR')}
+                value={String(form.machineType ?? 'TRACTOR')}
                 label="Tipo"
-                onChange={(event) => setForm((current) => ({ ...current, machine_type: event.target.value as MachineType }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    machineType: event.target.value as MachineType,
+                  }))
+                }
               >
                 {Object.entries(MACHINE_TYPE_LABEL).map(([value, label]) => (
-                  <MenuItem key={value} value={value}>{label}</MenuItem>
+                  <MenuItem key={value} value={value}>
+                    {label}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -72,7 +126,12 @@ export function MachinesTab() {
               <Select
                 value={form.active === false ? 'inactive' : 'active'}
                 label="Status"
-                onChange={(event) => setForm((current) => ({ ...current, active: event.target.value === 'active' }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    active: event.target.value === 'active',
+                  }))
+                }
               >
                 <MenuItem value="active">Ativa</MenuItem>
                 <MenuItem value="inactive">Inativa</MenuItem>
@@ -83,13 +142,23 @@ export function MachinesTab() {
             <TextField
               label="Fabricante"
               value={form.manufacturer ?? ''}
-              onChange={(event) => setForm((current) => ({ ...current, manufacturer: event.target.value || undefined }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  manufacturer: event.target.value || undefined,
+                }))
+              }
               fullWidth
             />
             <TextField
               label="Modelo"
               value={form.model ?? ''}
-              onChange={(event) => setForm((current) => ({ ...current, model: event.target.value || undefined }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  model: event.target.value || undefined,
+                }))
+              }
               fullWidth
             />
           </Stack>
@@ -97,13 +166,23 @@ export function MachinesTab() {
             label="Ano"
             type="number"
             value={String(form.year ?? '')}
-            onChange={(event) => setForm((current) => ({ ...current, year: event.target.value ? Number(event.target.value) : undefined }))}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                year: event.target.value ? Number(event.target.value) : undefined,
+              }))
+            }
             fullWidth
           />
           <TextField
-            label="Observação"
+            label="Observacao"
             value={form.observation ?? ''}
-            onChange={(event) => setForm((current) => ({ ...current, observation: event.target.value || undefined }))}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                observation: event.target.value || undefined,
+              }))
+            }
             fullWidth
             multiline
             rows={2}
@@ -111,7 +190,7 @@ export function MachinesTab() {
         </>
       )}
       isSaveDisabled={(form) => !form.name}
-      emptyMessage="Nenhuma máquina cadastrada."
+      emptyMessage="Nenhuma maquina cadastrada."
     />
   );
 }

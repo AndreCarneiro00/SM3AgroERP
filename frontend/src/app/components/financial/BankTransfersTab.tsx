@@ -1,38 +1,72 @@
 import { useState } from 'react';
 import {
-  Box, Card, Typography, Table, TableBody, TableCell, TableHead, TableRow,
+  Box,
+  Card,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
 } from '@mui/material';
-import type { BankTransfer } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import {
+  selectBankAccountLabelById,
+} from '../../../domains/banking/selectors/selectors';
+import { useBankAccountsData } from '../../../domains/banking/ui/hooks';
+import type {
+  BankTransfer,
+  BankTransferInput,
+} from '../../../domains/financial/model/entities';
+import {
+  useFinancialCatalogData,
+  useFinancialMutations,
+} from '../../../domains/financial/ui/hooks';
+import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
-import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { BankTransferDialog } from './BankTransferDialog';
 
-const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtDate = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('pt-BR');
+const fmtBRL = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const fmtDate = (value: string) =>
+  new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR');
 
 export function BankTransfersTab() {
-  const { bankTransfers, setBankTransfers, bankAccounts, nextId } = useApp();
+  const { activeBankAccounts, catalog } = useBankAccountsData();
+  const { bankTransfers } = useFinancialCatalogData();
+  const {
+    createBankTransfer,
+    updateBankTransfer,
+    deleteBankTransfer,
+  } = useFinancialMutations();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<BankTransfer | undefined>();
-  const sorted = [...bankTransfers].sort((a, b) => b.transfer_date.localeCompare(a.transfer_date));
 
-  const handleSave = (d: Partial<BankTransfer>) => {
-    setBankTransfers(ts =>
-      editing
-        ? ts.map(t => t.id === editing.id ? { ...editing, ...d } : t)
-        : [...ts, { id: nextId(ts), ...d } as BankTransfer]
-    );
+  const sorted = [...bankTransfers].sort((left, right) =>
+    right.transferDate.localeCompare(left.transferDate),
+  );
+
+  const handleSave = async (input: BankTransferInput) => {
+    if (editing) {
+      await updateBankTransfer.mutateAsync({ id: editing.id, input });
+    } else {
+      await createBankTransfer.mutateAsync(input);
+    }
+
     setDialogOpen(false);
+    setEditing(undefined);
   };
-
-  const openCreate = () => { setEditing(undefined); setDialogOpen(true); };
-  const openEdit = (bt: BankTransfer) => { setEditing(bt); setDialogOpen(true); };
 
   return (
     <Box>
-      <PageHeader actionLabel="Nova Transferência" onAction={openCreate} />
+      <PageHeader
+        actionLabel="Nova Transferencia"
+        onAction={() => {
+          setEditing(undefined);
+          setDialogOpen(true);
+        }}
+      />
 
       <Card>
         <Table size="small">
@@ -41,42 +75,68 @@ export function BankTransfersTab() {
               <TableCell>Conta Origem</TableCell>
               <TableCell>Conta Destino</TableCell>
               <TableCell>Data</TableCell>
-              <TableCell>Observação</TableCell>
+              <TableCell>Observacao</TableCell>
               <TableCell align="right">Valor</TableCell>
-              <TableCell align="center">Ações</TableCell>
+              <TableCell align="center">Acoes</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {sorted.map(bt => {
-              const src = bankAccounts.find(b => b.id === bt.source_bank_account_id);
-              const dst = bankAccounts.find(b => b.id === bt.destination_bank_account_id);
-              return (
-                <TableRow key={bt.id}>
-                  <TableCell>{src?.name ?? '-'}</TableCell>
-                  <TableCell>{dst?.name ?? '-'}</TableCell>
-                  <TableCell>{fmtDate(bt.transfer_date)}</TableCell>
-                  <TableCell sx={{ color: 'text.secondary' }}>{bt.observation ?? '-'}</TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2" fontWeight={700} color="info.main">
-                      {fmtBRL(bt.amount)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <RowActions
-                      onEdit={() => openEdit(bt)}
-                      onDelete={() => setBankTransfers(ts => ts.filter(t => t.id !== bt.id))}
-                    />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {sorted.length === 0 && <EmptyTableRow colSpan={6} message="Nenhuma transferência encontrada." />}
+            {sorted.map((bankTransfer) => (
+              <TableRow key={bankTransfer.id}>
+                <TableCell>
+                  {selectBankAccountLabelById(
+                    catalog,
+                    bankTransfer.sourceBankAccountId,
+                  )}
+                </TableCell>
+                <TableCell>
+                  {selectBankAccountLabelById(
+                    catalog,
+                    bankTransfer.destinationBankAccountId,
+                  )}
+                </TableCell>
+                <TableCell>{fmtDate(bankTransfer.transferDate)}</TableCell>
+                <TableCell sx={{ color: 'text.secondary' }}>
+                  {bankTransfer.observation ?? '-'}
+                </TableCell>
+                <TableCell align="right">
+                  <Typography variant="body2" fontWeight={700} color="info.main">
+                    {fmtBRL(bankTransfer.amount)}
+                  </Typography>
+                </TableCell>
+                <TableCell align="center">
+                  <RowActions
+                    onEdit={() => {
+                      setEditing(bankTransfer);
+                      setDialogOpen(true);
+                    }}
+                    onDelete={() => {
+                      void deleteBankTransfer.mutateAsync(bankTransfer.id);
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+            {sorted.length === 0 && (
+              <EmptyTableRow
+                colSpan={6}
+                message="Nenhuma transferencia encontrada."
+              />
+            )}
           </TableBody>
         </Table>
       </Card>
 
-      <BankTransferDialog open={dialogOpen} onClose={() => setDialogOpen(false)}
-        editing={editing} onSave={handleSave} />
+      <BankTransferDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        editing={editing}
+        activeBankAccounts={activeBankAccounts}
+        saving={createBankTransfer.isPending || updateBankTransfer.isPending}
+        onSave={(input) => {
+          void handleSave(input);
+        }}
+      />
     </Box>
   );
 }

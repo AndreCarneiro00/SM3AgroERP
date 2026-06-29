@@ -1,67 +1,128 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Box, Card, Typography, Chip, Stack, Table, TableBody, TableCell, TableHead, TableRow,
-  TextField, FormControl, InputLabel, Select, MenuItem, InputAdornment,
+  Box,
+  Card,
+  Chip,
+  FormControl,
+  IconButton,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import type { Counterparty } from '../../data/types';
-import { useApp } from '../../context/AppContext';
-import { getCounterpartyName } from '../../data/display';
+import type {
+  Counterparty,
+  CounterpartyInput,
+} from '../../../domains/master-data/model/entities';
+import {
+  useMasterDataCatalogData,
+  useMasterDataMutations,
+} from '../../../domains/master-data/ui/hooks';
+import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
-import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { CounterpartyDialog } from './CounterpartyDialog';
 
 export function CounterpartiesTab() {
-  const { counterparties, setCounterparties, counterpartyTypes, segments, nextId } = useApp();
+  const {
+    counterparties,
+    counterpartyRows,
+    counterpartyTypes,
+    segments,
+  } = useMasterDataCatalogData();
+  const {
+    createCounterparty,
+    deleteCounterparty,
+    updateCounterparty,
+  } = useMasterDataMutations();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Counterparty | undefined>();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
 
   const filtered = useMemo(() => {
-    let list = counterparties;
+    let list = counterpartyRows;
+
     if (search) {
-      const q = search.toLowerCase();
-      list = list.filter(c =>
-        getCounterpartyName(c).toLowerCase().includes(q) ||
-        c.legal_name.toLowerCase().includes(q) ||
-        c.document?.includes(search) ||
-        c.email?.toLowerCase().includes(q)
+      const query = search.toLowerCase();
+      list = list.filter(
+        (counterparty) =>
+          counterparty.displayName.toLowerCase().includes(query) ||
+          counterparty.legalName.toLowerCase().includes(query) ||
+          counterparty.document?.includes(search) ||
+          counterparty.email?.toLowerCase().includes(query),
       );
     }
-    if (typeFilter) list = list.filter(c => String(c.counterparty_type_id) === typeFilter);
-    return list;
-  }, [counterparties, search, typeFilter]);
 
-  const handleSave = (d: Partial<Counterparty>) => {
-    setCounterparties(cs =>
-      editing
-        ? cs.map(c => c.id === editing.id ? { ...editing, ...d } : c)
-        : [...cs, { id: nextId(cs), active: true, ...d } as Counterparty]
-    );
+    if (typeFilter) {
+      list = list.filter(
+        (counterparty) => String(counterparty.counterpartyTypeId) === typeFilter,
+      );
+    }
+
+    return list;
+  }, [counterpartyRows, search, typeFilter]);
+
+  const handleSave = async (input: CounterpartyInput) => {
+    if (editing) {
+      await updateCounterparty.mutateAsync({ id: editing.id, input });
+    } else {
+      await createCounterparty.mutateAsync(input);
+    }
+
     setDialogOpen(false);
+    setEditing(undefined);
   };
+
+  const saving = createCounterparty.isPending || updateCounterparty.isPending;
 
   return (
     <Box>
-      <PageHeader actionLabel="Nova Contraparte" onAction={() => { setEditing(undefined); setDialogOpen(true); }}>
+      <PageHeader
+        actionLabel="Nova Contraparte"
+        onAction={() => {
+          setEditing(undefined);
+          setDialogOpen(true);
+        }}
+      >
         <TextField
-          size="small" placeholder="Buscar por nome, CNPJ ou e-mail..."
-          value={search} onChange={e => setSearch(e.target.value)}
+          size="small"
+          placeholder="Buscar por nome, CNPJ ou e-mail..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
           sx={{ width: 280 }}
           InputProps={{
             startAdornment: (
-              <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
             ),
           }}
         />
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Tipo</InputLabel>
-          <Select value={typeFilter} label="Tipo" onChange={e => setTypeFilter(e.target.value)}>
+          <Select
+            value={typeFilter}
+            label="Tipo"
+            onChange={(event) => setTypeFilter(event.target.value)}
+          >
             <MenuItem value="">Todos</MenuItem>
-            {counterpartyTypes.map(ct => (
-              <MenuItem key={ct.id} value={String(ct.id)}>{ct.name}</MenuItem>
+            {counterpartyTypes.map((counterpartyType) => (
+              <MenuItem
+                key={counterpartyType.id}
+                value={String(counterpartyType.id)}
+              >
+                {counterpartyType.name}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -71,73 +132,118 @@ export function CounterpartiesTab() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Nome / Razão Social</TableCell>
+              <TableCell>Nome / Razao Social</TableCell>
               <TableCell>Tipo</TableCell>
               <TableCell>Documento</TableCell>
               <TableCell>Cidade/UF</TableCell>
               <TableCell>Telefone</TableCell>
               <TableCell>Segmento</TableCell>
               <TableCell>Status</TableCell>
-              <TableCell align="center">Ações</TableCell>
+              <TableCell align="center">Acoes</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filtered.map(c => {
-              const cpType = counterpartyTypes.find(ct => ct.id === c.counterparty_type_id);
-              const seg = segments.find(s => s.id === c.segment_id);
+            {filtered.map((counterparty) => {
               const typeColor: 'success' | 'warning' | 'default' =
-                cpType?.name === 'Cliente' ? 'success' :
-                cpType?.name === 'Fornecedor' ? 'warning' : 'default';
+                counterparty.counterpartyTypeName === 'Cliente'
+                  ? 'success'
+                  : counterparty.counterpartyTypeName === 'Fornecedor'
+                    ? 'warning'
+                    : 'default';
 
               return (
-                <TableRow key={c.id}>
+                <TableRow key={counterparty.id}>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500}>{getCounterpartyName(c)}</Typography>
-                    {c.trade_name && (
-                      <Typography variant="caption" color="text.secondary">{c.legal_name}</Typography>
+                    <Typography variant="body2" fontWeight={500}>
+                      {counterparty.displayName}
+                    </Typography>
+                    {counterparty.tradeName && (
+                      <Typography variant="caption" color="text.secondary">
+                        {counterparty.legalName}
+                      </Typography>
                     )}
-                    {c.email && (
-                      <Typography variant="caption" color="text.secondary">{c.email}</Typography>
+                    {counterparty.email && (
+                      <Typography variant="caption" color="text.secondary">
+                        {counterparty.email}
+                      </Typography>
                     )}
                   </TableCell>
                   <TableCell>
-                    {cpType && (
-                      <Chip label={cpType.name} size="small" color={typeColor} sx={{ height: 20 }} />
+                    {counterparty.counterpartyTypeId && (
+                      <Chip
+                        label={counterparty.counterpartyTypeName}
+                        size="small"
+                        color={typeColor}
+                        sx={{ height: 20 }}
+                      />
                     )}
                   </TableCell>
-                  <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.76rem' }}>
-                    {c.document_type && (
-                      <Box component="span" sx={{ mr: 0.5, fontSize: '0.68rem', color: '#888' }}>
-                        {c.document_type}
+                  <TableCell
+                    sx={{ fontFamily: 'monospace', fontSize: '0.76rem' }}
+                  >
+                    {counterparty.documentType && (
+                      <Box
+                        component="span"
+                        sx={{ mr: 0.5, fontSize: '0.68rem', color: '#888' }}
+                      >
+                        {counterparty.documentType}
                       </Box>
                     )}
-                    {c.document ?? '-'}
+                    {counterparty.document ?? '-'}
                   </TableCell>
                   <TableCell>
-                    {c.city && c.state ? `${c.city}/${c.state}` : c.city ?? c.state ?? '-'}
+                    {counterparty.city && counterparty.state
+                      ? `${counterparty.city}/${counterparty.state}`
+                      : counterparty.city ?? counterparty.state ?? '-'}
                   </TableCell>
-                  <TableCell>{c.phone_number ?? '-'}</TableCell>
-                  <TableCell sx={{ color: 'text.secondary' }}>{seg?.name ?? '-'}</TableCell>
+                  <TableCell>{counterparty.phoneNumber ?? '-'}</TableCell>
+                  <TableCell sx={{ color: 'text.secondary' }}>
+                    {counterparty.segmentName}
+                  </TableCell>
                   <TableCell>
-                    <Chip label={c.active ? 'Ativo' : 'Inativo'} size="small"
-                      color={c.active ? 'success' : 'default'} sx={{ height: 20 }} />
+                    <Chip
+                      label={counterparty.active ? 'Ativo' : 'Inativo'}
+                      size="small"
+                      color={counterparty.active ? 'success' : 'default'}
+                      sx={{ height: 20 }}
+                    />
                   </TableCell>
                   <TableCell align="center">
                     <RowActions
-                      onEdit={() => { setEditing(c); setDialogOpen(true); }}
-                      onDelete={() => setCounterparties(cs => cs.filter(x => x.id !== c.id))}
+                      onEdit={() => {
+                        const original = counterparties.find(
+                          (item) => item.id === counterparty.id,
+                        );
+                        setEditing(original);
+                        setDialogOpen(true);
+                      }}
+                      onDelete={() => {
+                        void deleteCounterparty.mutateAsync(counterparty.id);
+                      }}
                     />
                   </TableCell>
                 </TableRow>
               );
             })}
-            {filtered.length === 0 && <EmptyTableRow colSpan={8} message="Nenhuma contraparte encontrada." />}
+            {filtered.length === 0 && (
+              <EmptyTableRow
+                colSpan={8}
+                message="Nenhuma contraparte encontrada."
+              />
+            )}
           </TableBody>
         </Table>
       </Card>
 
-      <CounterpartyDialog open={dialogOpen} onClose={() => setDialogOpen(false)}
-        editing={editing} onSave={handleSave} />
+      <CounterpartyDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        editing={editing}
+        counterpartyTypes={counterpartyTypes}
+        segments={segments}
+        onSave={handleSave}
+        saving={saving}
+      />
     </Box>
   );
 }

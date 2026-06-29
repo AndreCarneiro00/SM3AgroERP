@@ -1,14 +1,29 @@
 import { useState } from 'react';
 import {
-  Box, Card, Typography, Table, TableBody, TableCell, TableHead, TableRow,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack, TextField,
+  Box,
+  Button,
+  Card,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
 } from '@mui/material';
+import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
 
-// Generic CRUD tab for simple name-only lists (segments, activity groups, document types, etc.)
-
-interface SimpleItem { id: number; name: string; [key: string]: unknown }
+interface SimpleItem {
+  id: number;
+  name: string;
+}
 
 interface Column<T> {
   key: keyof T;
@@ -18,27 +33,45 @@ interface Column<T> {
 
 interface Props<T extends SimpleItem> {
   items: T[];
-  setItems: (fn: (prev: T[]) => T[]) => void;
-  nextId: (items: T[]) => number;
   entityLabel: string;
+  onSave: (editing: T | undefined, form: Partial<T>) => void | Promise<void>;
+  onDelete: (item: T) => void | Promise<void>;
   extraColumns?: Column<T>[];
-  /** Render extra form fields below the name field; receives current form state and a setter */
   ExtraFields?: React.FC<{
     form: Partial<T>;
     setForm: React.Dispatch<React.SetStateAction<Partial<T>>>;
   }>;
+  createInitial?: () => Partial<T>;
+  saving?: boolean;
+  isLoading?: boolean;
+  emptyMessage?: string;
 }
 
 export function SimpleListTab<T extends SimpleItem>({
-  items, setItems, nextId, entityLabel, extraColumns, ExtraFields,
+  items,
+  entityLabel,
+  onSave,
+  onDelete,
+  extraColumns,
+  ExtraFields,
+  createInitial,
+  saving = false,
+  isLoading = false,
+  emptyMessage = 'Nenhum registro encontrado.',
 }: Props<T>) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<T | undefined>();
   const [form, setForm] = useState<Partial<T>>({} as Partial<T>);
 
+  const buildInitialForm = () =>
+    ({
+      name: '',
+      ...(createInitial?.() ?? {}),
+    } as Partial<T>);
+
   const openCreate = () => {
     setEditing(undefined);
-    setForm({ name: '' } as Partial<T>);
+    setForm(buildInitialForm());
     setDialogOpen(true);
   };
 
@@ -48,13 +81,10 @@ export function SimpleListTab<T extends SimpleItem>({
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    setItems(is =>
-      editing
-        ? is.map(i => i.id === editing.id ? { ...editing, ...form } as T : i)
-        : [...is, { id: nextId(is), ...form } as T]
-    );
+  const handleSave = async () => {
+    await onSave(editing, form);
     setDialogOpen(false);
+    setEditing(undefined);
   };
 
   return (
@@ -66,51 +96,94 @@ export function SimpleListTab<T extends SimpleItem>({
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
-              {extraColumns?.map(col => (
-                <TableCell key={String(col.key)}>{col.label}</TableCell>
+              {extraColumns?.map((column) => (
+                <TableCell key={String(column.key)}>{column.label}</TableCell>
               ))}
-              <TableCell align="center">Ações</TableCell>
+              <TableCell align="center">Acoes</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {items.map(item => (
+            {isLoading && (
+              <EmptyTableRow
+                colSpan={(extraColumns?.length ?? 0) + 2}
+                message={`Carregando ${entityLabel.toLowerCase()}...`}
+              />
+            )}
+            {items.map((item) => (
               <TableRow key={item.id}>
                 <TableCell>
-                  <Typography variant="body2" fontWeight={500}>{item.name}</Typography>
+                  <Typography variant="body2" fontWeight={500}>
+                    {item.name}
+                  </Typography>
                 </TableCell>
-                {extraColumns?.map(col => (
-                  <TableCell key={String(col.key)} sx={{ color: 'text.secondary' }}>
-                    {col.render ? col.render(item) : String(item[col.key] ?? '-')}
+                {extraColumns?.map((column) => (
+                  <TableCell
+                    key={String(column.key)}
+                    sx={{ color: 'text.secondary' }}
+                  >
+                    {column.render
+                      ? column.render(item)
+                      : String(item[column.key] ?? '-')}
                   </TableCell>
                 ))}
                 <TableCell align="center">
                   <RowActions
                     onEdit={() => openEdit(item)}
-                    onDelete={() => setItems(is => is.filter(i => i.id !== item.id))}
+                    onDelete={() => {
+                      void onDelete(item);
+                    }}
                   />
                 </TableCell>
               </TableRow>
             ))}
+            {!isLoading && items.length === 0 && (
+              <EmptyTableRow
+                colSpan={(extraColumns?.length ?? 0) + 2}
+                message={emptyMessage}
+              />
+            )}
           </TableBody>
         </Table>
       </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{editing ? `Editar ${entityLabel}` : `Novo(a) ${entityLabel}`}</DialogTitle>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {editing ? `Editar ${entityLabel}` : `Novo(a) ${entityLabel}`}
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
               label="Nome"
               value={(form.name as string) ?? ''}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value } as Partial<T>))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  name: event.target.value,
+                }))
+              }
               fullWidth
             />
             {ExtraFields && <ExtraFields form={form} setForm={setForm} />}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
-          <Button variant="contained" disabled={!form.name} onClick={handleSave}>Salvar</Button>
+          <Button onClick={() => setDialogOpen(false)} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!String(form.name ?? '').trim() || saving}
+            onClick={() => {
+              void handleSave();
+            }}
+          >
+            Salvar
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

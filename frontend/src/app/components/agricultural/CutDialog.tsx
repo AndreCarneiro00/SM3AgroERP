@@ -1,78 +1,183 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Stack, TextField, FormControl, InputLabel, Select, MenuItem,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Stack,
 } from '@mui/material';
-import type { Cut } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { FormTextField } from '../../forms/FormTextField';
+import {
+  optionalIdFromInput,
+  optionalNumberFromInput,
+  optionalTextFromInput,
+  toInputValue,
+} from '../../forms/valueParsers';
+import { zodResolver } from '../../forms/zodResolver';
+import type {
+  Cut,
+  CutInput,
+  Field,
+} from '../../../domains/agricultural/model/entities';
+import type { ProductFamily } from '../../../domains/products/model/entities';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   editing?: Cut;
-  onSave: (data: Partial<Cut>) => void;
+  fields: Field[];
+  productFamilies: ProductFamily[];
+  onSave: (data: CutInput) => void | Promise<void>;
+  saving?: boolean;
 }
 
-export function CutDialog({ open, onClose, editing, onSave }: Props) {
-  const { fields, productFamilies } = useApp();
-  const [fieldId, setFieldId] = useState('');
-  const [productFamilyId, setProductFamilyId] = useState('');
-  const [cutDate, setCutDate] = useState('');
-  const [cutNumber, setCutNumber] = useState('');
-  const [days, setDays] = useState('');
-  const [observation, setObservation] = useState('');
+const cutSchema = z.object({
+  fieldId: z.string().min(1, 'Selecione o campo.'),
+  productFamilyId: z.string().min(1, 'Selecione a familia do produto.'),
+  cutDate: z.string(),
+  cutNumber: z
+    .string()
+    .trim()
+    .refine(
+      (value) => !value || !Number.isNaN(Number(value)),
+      'Informe um numero de corte valido.',
+    ),
+  days: z
+    .string()
+    .trim()
+    .refine(
+      (value) => !value || !Number.isNaN(Number(value)),
+      'Informe a quantidade de dias valida.',
+    ),
+  observation: z.string(),
+});
+
+type CutFormValues = z.infer<typeof cutSchema>;
+
+function getDefaultValues(editing?: Cut): CutFormValues {
+  return {
+    fieldId: toInputValue(editing?.fieldId),
+    productFamilyId: toInputValue(editing?.productFamilyId),
+    cutDate: editing?.cutDate ?? '',
+    cutNumber: toInputValue(editing?.cutNumber),
+    days: toInputValue(editing?.daysSinceLastCut),
+    observation: editing?.observation ?? '',
+  };
+}
+
+export function CutDialog({
+  open,
+  onClose,
+  editing,
+  fields,
+  productFamilies,
+  onSave,
+  saving = false,
+}: Props) {
+  const { control, formState, handleSubmit, reset } = useForm<CutFormValues>({
+    defaultValues: getDefaultValues(editing),
+    resolver: zodResolver(cutSchema),
+  });
 
   useEffect(() => {
-    setFieldId(String(editing?.field_id ?? ''));
-    setProductFamilyId(String(editing?.product_family_id ?? ''));
-    setCutDate(editing?.cut_date ?? '');
-    setCutNumber(String(editing?.cut_number ?? ''));
-    setDays(String(editing?.days_since_last_cut ?? ''));
-    setObservation(editing?.observation ?? '');
-  }, [editing, open]);
+    reset(getDefaultValues(editing));
+  }, [editing, open, reset]);
+
+  const disabled = saving || formState.isSubmitting;
+
+  const handleFormSubmit = handleSubmit(async (values) => {
+    await onSave({
+      fieldId: optionalIdFromInput(values.fieldId),
+      productFamilyId: optionalIdFromInput(values.productFamilyId),
+      cutDate: optionalTextFromInput(values.cutDate),
+      cutNumber: optionalNumberFromInput(values.cutNumber),
+      observation: optionalTextFromInput(values.observation),
+      daysSinceLastCut: optionalNumberFromInput(values.days),
+    });
+  });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>{editing ? 'Editar Corte' : 'Novo Corte'}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Campo</InputLabel>
-            <Select value={fieldId} label="Campo" onChange={e => setFieldId(e.target.value)}>
-              {fields.map(f => <MenuItem key={f.id} value={String(f.id)}>{f.name}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small">
-            <InputLabel>Família de Produto</InputLabel>
-            <Select value={productFamilyId} label="Família de Produto" onChange={e => setProductFamilyId(e.target.value)}>
-              {productFamilies.map((family) => (
-                <MenuItem key={family.id} value={String(family.id)}>{family.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <FormTextField
+            control={control}
+            name="fieldId"
+            label="Campo"
+            select
+            fullWidth
+            size="small"
+          >
+            {fields.map((field) => (
+              <MenuItem key={field.id} value={String(field.id)}>
+                {field.name}
+              </MenuItem>
+            ))}
+          </FormTextField>
+          <FormTextField
+            control={control}
+            name="productFamilyId"
+            label="Familia de Produto"
+            select
+            fullWidth
+            size="small"
+          >
+            {productFamilies.map((productFamily) => (
+              <MenuItem key={productFamily.id} value={String(productFamily.id)}>
+                {productFamily.name}
+              </MenuItem>
+            ))}
+          </FormTextField>
           <Stack direction="row" spacing={1.5}>
-            <TextField label="Nº do Corte" type="number" value={cutNumber}
-              onChange={e => setCutNumber(e.target.value)} fullWidth />
-            <TextField label="Data do Corte" type="date" value={cutDate}
-              onChange={e => setCutDate(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
+            <FormTextField
+              control={control}
+              name="cutNumber"
+              label="Numero do Corte"
+              type="number"
+              fullWidth
+            />
+            <FormTextField
+              control={control}
+              name="cutDate"
+              label="Data do Corte"
+              type="date"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+            />
           </Stack>
-          <TextField label="Dias desde último corte" type="number" value={days}
-            onChange={e => setDays(e.target.value)} fullWidth />
-          <TextField label="Observação" value={observation}
-            onChange={e => setObservation(e.target.value)} fullWidth multiline rows={2} />
+          <FormTextField
+            control={control}
+            name="days"
+            label="Dias desde ultimo corte"
+            type="number"
+            fullWidth
+          />
+          <FormTextField
+            control={control}
+            name="observation"
+            label="Observacao"
+            fullWidth
+            multiline
+            rows={2}
+          />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" disabled={!fieldId || !productFamilyId}
-          onClick={() => onSave({
-            field_id: Number(fieldId),
-            product_family_id: Number(productFamilyId),
-            cut_date: cutDate || undefined,
-            cut_number: cutNumber ? Number(cutNumber) : undefined,
-            observation: observation || undefined,
-            days_since_last_cut: days ? Number(days) : undefined,
-          })}>
+        <Button onClick={onClose} disabled={disabled}>
+          Cancelar
+        </Button>
+        <Button
+          variant="contained"
+          disabled={disabled}
+          onClick={() => {
+            void handleFormSubmit();
+          }}
+        >
           Salvar
         </Button>
       </DialogActions>

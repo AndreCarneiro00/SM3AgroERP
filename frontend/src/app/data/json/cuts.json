@@ -1,8 +1,8 @@
 [
-  { "id": 1, "field_id": 1, "product_family_id": 1, "cut_date": "2025-03-15", "cut_number": 1, "observation": "Primeiro corte da safra 2025", "days_since_last_cut": 90 },
-  { "id": 2, "field_id": 2, "product_family_id": 1, "cut_date": "2025-03-20", "cut_number": 1, "observation": "Condições climáticas favoráveis", "days_since_last_cut": 85 },
-  { "id": 3, "field_id": 1, "product_family_id": 1, "cut_date": "2025-05-10", "cut_number": 2, "observation": "Segundo corte, excelente qualidade", "days_since_last_cut": 56 },
-  { "id": 4, "field_id": 3, "product_family_id": 1, "cut_date": "2025-04-05", "cut_number": 1, "days_since_last_cut": 75 },
-  { "id": 5, "field_id": 2, "product_family_id": 1, "cut_date": "2025-06-01", "cut_number": 2, "observation": "Alta produtividade", "days_since_last_cut": 73 },
-  { "id": 6, "field_id": 1, "product_family_id": 1, "cut_date": "2025-07-20", "cut_number": 3, "days_since_last_cut": 71 }
+  { "id": 1, "fieldId": 1, "productFamilyId": 1, "cutDate": "2025-03-15", "cutNumber": 1, "observation": "Primeiro corte da safra 2025", "daysSinceLastCut": 90 },
+  { "id": 2, "fieldId": 2, "productFamilyId": 1, "cutDate": "2025-03-20", "cutNumber": 1, "observation": "Condições climáticas favoráveis", "daysSinceLastCut": 85 },
+  { "id": 3, "fieldId": 1, "productFamilyId": 1, "cutDate": "2025-05-10", "cutNumber": 2, "observation": "Segundo corte, excelente qualidade", "daysSinceLastCut": 56 },
+  { "id": 4, "fieldId": 3, "productFamilyId": 1, "cutDate": "2025-04-05", "cutNumber": 1, "daysSinceLastCut": 75 },
+  { "id": 5, "fieldId": 2, "productFamilyId": 1, "cutDate": "2025-06-01", "cutNumber": 2, "observation": "Alta produtividade", "daysSinceLastCut": 73 },
+  { "id": 6, "fieldId": 1, "productFamilyId": 1, "cutDate": "2025-07-20", "cutNumber": 3, "daysSinceLastCut": 71 }
 ]

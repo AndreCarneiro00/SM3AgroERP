@@ -1,33 +1,59 @@
 import { useState } from 'react';
-import { Box, Card, Typography, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
-import type { Field } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import {
+  Box,
+  Card,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@mui/material';
+import {
+  useAgriculturalCatalogData,
+  useAgriculturalMutations,
+} from '../../../domains/agricultural/ui/hooks';
+import type {
+  Field,
+  FieldInput,
+} from '../../../domains/agricultural/model/entities';
 import { PageHeader } from '../shared/PageHeader';
-import { StatBox } from '../shared/StatBox';
 import { RowActions } from '../shared/RowActions';
+import { StatBox } from '../shared/StatBox';
 import { FieldDialog } from './FieldDialog';
 
 export function FieldsTab() {
-  const { fields, setFields, nextId } = useApp();
+  const { fields } = useAgriculturalCatalogData();
+  const { createField, updateField, deleteField } = useAgriculturalMutations();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Field | undefined>();
 
-  const totalArea = fields.reduce((s, f) => s + (f.area_hectares ?? 0), 0);
+  const totalArea = fields.reduce(
+    (sum, field) => sum + (field.areaHectares ?? 0),
+    0,
+  );
 
-  const handleSave = (d: Partial<Field>) => {
-    setFields(fs =>
-      editing
-        ? fs.map(f => f.id === editing.id ? { ...editing, ...d } : f)
-        : [...fs, { id: nextId(fields), ...d } as Field]
-    );
+  const handleSave = async (input: FieldInput) => {
+    if (editing) {
+      await updateField.mutateAsync({ id: editing.id, input });
+    } else {
+      await createField.mutateAsync(input);
+    }
+
     setDialogOpen(false);
   };
 
   return (
     <Box>
-      <PageHeader actionLabel="Novo Campo" onAction={() => { setEditing(undefined); setDialogOpen(true); }}>
+      <PageHeader
+        actionLabel="Novo Campo"
+        onAction={() => {
+          setEditing(undefined);
+          setDialogOpen(true);
+        }}
+      >
         <StatBox label="Total de Campos" value={String(fields.length)} />
-        <StatBox label="Área Total" value={`${totalArea.toFixed(1)} ha`} />
+        <StatBox label="Area Total" value={`${totalArea.toFixed(1)} ha`} />
       </PageHeader>
 
       <Card>
@@ -35,19 +61,30 @@ export function FieldsTab() {
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
-              <TableCell>Área (ha)</TableCell>
-              <TableCell align="center">Ações</TableCell>
+              <TableCell>Area (ha)</TableCell>
+              <TableCell align="center">Acoes</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {fields.map(f => (
-              <TableRow key={f.id}>
-                <TableCell><Typography variant="body2" fontWeight={500}>{f.name}</Typography></TableCell>
-                <TableCell>{f.area_hectares?.toFixed(1) ?? '-'} ha</TableCell>
+            {fields.map((field) => (
+              <TableRow key={field.id}>
+                <TableCell>
+                  <Typography variant="body2" fontWeight={500}>
+                    {field.name}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  {field.areaHectares?.toFixed(1) ?? '-'} ha
+                </TableCell>
                 <TableCell align="center">
                   <RowActions
-                    onEdit={() => { setEditing(f); setDialogOpen(true); }}
-                    onDelete={() => setFields(fs => fs.filter(x => x.id !== f.id))}
+                    onEdit={() => {
+                      setEditing(field);
+                      setDialogOpen(true);
+                    }}
+                    onDelete={() => {
+                      void deleteField.mutateAsync(field.id);
+                    }}
                   />
                 </TableCell>
               </TableRow>
@@ -56,7 +93,15 @@ export function FieldsTab() {
         </Table>
       </Card>
 
-      <FieldDialog open={dialogOpen} onClose={() => setDialogOpen(false)} editing={editing} onSave={handleSave} />
+      <FieldDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        editing={editing}
+        saving={createField.isPending || updateField.isPending}
+        onSave={(input) => {
+          void handleSave(input);
+        }}
+      />
     </Box>
   );
 }

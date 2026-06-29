@@ -7,13 +7,15 @@ interface RowActionsProps {
   onDelete: () => void;
   deleteConfirmMessage?: string;
   extraActions?: React.ReactNode;
+  disabled?: boolean;
 }
 
 export function RowActions({
   onEdit,
   onDelete,
-  deleteConfirmMessage = 'Confirmar exclusão?',
+  deleteConfirmMessage = 'Confirmar exclusao?',
   extraActions,
+  disabled = false,
 }: RowActionsProps) {
   const handleDelete = () => {
     if (confirm(deleteConfirmMessage)) onDelete();
@@ -23,12 +25,17 @@ export function RowActions({
     <Stack direction="row" spacing={0.25} justifyContent="center">
       {extraActions}
       <Tooltip title="Editar">
-        <IconButton size="small" onClick={onEdit}>
+        <IconButton size="small" onClick={onEdit} disabled={disabled}>
           <EditIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Tooltip>
       <Tooltip title="Excluir">
-        <IconButton size="small" color="error" onClick={handleDelete}>
+        <IconButton
+          size="small"
+          color="error"
+          onClick={handleDelete}
+          disabled={disabled}
+        >
           <DeleteIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Tooltip>

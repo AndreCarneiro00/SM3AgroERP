@@ -1,7 +1,7 @@
 [
-  { "id": 1, "field_operation_id": 1, "machine_id": 1, "hours_worked": 2.5, "observation": "Apoio ao plantio e sulcamento" },
-  { "id": 2, "field_operation_id": 2, "machine_id": 3, "hours_worked": 4.5, "observation": "Segadeira operando em faixa completa" },
-  { "id": 3, "field_operation_id": 3, "machine_id": 2, "hours_worked": 6.0, "observation": "Operação contínua durante o dia todo" },
-  { "id": 4, "field_operation_id": 4, "machine_id": 1, "hours_worked": 3.5, "observation": "Distribuição com implemento acoplado" },
-  { "id": 5, "field_operation_id": 5, "machine_id": 4, "hours_worked": 2.0, "observation": "Planejamento inicial de irrigação" }
+  { "id": 1, "fieldOperationId": 1, "machineId": 1, "hoursWorked": 2.5, "observation": "Apoio ao plantio e sulcamento" },
+  { "id": 2, "fieldOperationId": 2, "machineId": 3, "hoursWorked": 4.5, "observation": "Segadeira operando em faixa completa" },
+  { "id": 3, "fieldOperationId": 3, "machineId": 2, "hoursWorked": 6.0, "observation": "Operação contínua durante o dia todo" },
+  { "id": 4, "fieldOperationId": 4, "machineId": 1, "hoursWorked": 3.5, "observation": "Distribuição com implemento acoplado" },
+  { "id": 5, "fieldOperationId": 5, "machineId": 4, "hoursWorked": 2.0, "observation": "Planejamento inicial de irrigação" }
 ]

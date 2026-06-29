@@ -1,89 +1,190 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Stack, TextField, FormControl, InputLabel, Select, MenuItem,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Stack,
 } from '@mui/material';
-import type { Product } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { FormTextField } from '../../forms/FormTextField';
+import {
+  optionalIdFromInput,
+  requiredTextFromInput,
+  toInputValue,
+} from '../../forms/valueParsers';
+import { zodResolver } from '../../forms/zodResolver';
+import type {
+  Product,
+  ProductFamily,
+  ProductInput,
+  ProductType,
+  UnitOfMeasure,
+} from '../../../domains/products/model/entities';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   editing?: Product;
-  onSave: (data: Partial<Product>) => void;
+  productFamilies: ProductFamily[];
+  unitsOfMeasure: UnitOfMeasure[];
+  onSave: (data: ProductInput) => void | Promise<void>;
+  saving?: boolean;
 }
 
-export function ProductDialog({ open, onClose, editing, onSave }: Props) {
-  const { productFamilies, unitsOfMeasure } = useApp();
-  const [name, setName] = useState('');
-  const [familyId, setFamilyId] = useState('');
-  const [unitId, setUnitId] = useState('');
-  const [productType, setProductType] = useState<Product['product_type']>('FINISHED_GOOD');
-  const [active, setActive] = useState(true);
+const productTypeValues = [
+  'RAW_MATERIAL',
+  'FINISHED_GOOD',
+  'CONSUMABLE',
+  'SPARE_PART',
+  'SERVICE',
+] as const;
+
+const productStatusValues = ['active', 'inactive'] as const;
+
+const productTypeOptions: Array<{ value: ProductType; label: string }> = [
+  { value: 'RAW_MATERIAL', label: 'Materia-prima' },
+  { value: 'FINISHED_GOOD', label: 'Produto acabado' },
+  { value: 'CONSUMABLE', label: 'Consumivel' },
+  { value: 'SPARE_PART', label: 'Peca de reposicao' },
+  { value: 'SERVICE', label: 'Servico' },
+];
+
+const productSchema = z.object({
+  name: z.string().trim().min(1, 'Informe o nome do produto.'),
+  familyId: z.string(),
+  unitId: z.string(),
+  productType: z.enum(productTypeValues),
+  active: z.enum(productStatusValues),
+});
+
+type ProductFormValues = z.infer<typeof productSchema>;
+
+function getDefaultValues(editing?: Product): ProductFormValues {
+  return {
+    name: editing?.name ?? '',
+    familyId: toInputValue(editing?.productFamilyId),
+    unitId: toInputValue(editing?.unitId),
+    productType: editing?.productType ?? 'FINISHED_GOOD',
+    active: editing?.active === false ? 'inactive' : 'active',
+  };
+}
+
+export function ProductDialog({
+  open,
+  onClose,
+  editing,
+  productFamilies,
+  unitsOfMeasure,
+  onSave,
+  saving = false,
+}: Props) {
+  const { control, formState, handleSubmit, reset } =
+    useForm<ProductFormValues>({
+      defaultValues: getDefaultValues(editing),
+      resolver: zodResolver(productSchema),
+    });
 
   useEffect(() => {
-    setName(editing?.name ?? '');
-    setFamilyId(String(editing?.product_family_id ?? ''));
-    setUnitId(String(editing?.unit_id ?? ''));
-    setProductType(editing?.product_type ?? 'FINISHED_GOOD');
-    setActive(editing?.active ?? true);
-  }, [editing, open]);
+    reset(getDefaultValues(editing));
+  }, [editing, open, reset]);
+
+  const disabled = saving || formState.isSubmitting;
+
+  const handleFormSubmit = handleSubmit(async (values) => {
+    await onSave({
+      name: requiredTextFromInput(values.name),
+      productFamilyId: optionalIdFromInput(values.familyId),
+      unitId: optionalIdFromInput(values.unitId),
+      productType: values.productType,
+      active: values.active === 'active',
+    });
+  });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>{editing ? 'Editar Produto' : 'Novo Produto'}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField label="Nome do Produto" value={name} onChange={e => setName(e.target.value)} fullWidth />
-          <FormControl fullWidth size="small">
-            <InputLabel>Família</InputLabel>
-            <Select value={familyId} label="Família" onChange={e => setFamilyId(e.target.value)}>
-              <MenuItem value="">— Nenhuma —</MenuItem>
-              {productFamilies.map(pf => (
-                <MenuItem key={pf.id} value={String(pf.id)}>{pf.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small">
-            <InputLabel>Unidade de Medida</InputLabel>
-            <Select value={unitId} label="Unidade de Medida" onChange={e => setUnitId(e.target.value)}>
-              <MenuItem value="">— Nenhuma —</MenuItem>
-              {unitsOfMeasure.map(u => (
-                <MenuItem key={u.id} value={String(u.id)}>{u.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <FormTextField
+            control={control}
+            name="name"
+            label="Nome do Produto"
+            fullWidth
+          />
+          <FormTextField
+            control={control}
+            name="familyId"
+            label="Familia"
+            select
+            fullWidth
+            size="small"
+          >
+            <MenuItem value="">- Nenhuma -</MenuItem>
+            {productFamilies.map((family) => (
+              <MenuItem key={family.id} value={String(family.id)}>
+                {family.name}
+              </MenuItem>
+            ))}
+          </FormTextField>
+          <FormTextField
+            control={control}
+            name="unitId"
+            label="Unidade de Medida"
+            select
+            fullWidth
+            size="small"
+          >
+            <MenuItem value="">- Nenhuma -</MenuItem>
+            {unitsOfMeasure.map((unit) => (
+              <MenuItem key={unit.id} value={String(unit.id)}>
+                {unit.name}
+              </MenuItem>
+            ))}
+          </FormTextField>
           <Stack direction="row" spacing={1.5}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Tipo do Produto</InputLabel>
-              <Select value={productType} label="Tipo do Produto" onChange={e => setProductType(e.target.value as Product['product_type'])}>
-                <MenuItem value="RAW_MATERIAL">Matéria-prima</MenuItem>
-                <MenuItem value="FINISHED_GOOD">Produto acabado</MenuItem>
-                <MenuItem value="CONSUMABLE">Consumível</MenuItem>
-                <MenuItem value="SPARE_PART">Peça de reposição</MenuItem>
-                <MenuItem value="SERVICE">Serviço</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl fullWidth size="small">
-              <InputLabel>Status</InputLabel>
-              <Select value={active ? 'active' : 'inactive'} label="Status" onChange={e => setActive(e.target.value === 'active')}>
-                <MenuItem value="active">Ativo</MenuItem>
-                <MenuItem value="inactive">Inativo</MenuItem>
-              </Select>
-            </FormControl>
+            <FormTextField
+              control={control}
+              name="productType"
+              label="Tipo do Produto"
+              select
+              fullWidth
+              size="small"
+            >
+              {productTypeOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </FormTextField>
+            <FormTextField
+              control={control}
+              name="active"
+              label="Status"
+              select
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="active">Ativo</MenuItem>
+              <MenuItem value="inactive">Inativo</MenuItem>
+            </FormTextField>
           </Stack>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" disabled={!name}
-          onClick={() => onSave({
-            name,
-            product_family_id: familyId ? Number(familyId) : undefined,
-            unit_id: unitId ? Number(unitId) : undefined,
-            product_type: productType,
-            active,
-          })}>
+        <Button onClick={onClose} disabled={disabled}>
+          Cancelar
+        </Button>
+        <Button
+          variant="contained"
+          disabled={disabled}
+          onClick={() => {
+            void handleFormSubmit();
+          }}
+        >
           Salvar
         </Button>
       </DialogActions>

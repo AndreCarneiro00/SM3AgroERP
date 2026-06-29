@@ -1,7 +1,7 @@
 [
-  { "id": 1, "name": "Campo Norte", "area_hectares": 45.5 },
-  { "id": 2, "name": "Campo Sul", "area_hectares": 38.0 },
-  { "id": 3, "name": "Campo Leste", "area_hectares": 22.3 },
-  { "id": 4, "name": "Pastagem Central", "area_hectares": 60.0 },
-  { "id": 5, "name": "Campo Experimental", "area_hectares": 10.0 }
+  { "id": 1, "name": "Campo Norte", "areaHectares": 45.5 },
+  { "id": 2, "name": "Campo Sul", "areaHectares": 38.0 },
+  { "id": 3, "name": "Campo Leste", "areaHectares": 22.3 },
+  { "id": 4, "name": "Pastagem Central", "areaHectares": 60.0 },
+  { "id": 5, "name": "Campo Experimental", "areaHectares": 10.0 }
 ]

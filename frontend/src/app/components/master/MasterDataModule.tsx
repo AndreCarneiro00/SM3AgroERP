@@ -1,29 +1,66 @@
 import {
-  FormControl, InputLabel, Select, MenuItem,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  TextField,
 } from '@mui/material';
-import type { CounterpartyType } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import type { CounterpartyType } from '../../../domains/master-data/model/entities';
+import {
+  useMasterDataCatalogData,
+  useMasterDataMutations,
+} from '../../../domains/master-data/ui/hooks';
 import { CounterpartiesTab } from './CounterpartiesTab';
 import { SimpleListTab } from './SimpleListTab';
 
 function CounterpartyTypesTab() {
-  const { counterpartyTypes, setCounterpartyTypes, nextId } = useApp();
+  const { counterpartyTypes, isLoading } = useMasterDataCatalogData();
+  const {
+    createCounterpartyType,
+    deleteCounterpartyType,
+    updateCounterpartyType,
+  } = useMasterDataMutations();
 
   return (
     <SimpleListTab
       items={counterpartyTypes}
-      setItems={setCounterpartyTypes}
-      nextId={items => nextId(items)}
       entityLabel="Tipo de Contraparte"
-      extraColumns={[{ key: 'description' as keyof CounterpartyType, label: 'Descrição' }]}
+      extraColumns={[
+        {
+          key: 'description' as keyof CounterpartyType,
+          label: 'Descricao',
+        },
+        {
+          key: 'active' as keyof CounterpartyType,
+          label: 'Status',
+          render: (item) => (item.active ? 'Ativo' : 'Inativo'),
+        },
+      ]}
+      createInitial={() => ({ active: true, description: '' })}
       ExtraFields={({ form, setForm }) => (
         <>
+          <TextField
+            label="Descricao"
+            value={String((form as Partial<CounterpartyType>).description ?? '')}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                description: event.target.value || undefined,
+              }))
+            }
+            fullWidth
+          />
           <FormControl fullWidth size="small">
             <InputLabel>Status</InputLabel>
             <Select
-              value={(form as CounterpartyType).active ? 'ativo' : 'inativo'}
+              value={(form as Partial<CounterpartyType>).active === false ? 'inativo' : 'ativo'}
               label="Status"
-              onChange={e => setForm(f => ({ ...f, active: e.target.value === 'ativo' }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  active: event.target.value === 'ativo',
+                }))
+              }
             >
               <MenuItem value="ativo">Ativo</MenuItem>
               <MenuItem value="inativo">Inativo</MenuItem>
@@ -31,37 +68,84 @@ function CounterpartyTypesTab() {
           </FormControl>
         </>
       )}
+      onSave={async (editing, form) => {
+        const input = {
+          name: String(form.name ?? '').trim(),
+          description:
+            String((form as Partial<CounterpartyType>).description ?? '').trim() ||
+            undefined,
+          active: (form as Partial<CounterpartyType>).active !== false,
+        };
+
+        if (editing) {
+          await updateCounterpartyType.mutateAsync({ id: editing.id, input });
+        } else {
+          await createCounterpartyType.mutateAsync(input);
+        }
+      }}
+      onDelete={async (item) => {
+        await deleteCounterpartyType.mutateAsync(item.id);
+      }}
+      saving={createCounterpartyType.isPending || updateCounterpartyType.isPending}
+      isLoading={isLoading}
     />
   );
 }
 
 interface Props {
-  tab: 'counterparties' | 'counterparty-types' | 'segments' | 'activity-groups' | 'document-types' | 'adjustment-root-causes';
+  tab:
+    | 'counterparties'
+    | 'counterparty-types'
+    | 'segments'
+    | 'activity-groups'
+    | 'document-types'
+    | 'adjustment-root-causes';
 }
 
 export function MasterDataModule({ tab }: Props) {
   const {
     segments,
-    setSegments,
     activityGroups,
-    setActivityGroups,
     documentTypes,
-    setDocumentTypes,
     adjustmentRootCauses,
-    setAdjustmentRootCauses,
-    nextId,
-  } = useApp();
+    isLoading,
+  } = useMasterDataCatalogData();
+  const {
+    createSegment,
+    updateSegment,
+    deleteSegment,
+    createActivityGroup,
+    updateActivityGroup,
+    deleteActivityGroup,
+    createDocumentType,
+    updateDocumentType,
+    deleteDocumentType,
+    createAdjustmentRootCause,
+    updateAdjustmentRootCause,
+    deleteAdjustmentRootCause,
+  } = useMasterDataMutations();
 
-  if (tab === 'counterparties')     return <CounterpartiesTab />;
+  if (tab === 'counterparties') return <CounterpartiesTab />;
   if (tab === 'counterparty-types') return <CounterpartyTypesTab />;
 
   if (tab === 'segments') {
     return (
       <SimpleListTab
         items={segments}
-        setItems={setSegments}
-        nextId={items => nextId(items)}
         entityLabel="Segmento"
+        onSave={async (editing, form) => {
+          const input = { name: String(form.name ?? '').trim() };
+          if (editing) {
+            await updateSegment.mutateAsync({ id: editing.id, input });
+          } else {
+            await createSegment.mutateAsync(input);
+          }
+        }}
+        onDelete={async (item) => {
+          await deleteSegment.mutateAsync(item.id);
+        }}
+        saving={createSegment.isPending || updateSegment.isPending}
+        isLoading={isLoading}
       />
     );
   }
@@ -70,9 +154,20 @@ export function MasterDataModule({ tab }: Props) {
     return (
       <SimpleListTab
         items={activityGroups}
-        setItems={setActivityGroups}
-        nextId={items => nextId(items)}
         entityLabel="Grupo de Atividade"
+        onSave={async (editing, form) => {
+          const input = { name: String(form.name ?? '').trim() };
+          if (editing) {
+            await updateActivityGroup.mutateAsync({ id: editing.id, input });
+          } else {
+            await createActivityGroup.mutateAsync(input);
+          }
+        }}
+        onDelete={async (item) => {
+          await deleteActivityGroup.mutateAsync(item.id);
+        }}
+        saving={createActivityGroup.isPending || updateActivityGroup.isPending}
+        isLoading={isLoading}
       />
     );
   }
@@ -81,9 +176,26 @@ export function MasterDataModule({ tab }: Props) {
     return (
       <SimpleListTab
         items={adjustmentRootCauses}
-        setItems={setAdjustmentRootCauses}
-        nextId={items => nextId(items)}
         entityLabel="Causa Raiz de Ajuste"
+        onSave={async (editing, form) => {
+          const input = { name: String(form.name ?? '').trim() };
+          if (editing) {
+            await updateAdjustmentRootCause.mutateAsync({
+              id: editing.id,
+              input,
+            });
+          } else {
+            await createAdjustmentRootCause.mutateAsync(input);
+          }
+        }}
+        onDelete={async (item) => {
+          await deleteAdjustmentRootCause.mutateAsync(item.id);
+        }}
+        saving={
+          createAdjustmentRootCause.isPending ||
+          updateAdjustmentRootCause.isPending
+        }
+        isLoading={isLoading}
       />
     );
   }
@@ -91,9 +203,20 @@ export function MasterDataModule({ tab }: Props) {
   return (
     <SimpleListTab
       items={documentTypes}
-      setItems={setDocumentTypes}
-      nextId={items => nextId(items)}
       entityLabel="Tipo de Documento"
+      onSave={async (editing, form) => {
+        const input = { name: String(form.name ?? '').trim() };
+        if (editing) {
+          await updateDocumentType.mutateAsync({ id: editing.id, input });
+        } else {
+          await createDocumentType.mutateAsync(input);
+        }
+      }}
+      onDelete={async (item) => {
+        await deleteDocumentType.mutateAsync(item.id);
+      }}
+      saving={createDocumentType.isPending || updateDocumentType.isPending}
+      isLoading={isLoading}
     />
   );
 }

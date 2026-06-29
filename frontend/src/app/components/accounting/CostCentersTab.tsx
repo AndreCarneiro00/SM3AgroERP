@@ -1,39 +1,86 @@
 import { useState } from 'react';
-import { Box, Card, Chip, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
-import type { CostCenter } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import {
+  Box,
+  Card,
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@mui/material';
+import type {
+  CostCenter,
+  CostCenterInput,
+} from '../../../domains/accounting/model/entities';
+import {
+  useAccountingCatalogData,
+  useAccountingMutations,
+} from '../../../domains/accounting/ui/hooks';
+import {
+  selectActivityGroupLabelById,
+} from '../../../domains/master-data/selectors/selectors';
+import { useMasterDataCatalogData } from '../../../domains/master-data/ui/hooks';
+import { CostCenterDialog } from './CostCenterDialog';
+import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { TreeNode } from '../shared/TreeNode';
-import { CostCenterDialog } from './CostCenterDialog';
 
 export function CostCentersTab() {
-  const { costCenters, setCostCenters, activityGroups, nextId } = useApp();
+  const { costCenters, isLoading } = useAccountingCatalogData();
+  const { createCostCenter, updateCostCenter, deleteCostCenter } =
+    useAccountingMutations();
+  const { activityGroups, catalog } = useMasterDataCatalogData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CostCenter | undefined>();
   const [parentForNew, setParentForNew] = useState<number | undefined>();
 
-  const roots = costCenters.filter(c => !c.parent_id);
+  const roots = costCenters.filter((costCenter) => !costCenter.parentId);
 
-  const handleSave = (d: Partial<CostCenter>) => {
-    setCostCenters(cs =>
-      editing
-        ? cs.map(c => c.id === editing.id ? { ...editing, ...d } : c)
-        : [...cs, { id: nextId(cs), active: true, ...d } as CostCenter]
-    );
+  const getActivityGroupName = (activityGroupId?: number) =>
+    selectActivityGroupLabelById(catalog, activityGroupId);
+
+  const getCostCenterName = (costCenterId?: number) =>
+    costCenters.find((costCenter) => costCenter.id === costCenterId)?.name;
+
+  const handleSave = async (input: CostCenterInput) => {
+    if (editing) {
+      await updateCostCenter.mutateAsync({ id: editing.id, input });
+    } else {
+      await createCostCenter.mutateAsync(input);
+    }
+
     setDialogOpen(false);
+    setEditing(undefined);
   };
 
-  const handleDelete = (node: CostCenter) => {
-    if (costCenters.some(c => c.parent_id === node.id)) {
+  const handleDelete = async (costCenter: CostCenter) => {
+    if (costCenters.some((candidate) => candidate.parentId === costCenter.id)) {
       alert('Remova os sub-centros antes de excluir.');
       return;
     }
-    setCostCenters(cs => cs.filter(c => c.id !== node.id));
+
+    await deleteCostCenter.mutateAsync(costCenter.id);
   };
 
-  const openCreate = () => { setEditing(undefined); setParentForNew(undefined); setDialogOpen(true); };
-  const openEdit = (n: CostCenter) => { setEditing(n); setParentForNew(undefined); setDialogOpen(true); };
-  const openChild = (n: CostCenter) => { setEditing(undefined); setParentForNew(n.id); setDialogOpen(true); };
+  const openCreate = () => {
+    setEditing(undefined);
+    setParentForNew(undefined);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (costCenter: CostCenter) => {
+    setEditing(costCenter);
+    setParentForNew(undefined);
+    setDialogOpen(true);
+  };
+
+  const openChild = (costCenter: CostCenter) => {
+    setEditing(undefined);
+    setParentForNew(costCenter.id);
+    setDialogOpen(true);
+  };
 
   return (
     <Box>
@@ -46,49 +93,77 @@ export function CostCentersTab() {
               <TableCell>Centro de Custo</TableCell>
               <TableCell>Tipo</TableCell>
               <TableCell>Grupo Atividade</TableCell>
-              <TableCell>Lançamentos</TableCell>
-              <TableCell align="center">Ações</TableCell>
+              <TableCell>Lancamentos</TableCell>
+              <TableCell align="center">Acoes</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {roots.map(root => (
+            {roots.map((root) => (
               <TreeNode
                 key={root.id}
                 node={root}
                 allNodes={costCenters}
                 depth={0}
                 onEdit={openEdit}
-                onDelete={handleDelete}
+                onDelete={(node) => {
+                  void handleDelete(node);
+                }}
                 onAddChild={openChild}
-                renderExtraCells={n => (
+                getParentId={(item) => item.parentId}
+                renderExtraCells={(node) => (
                   <>
                     <TableCell>
-                      {n.type && (
-                        <Chip label={n.type} size="small"
-                          color={n.type === 'CAPEX' ? 'warning' : 'info'}
-                          sx={{ height: 18, fontSize: '0.68rem' }} />
+                      {node.type && (
+                        <Chip
+                          label={node.type}
+                          size="small"
+                          color={node.type === 'CAPEX' ? 'warning' : 'info'}
+                          sx={{ height: 18, fontSize: '0.68rem' }}
+                        />
                       )}
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption" color="text.secondary">
-                        {activityGroups.find(ag => ag.id === n.activity_group_id)?.name ?? '-'}
+                        {getActivityGroupName(node.activityGroupId)}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip label={n.accepts_transaction ? 'Sim' : 'Não'} size="small"
-                        color={n.accepts_transaction ? 'success' : 'default'} variant="outlined"
-                        sx={{ height: 18, fontSize: '0.68rem' }} />
+                      <Chip
+                        label={node.acceptsTransaction ? 'Sim' : 'Nao'}
+                        size="small"
+                        color={node.acceptsTransaction ? 'success' : 'default'}
+                        variant="outlined"
+                        sx={{ height: 18, fontSize: '0.68rem' }}
+                      />
                     </TableCell>
                   </>
                 )}
               />
             ))}
+            {roots.length === 0 && (
+              <EmptyTableRow
+                colSpan={5}
+                message={
+                  isLoading
+                    ? 'Carregando centros de custo...'
+                    : 'Nenhum centro de custo cadastrado.'
+                }
+              />
+            )}
           </TableBody>
         </Table>
       </Card>
 
-      <CostCenterDialog open={dialogOpen} onClose={() => setDialogOpen(false)}
-        editing={editing} parentId={parentForNew} onSave={handleSave} />
+      <CostCenterDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        editing={editing}
+        parentId={parentForNew}
+        parentName={getCostCenterName(parentForNew)}
+        activityGroups={activityGroups}
+        onSave={handleSave}
+        saving={createCostCenter.isPending || updateCostCenter.isPending}
+      />
     </Box>
   );
 }

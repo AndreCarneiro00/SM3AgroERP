@@ -1,70 +1,127 @@
 import { useState } from 'react';
 import {
-  Box, Card, Typography, Chip, Table, TableBody, TableCell, TableHead, TableRow,
+  Box,
+  Card,
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
 } from '@mui/material';
-import type { Cut } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import {
+  useAgriculturalCatalogData,
+  useAgriculturalMutations,
+} from '../../../domains/agricultural/ui/hooks';
+import type {
+  Cut,
+  CutInput,
+} from '../../../domains/agricultural/model/entities';
+import { useProductsCatalogData } from '../../../domains/products/ui/hooks';
+import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
-import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { CutDialog } from './CutDialog';
 
-const fmtDate = (s?: string) => s ? new Date(s + 'T12:00:00').toLocaleDateString('pt-BR') : '-';
+const fmtDate = (value?: string) =>
+  value ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR') : '-';
 
 export function CutsTab() {
-  const { cuts, setCuts, fields, productFamilies, nextId } = useApp();
+  const { cuts, fields } = useAgriculturalCatalogData();
+  const { createCut, updateCut, deleteCut } = useAgriculturalMutations();
+  const { catalog, productFamilies } = useProductsCatalogData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Cut | undefined>();
-  const sorted = [...cuts].sort((a, b) => (b.cut_date ?? '').localeCompare(a.cut_date ?? ''));
 
-  const handleSave = (d: Partial<Cut>) => {
-    setCuts(cs =>
-      editing
-        ? cs.map(c => c.id === editing.id ? { ...editing, ...d } : c)
-        : [...cs, { id: nextId(cuts), ...d } as Cut]
-    );
+  const sorted = [...cuts].sort((left, right) =>
+    (right.cutDate ?? '').localeCompare(left.cutDate ?? ''),
+  );
+
+  const getProductFamilyName = (productFamilyId?: number) =>
+    catalog.productFamilies.byId[productFamilyId ?? -1]?.name ?? '-';
+
+  const handleSave = async (input: CutInput) => {
+    if (editing) {
+      await updateCut.mutateAsync({ id: editing.id, input });
+    } else {
+      await createCut.mutateAsync(input);
+    }
+
     setDialogOpen(false);
   };
 
   return (
     <Box>
-      <PageHeader actionLabel="Novo Corte" onAction={() => { setEditing(undefined); setDialogOpen(true); }} />
+      <PageHeader
+        actionLabel="Novo Corte"
+        onAction={() => {
+          setEditing(undefined);
+          setDialogOpen(true);
+        }}
+      />
 
       <Card>
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell>Campo</TableCell>
-              <TableCell>Família</TableCell>
-              <TableCell>Nº Corte</TableCell>
+              <TableCell>Familia</TableCell>
+              <TableCell>Numero do Corte</TableCell>
               <TableCell>Data</TableCell>
-              <TableCell>Dias desde último</TableCell>
-              <TableCell>Observação</TableCell>
-              <TableCell align="center">Ações</TableCell>
+              <TableCell>Dias desde ultimo</TableCell>
+              <TableCell>Observacao</TableCell>
+              <TableCell align="center">Acoes</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {sorted.map(c => {
-              const field = fields.find(f => f.id === c.field_id);
-              const family = productFamilies.find((item) => item.id === c.product_family_id);
+            {sorted.map((cut) => {
+              const field = fields.find((item) => item.id === cut.fieldId);
+
               return (
-                <TableRow key={c.id}>
-                  <TableCell><Typography variant="body2" fontWeight={500}>{field?.name ?? '-'}</Typography></TableCell>
-                  <TableCell>{family?.name ?? '-'}</TableCell>
+                <TableRow key={cut.id}>
                   <TableCell>
-                    <Chip label={`#${c.cut_number ?? '-'}`} size="small" color="primary" sx={{ height: 20 }} />
+                    <Typography variant="body2" fontWeight={500}>
+                      {field?.name ?? '-'}
+                    </Typography>
                   </TableCell>
-                  <TableCell>{fmtDate(c.cut_date)}</TableCell>
+                  <TableCell>
+                    {getProductFamilyName(cut.productFamilyId)}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={`#${cut.cutNumber ?? '-'}`}
+                      size="small"
+                      color="primary"
+                      sx={{ height: 20 }}
+                    />
+                  </TableCell>
+                  <TableCell>{fmtDate(cut.cutDate)}</TableCell>
                   <TableCell sx={{ color: 'text.secondary' }}>
-                    {c.days_since_last_cut ? `${c.days_since_last_cut} dias` : '-'}
+                    {cut.daysSinceLastCut
+                      ? `${cut.daysSinceLastCut} dias`
+                      : '-'}
                   </TableCell>
-                  <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.secondary' }}>
-                    {c.observation ?? '-'}
+                  <TableCell
+                    sx={{
+                      maxWidth: 200,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      color: 'text.secondary',
+                    }}
+                  >
+                    {cut.observation ?? '-'}
                   </TableCell>
                   <TableCell align="center">
                     <RowActions
-                      onEdit={() => { setEditing(c); setDialogOpen(true); }}
-                      onDelete={() => setCuts(cs => cs.filter(x => x.id !== c.id))}
+                      onEdit={() => {
+                        setEditing(cut);
+                        setDialogOpen(true);
+                      }}
+                      onDelete={() => {
+                        void deleteCut.mutateAsync(cut.id);
+                      }}
                     />
                   </TableCell>
                 </TableRow>
@@ -75,7 +132,17 @@ export function CutsTab() {
         </Table>
       </Card>
 
-      <CutDialog open={dialogOpen} onClose={() => setDialogOpen(false)} editing={editing} onSave={handleSave} />
+      <CutDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        editing={editing}
+        fields={fields}
+        productFamilies={productFamilies}
+        saving={createCut.isPending || updateCut.isPending}
+        onSave={(input) => {
+          void handleSave(input);
+        }}
+      />
     </Box>
   );
 }

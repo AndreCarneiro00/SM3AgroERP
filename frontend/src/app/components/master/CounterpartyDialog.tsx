@@ -1,127 +1,251 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Stack, TextField, FormControl, InputLabel, Select, MenuItem,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Stack,
 } from '@mui/material';
-import type { Counterparty } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { FormTextField } from '../../forms/FormTextField';
+import {
+  optionalIdFromInput,
+  optionalTextFromInput,
+  requiredTextFromInput,
+  toInputValue,
+} from '../../forms/valueParsers';
+import { zodResolver } from '../../forms/zodResolver';
+import type {
+  Counterparty,
+  CounterpartyInput,
+  CounterpartyType,
+  Segment,
+} from '../../../domains/master-data/model/entities';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   editing?: Counterparty;
-  onSave: (data: Partial<Counterparty>) => void;
+  counterpartyTypes: CounterpartyType[];
+  segments: Segment[];
+  onSave: (data: CounterpartyInput) => void | Promise<void>;
+  saving?: boolean;
 }
 
-export function CounterpartyDialog({ open, onClose, editing, onSave }: Props) {
-  const { counterpartyTypes, segments } = useApp();
+const documentTypeValues = ['CPF', 'CNPJ'] as const;
+const statusValues = ['ativo', 'inativo'] as const;
 
-  const [legalName, setLegalName] = useState('');
-  const [tradeName, setTradeName] = useState('');
-  const [typeId, setTypeId] = useState('');
-  const [segmentId, setSegmentId] = useState('');
-  const [docType, setDocType] = useState('');
-  const [document, setDocument] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [active, setActive] = useState(true);
+const counterpartySchema = z.object({
+  legalName: z
+    .string()
+    .trim()
+    .min(1, 'Informe a razao social ou nome legal.'),
+  tradeName: z.string(),
+  typeId: z.string(),
+  segmentId: z.string(),
+  documentType: z.union([z.literal(''), z.enum(documentTypeValues)]),
+  document: z.string(),
+  city: z.string(),
+  state: z.string().trim().max(2, 'Use a UF com 2 letras.'),
+  phone: z.string(),
+  email: z
+    .string()
+    .trim()
+    .refine(
+      (value) => !value || z.string().email().safeParse(value).success,
+      'Informe um e-mail valido.',
+    ),
+  active: z.enum(statusValues),
+});
+
+type CounterpartyFormValues = z.infer<typeof counterpartySchema>;
+
+function getDefaultValues(editing?: Counterparty): CounterpartyFormValues {
+  return {
+    legalName: editing?.legalName ?? '',
+    tradeName: editing?.tradeName ?? '',
+    typeId: toInputValue(editing?.counterpartyTypeId),
+    segmentId: toInputValue(editing?.segmentId),
+    documentType: editing?.documentType ?? '',
+    document: editing?.document ?? '',
+    city: editing?.city ?? '',
+    state: editing?.state ?? '',
+    phone: editing?.phoneNumber ?? '',
+    email: editing?.email ?? '',
+    active: editing?.active === false ? 'inativo' : 'ativo',
+  };
+}
+
+export function CounterpartyDialog({
+  open,
+  onClose,
+  editing,
+  counterpartyTypes,
+  segments,
+  onSave,
+  saving = false,
+}: Props) {
+  const { control, formState, handleSubmit, reset } =
+    useForm<CounterpartyFormValues>({
+      defaultValues: getDefaultValues(editing),
+      resolver: zodResolver(counterpartySchema),
+    });
 
   useEffect(() => {
-    setLegalName(editing?.legal_name ?? '');
-    setTradeName(editing?.trade_name ?? '');
-    setTypeId(String(editing?.counterparty_type_id ?? ''));
-    setSegmentId(String(editing?.segment_id ?? ''));
-    setDocType(editing?.document_type ?? '');
-    setDocument(editing?.document ?? '');
-    setCity(editing?.city ?? '');
-    setState(editing?.state ?? '');
-    setPhone(editing?.phone_number ?? '');
-    setEmail(editing?.email ?? '');
-    setActive(editing?.active ?? true);
-  }, [editing, open]);
+    reset(getDefaultValues(editing));
+  }, [editing, open, reset]);
 
-  const handleSave = () => {
-    onSave({
-      legal_name: legalName,
-      trade_name: tradeName || undefined,
-      counterparty_type_id: typeId ? Number(typeId) : undefined,
-      segment_id: segmentId ? Number(segmentId) : undefined,
-      document_type: docType as Counterparty['document_type'] || undefined,
-      document: document || undefined,
-      city: city || undefined,
-      state: state || undefined,
-      phone_number: phone || undefined,
-      email: email || undefined,
-      active,
+  const disabled = saving || formState.isSubmitting;
+
+  const handleFormSubmit = handleSubmit(async (values) => {
+    await onSave({
+      legalName: requiredTextFromInput(values.legalName),
+      tradeName: optionalTextFromInput(values.tradeName),
+      counterpartyTypeId: optionalIdFromInput(values.typeId),
+      segmentId: optionalIdFromInput(values.segmentId),
+      documentType: values.documentType || undefined,
+      document: optionalTextFromInput(values.document),
+      city: optionalTextFromInput(values.city),
+      state: optionalTextFromInput(values.state)?.toUpperCase(),
+      phoneNumber: optionalTextFromInput(values.phone),
+      email: optionalTextFromInput(values.email),
+      active: values.active === 'ativo',
     });
-  };
+  });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{editing ? 'Editar Contraparte' : 'Nova Contraparte'}</DialogTitle>
+      <DialogTitle>
+        {editing ? 'Editar Contraparte' : 'Nova Contraparte'}
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField label="Razão Social / Nome Legal" value={legalName} onChange={e => setLegalName(e.target.value)} fullWidth />
-          <TextField label="Nome Fantasia" value={tradeName} onChange={e => setTradeName(e.target.value)} fullWidth />
+          <FormTextField
+            control={control}
+            name="legalName"
+            label="Razao Social / Nome Legal"
+            fullWidth
+          />
+          <FormTextField
+            control={control}
+            name="tradeName"
+            label="Nome Fantasia"
+            fullWidth
+          />
 
           <Stack direction="row" spacing={1.5}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Tipo</InputLabel>
-              <Select value={typeId} label="Tipo" onChange={e => setTypeId(e.target.value)}>
-                <MenuItem value="">— Nenhum —</MenuItem>
-                {counterpartyTypes.map(ct => (
-                  <MenuItem key={ct.id} value={String(ct.id)}>{ct.name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth size="small">
-              <InputLabel>Segmento</InputLabel>
-              <Select value={segmentId} label="Segmento" onChange={e => setSegmentId(e.target.value)}>
-                <MenuItem value="">— Nenhum —</MenuItem>
-                {segments.map(s => (
-                  <MenuItem key={s.id} value={String(s.id)}>{s.name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <FormTextField
+              control={control}
+              name="typeId"
+              label="Tipo"
+              select
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="">- Nenhum -</MenuItem>
+              {counterpartyTypes.map((counterpartyType) => (
+                <MenuItem key={counterpartyType.id} value={String(counterpartyType.id)}>
+                  {counterpartyType.name}
+                </MenuItem>
+              ))}
+            </FormTextField>
+            <FormTextField
+              control={control}
+              name="segmentId"
+              label="Segmento"
+              select
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="">- Nenhum -</MenuItem>
+              {segments.map((segment) => (
+                <MenuItem key={segment.id} value={String(segment.id)}>
+                  {segment.name}
+                </MenuItem>
+              ))}
+            </FormTextField>
           </Stack>
 
           <Stack direction="row" spacing={1.5}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Tipo Documento</InputLabel>
-              <Select value={docType} label="Tipo Documento" onChange={e => setDocType(e.target.value)}>
-                <MenuItem value="">— Nenhum —</MenuItem>
-                <MenuItem value="CNPJ">CNPJ</MenuItem>
-                <MenuItem value="CPF">CPF</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField label="CPF / CNPJ" value={document} onChange={e => setDocument(e.target.value)} fullWidth />
+            <FormTextField
+              control={control}
+              name="documentType"
+              label="Tipo Documento"
+              select
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="">- Nenhum -</MenuItem>
+              <MenuItem value="CNPJ">CNPJ</MenuItem>
+              <MenuItem value="CPF">CPF</MenuItem>
+            </FormTextField>
+            <FormTextField
+              control={control}
+              name="document"
+              label="CPF / CNPJ"
+              fullWidth
+            />
           </Stack>
 
           <Stack direction="row" spacing={1.5}>
-            <TextField label="Cidade" value={city} onChange={e => setCity(e.target.value)} fullWidth />
-            <TextField label="UF" value={state} onChange={e => setState(e.target.value)} sx={{ width: 100 }} />
+            <FormTextField
+              control={control}
+              name="city"
+              label="Cidade"
+              fullWidth
+            />
+            <FormTextField
+              control={control}
+              name="state"
+              label="UF"
+              sx={{ width: 100 }}
+            />
           </Stack>
 
           <Stack direction="row" spacing={1.5}>
-            <TextField label="Telefone" value={phone} onChange={e => setPhone(e.target.value)} fullWidth />
-            <TextField label="E-mail" value={email} onChange={e => setEmail(e.target.value)} fullWidth />
+            <FormTextField
+              control={control}
+              name="phone"
+              label="Telefone"
+              fullWidth
+            />
+            <FormTextField
+              control={control}
+              name="email"
+              label="E-mail"
+              fullWidth
+            />
           </Stack>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>Status</InputLabel>
-            <Select value={active ? 'ativo' : 'inativo'} label="Status"
-              onChange={e => setActive(e.target.value === 'ativo')}>
-              <MenuItem value="ativo">Ativo</MenuItem>
-              <MenuItem value="inativo">Inativo</MenuItem>
-            </Select>
-          </FormControl>
+          <FormTextField
+            control={control}
+            name="active"
+            label="Status"
+            select
+            fullWidth
+            size="small"
+          >
+            <MenuItem value="ativo">Ativo</MenuItem>
+            <MenuItem value="inativo">Inativo</MenuItem>
+          </FormTextField>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" disabled={!legalName} onClick={handleSave}>Salvar</Button>
+        <Button onClick={onClose} disabled={disabled}>
+          Cancelar
+        </Button>
+        <Button
+          variant="contained"
+          disabled={disabled}
+          onClick={() => {
+            void handleFormSubmit();
+          }}
+        >
+          Salvar
+        </Button>
       </DialogActions>
     </Dialog>
   );

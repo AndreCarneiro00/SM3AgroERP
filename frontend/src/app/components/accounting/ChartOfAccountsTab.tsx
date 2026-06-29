@@ -1,46 +1,102 @@
 import { useState } from 'react';
-import { Box, Card, Chip, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
-import type { ChartOfAccount } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import {
+  Box,
+  Card,
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+} from '@mui/material';
+import type {
+  ChartOfAccount,
+  ChartOfAccountInput,
+} from '../../../domains/accounting/model/entities';
+import {
+  useAccountingCatalogData,
+  useAccountingMutations,
+} from '../../../domains/accounting/ui/hooks';
+import { ChartDialog } from './ChartDialog';
+import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { TreeNode } from '../shared/TreeNode';
-import { ChartDialog } from './ChartDialog';
 
-const TYPE_COLOR: Record<string, 'success' | 'error' | 'warning' | 'default'> = {
-  INCOME: 'success', EXPENSE: 'error', TRANSFER: 'warning', MANAGERIAL: 'default',
+const TYPE_COLOR: Record<
+  ChartOfAccount['type'],
+  'success' | 'error' | 'warning' | 'default'
+> = {
+  INCOME: 'success',
+  EXPENSE: 'error',
+  TRANSFER: 'warning',
+  MANAGERIAL: 'default',
 };
-const TYPE_LABEL: Record<string, string> = {
-  INCOME: 'Receita', EXPENSE: 'Despesa', TRANSFER: 'Transferência', MANAGERIAL: 'Gerencial',
+
+const TYPE_LABEL: Record<ChartOfAccount['type'], string> = {
+  INCOME: 'Receita',
+  EXPENSE: 'Despesa',
+  TRANSFER: 'Transferencia',
+  MANAGERIAL: 'Gerencial',
 };
 
 export function ChartOfAccountsTab() {
-  const { chartOfAccounts, setChartOfAccounts, nextId } = useApp();
+  const { chartOfAccounts, isLoading } = useAccountingCatalogData();
+  const {
+    createChartOfAccount,
+    updateChartOfAccount,
+    deleteChartOfAccount,
+  } = useAccountingMutations();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ChartOfAccount | undefined>();
   const [parentForNew, setParentForNew] = useState<number | undefined>();
 
-  const roots = chartOfAccounts.filter(c => !c.parent_id);
+  const roots = chartOfAccounts.filter((chartOfAccount) => !chartOfAccount.parentId);
 
-  const handleSave = (d: Partial<ChartOfAccount>) => {
-    setChartOfAccounts(cs =>
-      editing
-        ? cs.map(c => c.id === editing.id ? { ...editing, ...d } : c)
-        : [...cs, { id: nextId(cs), active: true, ...d } as ChartOfAccount]
-    );
+  const getChartOfAccountName = (chartOfAccountId?: number) =>
+    chartOfAccounts.find((chartOfAccount) => chartOfAccount.id === chartOfAccountId)
+      ?.name;
+
+  const handleSave = async (input: ChartOfAccountInput) => {
+    if (editing) {
+      await updateChartOfAccount.mutateAsync({ id: editing.id, input });
+    } else {
+      await createChartOfAccount.mutateAsync(input);
+    }
+
     setDialogOpen(false);
+    setEditing(undefined);
   };
 
-  const handleDelete = (node: ChartOfAccount) => {
-    if (chartOfAccounts.some(c => c.parent_id === node.id)) {
+  const handleDelete = async (chartOfAccount: ChartOfAccount) => {
+    if (
+      chartOfAccounts.some(
+        (candidate) => candidate.parentId === chartOfAccount.id,
+      )
+    ) {
       alert('Remova as subcontas antes de excluir.');
       return;
     }
-    setChartOfAccounts(cs => cs.filter(c => c.id !== node.id));
+
+    await deleteChartOfAccount.mutateAsync(chartOfAccount.id);
   };
 
-  const openCreate = () => { setEditing(undefined); setParentForNew(undefined); setDialogOpen(true); };
-  const openEdit = (n: ChartOfAccount) => { setEditing(n); setParentForNew(undefined); setDialogOpen(true); };
-  const openChild = (n: ChartOfAccount) => { setEditing(undefined); setParentForNew(n.id); setDialogOpen(true); };
+  const openCreate = () => {
+    setEditing(undefined);
+    setParentForNew(undefined);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (chartOfAccount: ChartOfAccount) => {
+    setEditing(chartOfAccount);
+    setParentForNew(undefined);
+    setDialogOpen(true);
+  };
+
+  const openChild = (chartOfAccount: ChartOfAccount) => {
+    setEditing(undefined);
+    setParentForNew(chartOfAccount.id);
+    setDialogOpen(true);
+  };
 
   return (
     <Box>
@@ -52,41 +108,69 @@ export function ChartOfAccountsTab() {
             <TableRow>
               <TableCell>Conta</TableCell>
               <TableCell>Tipo</TableCell>
-              <TableCell>Lançamentos</TableCell>
-              <TableCell align="center">Ações</TableCell>
+              <TableCell>Lancamentos</TableCell>
+              <TableCell align="center">Acoes</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {roots.map(root => (
+            {roots.map((root) => (
               <TreeNode
                 key={root.id}
                 node={root}
                 allNodes={chartOfAccounts}
                 depth={0}
                 onEdit={openEdit}
-                onDelete={handleDelete}
+                onDelete={(node) => {
+                  void handleDelete(node);
+                }}
                 onAddChild={openChild}
-                renderExtraCells={n => (
+                getParentId={(item) => item.parentId}
+                renderExtraCells={(node) => (
                   <>
                     <TableCell>
-                      <Chip label={TYPE_LABEL[n.type]} size="small" color={TYPE_COLOR[n.type]}
-                        sx={{ height: 18, fontSize: '0.68rem' }} />
+                      <Chip
+                        label={TYPE_LABEL[node.type]}
+                        size="small"
+                        color={TYPE_COLOR[node.type]}
+                        sx={{ height: 18, fontSize: '0.68rem' }}
+                      />
                     </TableCell>
                     <TableCell>
-                      <Chip label={n.accepts_transaction ? 'Sim' : 'Não'} size="small"
-                        color={n.accepts_transaction ? 'success' : 'default'} variant="outlined"
-                        sx={{ height: 18, fontSize: '0.68rem' }} />
+                      <Chip
+                        label={node.acceptsTransaction ? 'Sim' : 'Nao'}
+                        size="small"
+                        color={node.acceptsTransaction ? 'success' : 'default'}
+                        variant="outlined"
+                        sx={{ height: 18, fontSize: '0.68rem' }}
+                      />
                     </TableCell>
                   </>
                 )}
               />
             ))}
+            {roots.length === 0 && (
+              <EmptyTableRow
+                colSpan={4}
+                message={
+                  isLoading
+                    ? 'Carregando plano de contas...'
+                    : 'Nenhuma conta contabil cadastrada.'
+                }
+              />
+            )}
           </TableBody>
         </Table>
       </Card>
 
-      <ChartDialog open={dialogOpen} onClose={() => setDialogOpen(false)}
-        editing={editing} parentId={parentForNew} onSave={handleSave} />
+      <ChartDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        editing={editing}
+        parentId={parentForNew}
+        parentName={getChartOfAccountName(parentForNew)}
+        onSave={handleSave}
+        saving={createChartOfAccount.isPending || updateChartOfAccount.isPending}
+      />
     </Box>
   );
 }

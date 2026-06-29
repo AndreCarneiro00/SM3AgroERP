@@ -1,4 +1,4 @@
 [
-  { "id": 1, "type": "NEGATIVE", "root_cause_id": 3, "observation": "Fardos com umidade acima do padrão", "inventory_movement_id": 11 },
-  { "id": 2, "type": "POSITIVE", "root_cause_id": 1, "observation": "Contagem física maior que saldo teórico", "inventory_movement_id": 12 }
+  { "id": 1, "type": "NEGATIVE", "rootCauseId": 3, "observation": "Fardos com umidade acima do padrão", "inventoryMovementId": 11 },
+  { "id": 2, "type": "POSITIVE", "rootCauseId": 1, "observation": "Contagem física maior que saldo teórico", "inventoryMovementId": 12 }
 ]

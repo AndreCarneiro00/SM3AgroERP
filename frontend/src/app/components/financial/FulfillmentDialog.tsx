@@ -1,35 +1,99 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Stack, TextField, FormControl, InputLabel, Select, MenuItem, Box, Typography,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Stack,
+  Typography,
 } from '@mui/material';
-import type { FinancialTransaction } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { FormTextField } from '../../forms/FormTextField';
+import { todayIsoDate, toInputValue } from '../../forms/valueParsers';
+import { zodResolver } from '../../forms/zodResolver';
+import type { BankAccount } from '../../../domains/banking/model/entities';
+import type { FinancialTransaction } from '../../../domains/financial/model/entities';
 
-const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtBRL = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 interface Props {
   open: boolean;
   onClose: () => void;
   transaction?: FinancialTransaction;
-  onSave: (bankId: number, date: string, amount: number, obs: string) => void;
+  activeBankAccounts: BankAccount[];
+  onSave: (
+    bankId: number,
+    date: string,
+    amount: number,
+    observation: string,
+  ) => void | Promise<void>;
+  saving?: boolean;
 }
 
-export function FulfillmentDialog({ open, onClose, transaction, onSave }: Props) {
-  const { bankAccounts } = useApp();
-  const [bankId, setBankId] = useState('');
-  const [date, setDate] = useState('');
-  const [amount, setAmount] = useState('');
-  const [obs, setObs] = useState('');
+const fulfillmentSchema = z.object({
+  bankId: z.string().min(1, 'Selecione a conta bancaria.'),
+  date: z.string().min(1, 'Informe a data do pagamento.'),
+  amount: z
+    .string()
+    .trim()
+    .min(1, 'Informe o valor pago.')
+    .refine(
+      (value) => !Number.isNaN(Number(value)) && Number(value) > 0,
+      'Informe um valor pago valido.',
+    ),
+  observation: z.string(),
+});
+
+type FulfillmentFormValues = z.infer<typeof fulfillmentSchema>;
+
+function getDefaultValues(
+  transaction?: FinancialTransaction,
+): FulfillmentFormValues {
+  return {
+    bankId: '',
+    date: todayIsoDate(),
+    amount: toInputValue(transaction?.totalAmount),
+    observation: '',
+  };
+}
+
+export function FulfillmentDialog({
+  open,
+  onClose,
+  transaction,
+  activeBankAccounts,
+  onSave,
+  saving = false,
+}: Props) {
+  const { control, formState, handleSubmit, reset } =
+    useForm<FulfillmentFormValues>({
+      defaultValues: getDefaultValues(transaction),
+      resolver: zodResolver(fulfillmentSchema),
+    });
 
   useEffect(() => {
-    if (open && transaction) {
-      setAmount(String(transaction.total_amount ?? ''));
-      setBankId('');
-      setDate(new Date().toISOString().split('T')[0]);
-      setObs('');
+    if (!open) {
+      return;
     }
-  }, [open, transaction]);
+
+    reset(getDefaultValues(transaction));
+  }, [open, reset, transaction]);
+
+  const disabled = saving || formState.isSubmitting;
+
+  const handleFormSubmit = handleSubmit(async (values) => {
+    await onSave(
+      Number(values.bankId),
+      values.date,
+      Number(values.amount),
+      values.observation.trim(),
+    );
+  });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
@@ -37,34 +101,64 @@ export function FulfillmentDialog({ open, onClose, transaction, onSave }: Props)
       <DialogContent>
         {transaction && (
           <Box sx={{ mb: 2, p: 1.5, bgcolor: '#F5F5F5', borderRadius: 1 }}>
-            <Typography variant="body2" fontWeight={600}>{transaction.description}</Typography>
+            <Typography variant="body2" fontWeight={600}>
+              {transaction.description}
+            </Typography>
             <Typography variant="caption" color="text.secondary">
-              Total: {fmtBRL(transaction.total_amount ?? 0)}
+              Total: {fmtBRL(transaction.totalAmount ?? 0)}
             </Typography>
           </Box>
         )}
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Conta Bancária</InputLabel>
-            <Select value={bankId} label="Conta Bancária" onChange={e => setBankId(e.target.value)}>
-              {bankAccounts.filter(b => b.active).map(b => (
-                <MenuItem key={b.id} value={String(b.id)}>{b.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <TextField label="Data do Pagamento" type="date" value={date}
-            onChange={e => setDate(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
-          <TextField label="Valor Pago (R$)" type="number" value={amount}
-            onChange={e => setAmount(e.target.value)} fullWidth />
-          <TextField label="Observação" value={obs}
-            onChange={e => setObs(e.target.value)} fullWidth />
+          <FormTextField
+            control={control}
+            name="bankId"
+            label="Conta Bancaria"
+            select
+            fullWidth
+            size="small"
+          >
+            {activeBankAccounts.map((bankAccount) => (
+              <MenuItem key={bankAccount.id} value={String(bankAccount.id)}>
+                {bankAccount.name}
+              </MenuItem>
+            ))}
+          </FormTextField>
+          <FormTextField
+            control={control}
+            name="date"
+            label="Data do Pagamento"
+            type="date"
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+          />
+          <FormTextField
+            control={control}
+            name="amount"
+            label="Valor Pago (R$)"
+            type="number"
+            fullWidth
+          />
+          <FormTextField
+            control={control}
+            name="observation"
+            label="Observacao"
+            fullWidth
+          />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" color="success"
-          disabled={!bankId || !date || !amount}
-          onClick={() => onSave(Number(bankId), date, Number(amount), obs)}>
+        <Button onClick={onClose} disabled={disabled}>
+          Cancelar
+        </Button>
+        <Button
+          variant="contained"
+          color="success"
+          disabled={disabled}
+          onClick={() => {
+            void handleFormSubmit();
+          }}
+        >
           Confirmar
         </Button>
       </DialogActions>

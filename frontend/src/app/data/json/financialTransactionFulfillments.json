@@ -1,8 +1,8 @@
 [
-  { "id": 1, "financial_transaction_id":  1, "bank_account_id": 1, "payment_date": "2025-06-14", "amount_paid": 28500.00, "observation": "Pagamento à vista PIX" },
-  { "id": 2, "financial_transaction_id":  4, "bank_account_id": 2, "payment_date": "2025-06-12", "amount_paid":  2350.00 },
-  { "id": 3, "financial_transaction_id":  5, "bank_account_id": 1, "payment_date": "2025-06-15", "amount_paid":  3100.00, "observation": "Pagamento parcial" },
-  { "id": 4, "financial_transaction_id":  6, "bank_account_id": 1, "payment_date": "2025-06-05", "amount_paid": 42000.00, "observation": "Transferência bancária" },
-  { "id": 5, "financial_transaction_id": 10, "bank_account_id": 1, "payment_date": "2025-05-30", "amount_paid": 22000.00 },
-  { "id": 6, "financial_transaction_id": 11, "bank_account_id": 2, "payment_date": "2025-06-18", "amount_paid":  1850.00 }
+  { "id": 1, "financialTransactionId":  1, "bankAccountId": 1, "paymentDate": "2025-06-14", "amountPaid": 28500.00, "observation": "Pagamento à vista PIX" },
+  { "id": 2, "financialTransactionId":  4, "bankAccountId": 2, "paymentDate": "2025-06-12", "amountPaid":  2350.00 },
+  { "id": 3, "financialTransactionId":  5, "bankAccountId": 1, "paymentDate": "2025-06-15", "amountPaid":  3100.00, "observation": "Pagamento parcial" },
+  { "id": 4, "financialTransactionId":  6, "bankAccountId": 1, "paymentDate": "2025-06-05", "amountPaid": 42000.00, "observation": "Transferência bancária" },
+  { "id": 5, "financialTransactionId": 10, "bankAccountId": 1, "paymentDate": "2025-05-30", "amountPaid": 22000.00 },
+  { "id": 6, "financialTransactionId": 11, "bankAccountId": 2, "paymentDate": "2025-06-18", "amountPaid":  1850.00 }
 ]

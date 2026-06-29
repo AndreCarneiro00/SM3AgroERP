@@ -1,12 +1,23 @@
 import { useState } from 'react';
 import {
-  Box, Card, Table, TableBody, TableCell, TableHead, TableRow,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack,
+  Box,
+  Button,
+  Card,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import type { ReactNode } from 'react';
+import { EmptyTableRow } from './EmptyTableRow';
 import { PageHeader } from './PageHeader';
 import { RowActions } from './RowActions';
-import { EmptyTableRow } from './EmptyTableRow';
 
 export interface CrudColumn<T> {
   label: string;
@@ -16,8 +27,12 @@ export interface CrudColumn<T> {
 
 interface CrudTableProps<T extends { id: number }> {
   items: T[];
-  setItems: React.Dispatch<React.SetStateAction<T[]>>;
-  nextId: (items: T[]) => number;
+  onCreate: (input: Partial<T>) => Promise<unknown> | unknown;
+  onUpdate: (params: {
+    id: number;
+    input: Partial<T>;
+  }) => Promise<unknown> | unknown;
+  onDelete: (id: number) => Promise<unknown> | unknown;
   actionLabel: string;
   dialogTitle: (editing?: T) => string;
   createInitial: () => Partial<T>;
@@ -36,8 +51,9 @@ interface CrudTableProps<T extends { id: number }> {
 
 export function CrudTable<T extends { id: number }>({
   items,
-  setItems,
-  nextId,
+  onCreate,
+  onUpdate,
+  onDelete,
   actionLabel,
   dialogTitle,
   createInitial,
@@ -52,6 +68,8 @@ export function CrudTable<T extends { id: number }>({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<T | undefined>();
   const [form, setForm] = useState<Partial<T>>(createInitial());
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const list = sortItems ? sortItems(items) : items;
 
@@ -67,16 +85,31 @@ export function CrudTable<T extends { id: number }>({
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const payload = normalize ? normalize(form) : form;
-    setItems((current) =>
-      editing
-        ? current.map((item) =>
-            item.id === editing.id ? ({ ...item, ...payload } as T) : item
-          )
-        : [...current, { id: nextId(current), ...payload } as T]
-    );
-    setDialogOpen(false);
+    setIsSubmitting(true);
+
+    try {
+      if (editing) {
+        await onUpdate({ id: editing.id, input: payload });
+      } else {
+        await onCreate(payload);
+      }
+
+      setDialogOpen(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    setDeletingId(id);
+
+    try {
+      await onDelete(id);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -94,7 +127,7 @@ export function CrudTable<T extends { id: number }>({
                   {column.label}
                 </TableCell>
               ))}
-              <TableCell align="center">Ações</TableCell>
+              <TableCell align="center">Acoes</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -108,7 +141,10 @@ export function CrudTable<T extends { id: number }>({
                 <TableCell align="center">
                   <RowActions
                     onEdit={() => openEdit(item)}
-                    onDelete={() => setItems((current) => current.filter((entry) => entry.id !== item.id))}
+                    onDelete={() => {
+                      void handleDelete(item.id);
+                    }}
+                    disabled={isSubmitting || deletingId === item.id}
                   />
                 </TableCell>
               </TableRow>
@@ -120,7 +156,12 @@ export function CrudTable<T extends { id: number }>({
         </Table>
       </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>{dialogTitle(editing)}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -128,8 +169,16 @@ export function CrudTable<T extends { id: number }>({
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDialogOpen(false)}>Cancelar</Button>
-          <Button variant="contained" disabled={isSaveDisabled(form)} onClick={handleSave}>
+          <Button onClick={() => setDialogOpen(false)} disabled={isSubmitting}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            disabled={isSaveDisabled(form) || isSubmitting}
+            onClick={() => {
+              void handleSave();
+            }}
+          >
             Salvar
           </Button>
         </DialogActions>

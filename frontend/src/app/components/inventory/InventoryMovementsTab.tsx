@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -21,8 +21,24 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { InventoryMovement } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import type {
+  FinancialCatalog,
+  FinancialTransactionItem,
+} from '../../../domains/financial/model/entities';
+import {
+  selectFinancialTransactionItemLabelById,
+} from '../../../domains/financial/selectors/selectors';
+import { useFinancialCatalogData } from '../../../domains/financial/ui/hooks';
+import type {
+  InventoryBatch,
+  InventoryMovement,
+  InventoryMovementInput,
+} from '../../../domains/inventory/model/entities';
+import {
+  useInventoryCatalogData,
+  useInventoryMutations,
+} from '../../../domains/inventory/ui/hooks';
+import { useProductsCatalogData } from '../../../domains/products/ui/hooks';
 import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
@@ -34,7 +50,7 @@ const fmtBRL = (value: number) =>
 const fmtDate = (value?: string) =>
   value ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR') : '-';
 
-const MOVE_LABEL: Record<NonNullable<InventoryMovement['movement_type']>, string> = {
+const MOVE_LABEL: Record<NonNullable<InventoryMovement['movementType']>, string> = {
   PURCHASE_IN: 'Compra',
   PRODUCTION_IN: 'Producao',
   SALE_OUT: 'Venda',
@@ -45,7 +61,10 @@ const MOVE_LABEL: Record<NonNullable<InventoryMovement['movement_type']>, string
   TRANSFER_OUT: 'Transferencia -',
 };
 
-const MOVE_COLOR: Record<NonNullable<InventoryMovement['movement_type']>, 'success' | 'error' | 'warning' | 'info'> = {
+const MOVE_COLOR: Record<
+  NonNullable<InventoryMovement['movementType']>,
+  'success' | 'error' | 'warning' | 'info'
+> = {
   PURCHASE_IN: 'success',
   PRODUCTION_IN: 'success',
   SALE_OUT: 'error',
@@ -56,65 +75,79 @@ const MOVE_COLOR: Record<NonNullable<InventoryMovement['movement_type']>, 'succe
   TRANSFER_OUT: 'info',
 };
 
-function createInitialMovement(): Partial<InventoryMovement> {
+function createInitialMovement(): InventoryMovementInput {
   return {
-    movement_type: 'PRODUCTION_IN',
-    movement_date: new Date().toISOString().split('T')[0],
+    movementType: 'PRODUCTION_IN',
+    movementDate: new Date().toISOString().split('T')[0],
   };
+}
+
+interface MovementDialogProps {
+  open: boolean;
+  onClose: () => void;
+  editing?: InventoryMovement;
+  inventoryBatches: InventoryBatch[];
+  financialCatalog: FinancialCatalog;
+  financialTransactionItems: FinancialTransactionItem[];
+  getProductName: (productId?: number) => string;
+  onSave: (data: InventoryMovementInput) => void | Promise<void>;
+  saving: boolean;
 }
 
 function MovementDialog({
   open,
   onClose,
   editing,
+  inventoryBatches,
+  financialCatalog,
+  financialTransactionItems,
+  getProductName,
   onSave,
-}: {
-  open: boolean;
-  onClose: () => void;
-  editing?: InventoryMovement;
-  onSave: (data: Partial<InventoryMovement>) => void;
-}) {
-  const {
-    inventoryBatches,
-    products,
-    financialTransactionItems,
-    financialTransactions,
-  } = useApp();
-  const [form, setForm] = useState<Partial<InventoryMovement>>(createInitialMovement());
+  saving,
+}: MovementDialogProps) {
+  const [form, setForm] = useState<InventoryMovementInput>(createInitialMovement());
 
   useEffect(() => {
-    setForm(editing ? { ...editing } : createInitialMovement());
+    setForm(
+      editing
+        ? {
+            batchId: editing.batchId,
+            movementType: editing.movementType,
+            quantity: editing.quantity,
+            unitCost: editing.unitCost,
+            movementDate: editing.movementDate,
+            financialTransactionItemId: editing.financialTransactionItemId,
+          }
+        : createInitialMovement(),
+    );
   }, [editing, open]);
-
-  const describeTransactionItem = (itemId?: number) => {
-    const item = financialTransactionItems.find((entry) => entry.id === itemId);
-    const transaction = financialTransactions.find((entry) => entry.id === item?.financial_transaction_id);
-    if (!item) return '-';
-    return `#${item.id} - ${transaction?.description ?? 'Transacao financeira'}`;
-  };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{editing ? 'Editar Movimentacao de Estoque' : 'Nova Movimentacao de Estoque'}</DialogTitle>
+      <DialogTitle>
+        {editing
+          ? 'Editar Movimentacao de Estoque'
+          : 'Nova Movimentacao de Estoque'}
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <FormControl fullWidth size="small">
             <InputLabel>Lote</InputLabel>
             <Select
-              value={String(form.batch_id ?? '')}
+              value={String(form.batchId ?? '')}
               label="Lote"
               onChange={(event) =>
-                setForm((current) => ({ ...current, batch_id: Number(event.target.value) }))
+                setForm((current) => ({
+                  ...current,
+                  batchId: Number(event.target.value),
+                }))
               }
             >
-              {inventoryBatches.map((batch) => {
-                const product = products.find((item) => item.id === batch.product_id);
-                return (
-                  <MenuItem key={batch.id} value={String(batch.id)}>
-                    {batch.code} - {product?.name ?? 'Produto'}
-                  </MenuItem>
-                );
-              })}
+              {inventoryBatches.map((batch) => (
+                <MenuItem key={batch.id} value={String(batch.id)}>
+                  {batch.code} - {getProductName(batch.productId)}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
 
@@ -122,12 +155,12 @@ function MovementDialog({
             <FormControl fullWidth size="small">
               <InputLabel>Tipo</InputLabel>
               <Select
-                value={String(form.movement_type ?? 'PRODUCTION_IN')}
+                value={String(form.movementType ?? 'PRODUCTION_IN')}
                 label="Tipo"
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
-                    movement_type: event.target.value as InventoryMovement['movement_type'],
+                    movementType: event.target.value as InventoryMovement['movementType'],
                   }))
                 }
               >
@@ -141,9 +174,12 @@ function MovementDialog({
             <TextField
               label="Data"
               type="date"
-              value={form.movement_date ?? ''}
+              value={form.movementDate ?? ''}
               onChange={(event) =>
-                setForm((current) => ({ ...current, movement_date: event.target.value }))
+                setForm((current) => ({
+                  ...current,
+                  movementDate: event.target.value || undefined,
+                }))
               }
               fullWidth
               InputLabelProps={{ shrink: true }}
@@ -158,7 +194,9 @@ function MovementDialog({
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
-                  quantity: event.target.value ? Number(event.target.value) : undefined,
+                  quantity: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
                 }))
               }
               fullWidth
@@ -166,11 +204,13 @@ function MovementDialog({
             <TextField
               label="Custo Unitario"
               type="number"
-              value={String(form.unit_cost ?? '')}
+              value={String(form.unitCost ?? '')}
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
-                  unit_cost: event.target.value ? Number(event.target.value) : undefined,
+                  unitCost: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
                 }))
               }
               fullWidth
@@ -180,19 +220,24 @@ function MovementDialog({
           <FormControl fullWidth size="small">
             <InputLabel>Item Financeiro</InputLabel>
             <Select
-              value={String(form.financial_transaction_item_id ?? '')}
+              value={String(form.financialTransactionItemId ?? '')}
               label="Item Financeiro"
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
-                  financial_transaction_item_id: event.target.value ? Number(event.target.value) : undefined,
+                  financialTransactionItemId: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
                 }))
               }
             >
               <MenuItem value="">-- Nenhum --</MenuItem>
               {financialTransactionItems.map((item) => (
                 <MenuItem key={item.id} value={String(item.id)}>
-                  {describeTransactionItem(item.id)}
+                  {selectFinancialTransactionItemLabelById(
+                    financialCatalog,
+                    item.id,
+                  )}
                 </MenuItem>
               ))}
             </Select>
@@ -200,11 +245,21 @@ function MovementDialog({
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Cancelar</Button>
+        <Button onClick={onClose} disabled={saving}>
+          Cancelar
+        </Button>
         <Button
           variant="contained"
-          disabled={!form.batch_id || !form.movement_type || !form.quantity || !form.movement_date}
-          onClick={() => onSave(form)}
+          disabled={
+            !form.batchId ||
+            !form.movementType ||
+            !form.quantity ||
+            !form.movementDate ||
+            saving
+          }
+          onClick={() => {
+            void onSave(form);
+          }}
         >
           Salvar
         </Button>
@@ -214,65 +269,76 @@ function MovementDialog({
 }
 
 export function InventoryMovementsTab() {
+  const { catalog: financialCatalog, financialTransactionItems } =
+    useFinancialCatalogData();
+  const { inventoryMovements, inventoryBatches, isLoading } =
+    useInventoryCatalogData();
   const {
-    inventoryMovements,
-    setInventoryMovements,
-    inventoryBatches,
-    products,
-    financialTransactionItems,
-    financialTransactions,
-    nextId,
-  } = useApp();
+    createInventoryMovement,
+    updateInventoryMovement,
+    deleteInventoryMovement,
+  } = useInventoryMutations();
+  const { catalog } = useProductsCatalogData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryMovement | undefined>();
 
-  const sorted = [...inventoryMovements].sort((left, right) =>
-    (right.movement_date ?? '').localeCompare(left.movement_date ?? '')
+  const getProductName = (productId?: number) =>
+    catalog.products.byId[productId ?? -1]?.name ?? '-';
+
+  const sorted = useMemo(
+    () =>
+      [...inventoryMovements].sort((left, right) =>
+        (right.movementDate ?? '').localeCompare(left.movementDate ?? ''),
+      ),
+    [inventoryMovements],
   );
 
   const totalIn = sorted
-    .filter((movement) => movement.movement_type?.endsWith('_IN'))
+    .filter((movement) => movement.movementType?.endsWith('_IN'))
     .reduce((sum, movement) => sum + (movement.quantity ?? 0), 0);
 
   const totalOut = sorted
-    .filter((movement) => movement.movement_type?.endsWith('_OUT'))
+    .filter((movement) => movement.movementType?.endsWith('_OUT'))
     .reduce((sum, movement) => sum + (movement.quantity ?? 0), 0);
 
-  const describeTransactionItem = (itemId?: number) => {
-    const item = financialTransactionItems.find((entry) => entry.id === itemId);
-    const transaction = financialTransactions.find((entry) => entry.id === item?.financial_transaction_id);
-    if (!item) return '-';
-    return `#${item.id} - ${transaction?.description ?? 'Transacao financeira'}`;
-  };
+  const saving =
+    createInventoryMovement.isPending ||
+    updateInventoryMovement.isPending ||
+    deleteInventoryMovement.isPending;
 
-  const handleSave = (data: Partial<InventoryMovement>) => {
-    setInventoryMovements((current) =>
-      editing
-        ? current.map((movement) =>
-            movement.id === editing.id ? ({ ...movement, ...data } as InventoryMovement) : movement
-          )
-        : [...current, { id: nextId(current), ...data } as InventoryMovement]
-    );
+  const handleSave = async (input: InventoryMovementInput) => {
+    if (editing) {
+      await updateInventoryMovement.mutateAsync({ id: editing.id, input });
+    } else {
+      await createInventoryMovement.mutateAsync(input);
+    }
+
     setDialogOpen(false);
     setEditing(undefined);
   };
 
-  const openCreate = () => {
-    setEditing(undefined);
-    setDialogOpen(true);
-  };
-
-  const openEdit = (movement: InventoryMovement) => {
-    setEditing(movement);
-    setDialogOpen(true);
-  };
-
   return (
     <Box>
-      <PageHeader actionLabel="Nova Movimentacao" onAction={openCreate}>
+      <PageHeader
+        actionLabel="Nova Movimentacao"
+        onAction={() => {
+          setEditing(undefined);
+          setDialogOpen(true);
+        }}
+      >
         <StatBox label="Entradas" value={`${totalIn.toLocaleString('pt-BR')} un`} />
-        <StatBox label="Saidas" value={`${totalOut.toLocaleString('pt-BR')} un`} color="#D32F2F" bgColor="#FFEBEE" />
-        <StatBox label="Saldo Liquido" value={`${(totalIn - totalOut).toLocaleString('pt-BR')} un`} color="#1565C0" bgColor="#E3F2FD" />
+        <StatBox
+          label="Saidas"
+          value={`${totalOut.toLocaleString('pt-BR')} un`}
+          color="#D32F2F"
+          bgColor="#FFEBEE"
+        />
+        <StatBox
+          label="Saldo Liquido"
+          value={`${(totalIn - totalOut).toLocaleString('pt-BR')} un`}
+          color="#1565C0"
+          bgColor="#E3F2FD"
+        />
       </PageHeader>
 
       <Card>
@@ -292,56 +358,80 @@ export function InventoryMovementsTab() {
           </TableHead>
           <TableBody>
             {sorted.map((movement) => {
-              const batch = inventoryBatches.find((item) => item.id === movement.batch_id);
-              const product = products.find((item) => item.id === batch?.product_id);
-              const total = (movement.quantity ?? 0) * (movement.unit_cost ?? 0);
+              const batch = inventoryBatches.find(
+                (item) => item.id === movement.batchId,
+              );
+              const total = (movement.quantity ?? 0) * (movement.unitCost ?? 0);
 
               return (
                 <TableRow key={movement.id}>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={600} sx={{ fontFamily: 'monospace' }}>
+                    <Typography
+                      variant="body2"
+                      fontWeight={600}
+                      sx={{ fontFamily: 'monospace' }}
+                    >
                       {batch?.code ?? '-'}
                     </Typography>
                   </TableCell>
-                  <TableCell>{product?.name ?? '-'}</TableCell>
+                  <TableCell>{getProductName(batch?.productId)}</TableCell>
                   <TableCell>
-                    {movement.movement_type && (
+                    {movement.movementType && (
                       <Chip
-                        label={MOVE_LABEL[movement.movement_type]}
+                        label={MOVE_LABEL[movement.movementType]}
                         size="small"
-                        color={MOVE_COLOR[movement.movement_type]}
+                        color={MOVE_COLOR[movement.movementType]}
                         sx={{ height: 20 }}
                       />
                     )}
                   </TableCell>
-                  <TableCell>{fmtDate(movement.movement_date)}</TableCell>
-                  <TableCell>{describeTransactionItem(movement.financial_transaction_item_id)}</TableCell>
+                  <TableCell>{fmtDate(movement.movementDate)}</TableCell>
+                  <TableCell>
+                    {selectFinancialTransactionItemLabelById(
+                      financialCatalog,
+                      movement.financialTransactionItemId,
+                    )}
+                  </TableCell>
                   <TableCell align="right">
                     <Typography variant="body2" fontWeight={600}>
                       {movement.quantity?.toLocaleString('pt-BR') ?? 0}
                     </Typography>
                   </TableCell>
-                  <TableCell align="right">{fmtBRL(movement.unit_cost ?? 0)}</TableCell>
                   <TableCell align="right">
-                    <Typography variant="body2" fontWeight={600} sx={{ color: total >= 0 ? 'success.main' : 'error.main' }}>
+                    {fmtBRL(movement.unitCost ?? 0)}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography
+                      variant="body2"
+                      fontWeight={600}
+                      sx={{ color: total >= 0 ? 'success.main' : 'error.main' }}
+                    >
                       {fmtBRL(total)}
                     </Typography>
                   </TableCell>
                   <TableCell align="center">
                     <RowActions
-                      onEdit={() => openEdit(movement)}
-                      onDelete={() =>
-                        setInventoryMovements((current) =>
-                          current.filter((item) => item.id !== movement.id)
-                        )
-                      }
+                      onEdit={() => {
+                        setEditing(movement);
+                        setDialogOpen(true);
+                      }}
+                      onDelete={() => {
+                        void deleteInventoryMovement.mutateAsync(movement.id);
+                      }}
                     />
                   </TableCell>
                 </TableRow>
               );
             })}
             {sorted.length === 0 && (
-              <EmptyTableRow colSpan={9} message="Nenhuma movimentacao registrada." />
+              <EmptyTableRow
+                colSpan={9}
+                message={
+                  isLoading
+                    ? 'Carregando movimentacoes de estoque...'
+                    : 'Nenhuma movimentacao registrada.'
+                }
+              />
             )}
           </TableBody>
         </Table>
@@ -354,7 +444,12 @@ export function InventoryMovementsTab() {
           setEditing(undefined);
         }}
         editing={editing}
+        inventoryBatches={inventoryBatches}
+        financialCatalog={financialCatalog}
+        financialTransactionItems={financialTransactionItems}
+        getProductName={getProductName}
         onSave={handleSave}
+        saving={saving}
       />
     </Box>
   );

@@ -1,8 +1,8 @@
 [
-  { "id": 1, "financial_transaction_id": 1, "chart_of_account_id": 3, "cost_center_id": 6, "quantity": 285, "unit_price": 100.00, "amount": 28500.00, "product_id": 1 },
-  { "id": 2, "financial_transaction_id": 2, "chart_of_account_id": 3, "cost_center_id": 6, "quantity": 147, "unit_price": 100.35, "amount": 14750.00, "product_id": 1 },
-  { "id": 3, "financial_transaction_id": 3, "chart_of_account_id": 13, "cost_center_id": 2, "quantity": 10, "unit_price": 890.00, "amount": 8900.00, "product_id": 6 },
-  { "id": 4, "financial_transaction_id": 4, "chart_of_account_id": 19, "cost_center_id": 12, "quantity": 1, "unit_price": 2350.00, "amount": 2350.00 },
-  { "id": 5, "financial_transaction_id": 5, "chart_of_account_id": 11, "cost_center_id": 2, "quantity": 1, "unit_price": 6200.00, "amount": 6200.00 },
-  { "id": 6, "financial_transaction_id": 6, "chart_of_account_id": 5, "cost_center_id": 6, "quantity": 420, "unit_price": 100.00, "amount": 42000.00, "product_id": 3 }
+  { "id": 1, "financialTransactionId": 1, "chartOfAccountId": 3, "costCenterId": 6, "quantity": 285, "unitPrice": 100.00, "amount": 28500.00, "productId": 1 },
+  { "id": 2, "financialTransactionId": 2, "chartOfAccountId": 3, "costCenterId": 6, "quantity": 147, "unitPrice": 100.35, "amount": 14750.00, "productId": 1 },
+  { "id": 3, "financialTransactionId": 3, "chartOfAccountId": 13, "costCenterId": 2, "quantity": 10, "unitPrice": 890.00, "amount": 8900.00, "productId": 6 },
+  { "id": 4, "financialTransactionId": 4, "chartOfAccountId": 19, "costCenterId": 12, "quantity": 1, "unitPrice": 2350.00, "amount": 2350.00 },
+  { "id": 5, "financialTransactionId": 5, "chartOfAccountId": 11, "costCenterId": 2, "quantity": 1, "unitPrice": 6200.00, "amount": 6200.00 },
+  { "id": 6, "financialTransactionId": 6, "chartOfAccountId": 5, "costCenterId": 6, "quantity": 420, "unitPrice": 100.00, "amount": 42000.00, "productId": 3 }
 ]

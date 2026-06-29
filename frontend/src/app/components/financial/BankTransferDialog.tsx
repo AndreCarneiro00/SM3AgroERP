@@ -1,81 +1,175 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Stack, TextField, FormControl, InputLabel, Select, MenuItem,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Stack,
 } from '@mui/material';
-import type { BankTransfer } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { FormTextField } from '../../forms/FormTextField';
+import {
+  optionalTextFromInput,
+  toInputValue,
+  todayIsoDate,
+} from '../../forms/valueParsers';
+import { zodResolver } from '../../forms/zodResolver';
+import type { BankAccount } from '../../../domains/banking/model/entities';
+import type {
+  BankTransfer,
+  BankTransferInput,
+} from '../../../domains/financial/model/entities';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   editing?: BankTransfer;
-  onSave: (data: Partial<BankTransfer>) => void;
+  activeBankAccounts: BankAccount[];
+  onSave: (data: BankTransferInput) => void | Promise<void>;
+  saving?: boolean;
 }
 
-export function BankTransferDialog({ open, onClose, editing, onSave }: Props) {
-  const { bankAccounts } = useApp();
-  const [source, setSource] = useState('');
-  const [destination, setDestination] = useState('');
-  const [amount, setAmount] = useState('');
-  const [date, setDate] = useState('');
-  const [obs, setObs] = useState('');
+const bankTransferSchema = z
+  .object({
+    source: z.string().min(1, 'Selecione a conta de origem.'),
+    destination: z.string().min(1, 'Selecione a conta de destino.'),
+    amount: z
+      .string()
+      .trim()
+      .min(1, 'Informe o valor da transferencia.')
+      .refine(
+        (value) => !Number.isNaN(Number(value)) && Number(value) > 0,
+        'Informe um valor valido.',
+      ),
+    date: z.string().min(1, 'Informe a data da transferencia.'),
+    observation: z.string(),
+  })
+  .refine((values) => values.source !== values.destination, {
+    message: 'A conta de destino deve ser diferente da origem.',
+    path: ['destination'],
+  });
+
+type BankTransferFormValues = z.infer<typeof bankTransferSchema>;
+
+function getDefaultValues(editing?: BankTransfer): BankTransferFormValues {
+  return {
+    source: toInputValue(editing?.sourceBankAccountId),
+    destination: toInputValue(editing?.destinationBankAccountId),
+    amount: toInputValue(editing?.amount),
+    date: editing?.transferDate ?? todayIsoDate(),
+    observation: editing?.observation ?? '',
+  };
+}
+
+export function BankTransferDialog({
+  open,
+  onClose,
+  editing,
+  activeBankAccounts,
+  onSave,
+  saving = false,
+}: Props) {
+  const { control, formState, handleSubmit, reset, watch } =
+    useForm<BankTransferFormValues>({
+      defaultValues: getDefaultValues(editing),
+      resolver: zodResolver(bankTransferSchema),
+    });
 
   useEffect(() => {
-    if (open) {
-      setSource(String(editing?.source_bank_account_id ?? ''));
-      setDestination(String(editing?.destination_bank_account_id ?? ''));
-      setAmount(String(editing?.amount ?? ''));
-      setDate(editing?.transfer_date ?? new Date().toISOString().split('T')[0]);
-      setObs(editing?.observation ?? '');
+    if (!open) {
+      return;
     }
-  }, [open, editing]);
 
-  const handleSave = () => {
-    onSave({
-      source_bank_account_id: Number(source),
-      destination_bank_account_id: Number(destination),
-      amount: Number(amount),
-      transfer_date: date,
-      observation: obs || undefined,
+    reset(getDefaultValues(editing));
+  }, [editing, open, reset]);
+
+  const source = watch('source');
+  const disabled = saving || formState.isSubmitting;
+
+  const handleFormSubmit = handleSubmit(async (values) => {
+    await onSave({
+      sourceBankAccountId: Number(values.source),
+      destinationBankAccountId: Number(values.destination),
+      amount: Number(values.amount),
+      transferDate: values.date,
+      observation: optionalTextFromInput(values.observation),
     });
-  };
+  });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{editing ? 'Editar Transferência' : 'Nova Transferência Bancária'}</DialogTitle>
+      <DialogTitle>
+        {editing ? 'Editar Transferencia' : 'Nova Transferencia Bancaria'}
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Conta Origem</InputLabel>
-            <Select value={source} label="Conta Origem" onChange={e => setSource(e.target.value)}>
-              {bankAccounts.filter(b => b.active).map(b => (
-                <MenuItem key={b.id} value={String(b.id)}>{b.name}</MenuItem>
+          <FormTextField
+            control={control}
+            name="source"
+            label="Conta Origem"
+            select
+            fullWidth
+            size="small"
+          >
+            {activeBankAccounts.map((bankAccount) => (
+              <MenuItem key={bankAccount.id} value={String(bankAccount.id)}>
+                {bankAccount.name}
+              </MenuItem>
+            ))}
+          </FormTextField>
+          <FormTextField
+            control={control}
+            name="destination"
+            label="Conta Destino"
+            select
+            fullWidth
+            size="small"
+          >
+            {activeBankAccounts
+              .filter((bankAccount) => String(bankAccount.id) !== source)
+              .map((bankAccount) => (
+                <MenuItem key={bankAccount.id} value={String(bankAccount.id)}>
+                  {bankAccount.name}
+                </MenuItem>
               ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small">
-            <InputLabel>Conta Destino</InputLabel>
-            <Select value={destination} label="Conta Destino"
-              onChange={e => setDestination(e.target.value)}>
-              {bankAccounts.filter(b => b.active && String(b.id) !== source).map(b => (
-                <MenuItem key={b.id} value={String(b.id)}>{b.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <TextField label="Valor (R$)" type="number" value={amount}
-            onChange={e => setAmount(e.target.value)} fullWidth />
-          <TextField label="Data" type="date" value={date}
-            onChange={e => setDate(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
-          <TextField label="Observação" value={obs}
-            onChange={e => setObs(e.target.value)} fullWidth />
+          </FormTextField>
+          <FormTextField
+            control={control}
+            name="amount"
+            label="Valor (R$)"
+            type="number"
+            fullWidth
+          />
+          <FormTextField
+            control={control}
+            name="date"
+            label="Data"
+            type="date"
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+          />
+          <FormTextField
+            control={control}
+            name="observation"
+            label="Observacao"
+            fullWidth
+          />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained"
-          disabled={!source || !destination || !amount || !date}
-          onClick={handleSave}>
+        <Button onClick={onClose} disabled={disabled}>
+          Cancelar
+        </Button>
+        <Button
+          variant="contained"
+          disabled={disabled}
+          onClick={() => {
+            void handleFormSubmit();
+          }}
+        >
           Salvar
         </Button>
       </DialogActions>

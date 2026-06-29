@@ -1,43 +1,98 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Stack, TextField, FormControl, InputLabel, Select, MenuItem, Box, Typography,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Stack,
+  Typography,
 } from '@mui/material';
-import type { ChartOfAccount } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { FormTextField } from '../../forms/FormTextField';
+import {
+  optionalTextFromInput,
+  requiredTextFromInput,
+} from '../../forms/valueParsers';
+import { zodResolver } from '../../forms/zodResolver';
+import type {
+  ChartOfAccount,
+  ChartOfAccountInput,
+} from '../../../domains/accounting/model/entities';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   editing?: ChartOfAccount;
   parentId?: number;
-  onSave: (data: Partial<ChartOfAccount>) => void;
+  parentName?: string;
+  onSave: (data: ChartOfAccountInput) => void | Promise<void>;
+  saving?: boolean;
 }
 
-export function ChartDialog({ open, onClose, editing, parentId, onSave }: Props) {
-  const { chartOfAccounts } = useApp();
-  const parentName = chartOfAccounts.find(c => c.id === parentId)?.name;
+const chartTypeValues = [
+  'INCOME',
+  'EXPENSE',
+  'TRANSFER',
+  'MANAGERIAL',
+] as const;
 
-  const [name, setName] = useState('');
-  const [code, setCode] = useState('');
-  const [type, setType] = useState<ChartOfAccount['type']>('EXPENSE');
-  const [accepts, setAccepts] = useState(true);
-  const [active, setActive] = useState(true);
+const yesNoValues = ['sim', 'nao'] as const;
+const activeValues = ['ativo', 'inativo'] as const;
+
+const chartSchema = z.object({
+  name: z.string().trim().min(1, 'Informe o nome da conta.'),
+  code: z.string(),
+  type: z.enum(chartTypeValues),
+  accepts: z.enum(yesNoValues),
+  active: z.enum(activeValues),
+});
+
+type ChartFormValues = z.infer<typeof chartSchema>;
+
+function getDefaultValues(editing?: ChartOfAccount): ChartFormValues {
+  return {
+    name: editing?.name ?? '',
+    code: editing?.code ?? '',
+    type: editing?.type ?? 'EXPENSE',
+    accepts: editing?.acceptsTransaction === false ? 'nao' : 'sim',
+    active: editing?.active === false ? 'inativo' : 'ativo',
+  };
+}
+
+export function ChartDialog({
+  open,
+  onClose,
+  editing,
+  parentId,
+  parentName,
+  onSave,
+  saving = false,
+}: Props) {
+  const { control, formState, handleSubmit, reset } = useForm<ChartFormValues>({
+    defaultValues: getDefaultValues(editing),
+    resolver: zodResolver(chartSchema),
+  });
 
   useEffect(() => {
-    setName(editing?.name ?? '');
-    setCode(editing?.code ?? '');
-    setType(editing?.type ?? 'EXPENSE');
-    setAccepts(editing?.accepts_transaction ?? true);
-    setActive(editing?.active ?? true);
-  }, [editing, open]);
+    reset(getDefaultValues(editing));
+  }, [editing, open, reset]);
 
-  const handleSave = () => {
-    onSave({
-      name, code: code || undefined, type, accepts_transaction: accepts, active,
-      parent_id: editing ? editing.parent_id : parentId,
+  const disabled = saving || formState.isSubmitting;
+
+  const handleFormSubmit = handleSubmit(async (values) => {
+    await onSave({
+      name: requiredTextFromInput(values.name),
+      code: optionalTextFromInput(values.code),
+      type: values.type,
+      acceptsTransaction: values.accepts === 'sim',
+      active: values.active === 'ativo',
+      parentId: editing ? editing.parentId : parentId,
     });
-  };
+  });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
@@ -51,38 +106,63 @@ export function ChartDialog({ open, onClose, editing, parentId, onSave }: Props)
           </Box>
         )}
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField label="Nome" value={name} onChange={e => setName(e.target.value)} fullWidth />
-          <TextField label="Código" value={code} onChange={e => setCode(e.target.value)} fullWidth />
-          <FormControl fullWidth size="small">
-            <InputLabel>Tipo</InputLabel>
-            <Select value={type} label="Tipo" onChange={e => setType(e.target.value as ChartOfAccount['type'])}>
-              <MenuItem value="INCOME">Receita</MenuItem>
-              <MenuItem value="EXPENSE">Despesa</MenuItem>
-              <MenuItem value="TRANSFER">Transferência</MenuItem>
-              <MenuItem value="MANAGERIAL">Gerencial</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small">
-            <InputLabel>Aceita Lançamentos</InputLabel>
-            <Select value={accepts ? 'sim' : 'nao'} label="Aceita Lançamentos"
-              onChange={e => setAccepts(e.target.value === 'sim')}>
-              <MenuItem value="sim">Sim</MenuItem>
-              <MenuItem value="nao">Não (analítico)</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small">
-            <InputLabel>Status</InputLabel>
-            <Select value={active ? 'ativo' : 'inativo'} label="Status"
-              onChange={e => setActive(e.target.value === 'ativo')}>
-              <MenuItem value="ativo">Ativo</MenuItem>
-              <MenuItem value="inativo">Inativo</MenuItem>
-            </Select>
-          </FormControl>
+          <FormTextField control={control} name="name" label="Nome" fullWidth />
+          <FormTextField
+            control={control}
+            name="code"
+            label="Codigo"
+            fullWidth
+          />
+          <FormTextField
+            control={control}
+            name="type"
+            label="Tipo"
+            select
+            fullWidth
+            size="small"
+          >
+            <MenuItem value="INCOME">Receita</MenuItem>
+            <MenuItem value="EXPENSE">Despesa</MenuItem>
+            <MenuItem value="TRANSFER">Transferencia</MenuItem>
+            <MenuItem value="MANAGERIAL">Gerencial</MenuItem>
+          </FormTextField>
+          <FormTextField
+            control={control}
+            name="accepts"
+            label="Aceita Lancamentos"
+            select
+            fullWidth
+            size="small"
+          >
+            <MenuItem value="sim">Sim</MenuItem>
+            <MenuItem value="nao">Nao (analitico)</MenuItem>
+          </FormTextField>
+          <FormTextField
+            control={control}
+            name="active"
+            label="Status"
+            select
+            fullWidth
+            size="small"
+          >
+            <MenuItem value="ativo">Ativo</MenuItem>
+            <MenuItem value="inativo">Inativo</MenuItem>
+          </FormTextField>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" disabled={!name} onClick={handleSave}>Salvar</Button>
+        <Button onClick={onClose} disabled={disabled}>
+          Cancelar
+        </Button>
+        <Button
+          variant="contained"
+          disabled={disabled}
+          onClick={() => {
+            void handleFormSubmit();
+          }}
+        >
+          Salvar
+        </Button>
       </DialogActions>
     </Dialog>
   );

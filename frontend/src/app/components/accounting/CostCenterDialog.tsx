@@ -1,52 +1,110 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Stack, TextField, FormControl, InputLabel, Select, MenuItem, Box, Typography,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Stack,
+  Typography,
 } from '@mui/material';
-import type { CostCenter } from '../../data/types';
-import { useApp } from '../../context/AppContext';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { FormTextField } from '../../forms/FormTextField';
+import {
+  optionalIdFromInput,
+  optionalTextFromInput,
+  requiredTextFromInput,
+  toInputValue,
+} from '../../forms/valueParsers';
+import { zodResolver } from '../../forms/zodResolver';
+import type {
+  CostCenter,
+  CostCenterInput,
+} from '../../../domains/accounting/model/entities';
+import type { ActivityGroup } from '../../../domains/master-data/model/entities';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   editing?: CostCenter;
   parentId?: number;
-  onSave: (data: Partial<CostCenter>) => void;
+  parentName?: string;
+  activityGroups: ActivityGroup[];
+  onSave: (data: CostCenterInput) => void | Promise<void>;
+  saving?: boolean;
 }
 
-export function CostCenterDialog({ open, onClose, editing, parentId, onSave }: Props) {
-  const { costCenters, activityGroups } = useApp();
-  const parentName = costCenters.find(c => c.id === parentId)?.name;
+const costCenterTypeValues = ['CAPEX', 'OPEX'] as const;
+const yesNoValues = ['sim', 'nao'] as const;
 
-  const [name, setName] = useState('');
-  const [code, setCode] = useState('');
-  const [type, setType] = useState<'CAPEX' | 'OPEX'>('OPEX');
-  const [description, setDescription] = useState('');
-  const [accepts, setAccepts] = useState(true);
-  const [activityGroupId, setActivityGroupId] = useState('');
+const costCenterSchema = z.object({
+  name: z.string().trim().min(1, 'Informe o nome do centro de custo.'),
+  code: z.string(),
+  type: z.enum(costCenterTypeValues),
+  description: z.string(),
+  accepts: z.enum(yesNoValues),
+  activityGroupId: z.string(),
+});
+
+type CostCenterFormValues = z.infer<typeof costCenterSchema>;
+
+function getDefaultValues(editing?: CostCenter): CostCenterFormValues {
+  return {
+    name: editing?.name ?? '',
+    code: editing?.code ?? '',
+    type: editing?.type ?? 'OPEX',
+    description: editing?.description ?? '',
+    accepts: editing?.acceptsTransaction === false ? 'nao' : 'sim',
+    activityGroupId: toInputValue(editing?.activityGroupId),
+  };
+}
+
+export function CostCenterDialog({
+  open,
+  onClose,
+  editing,
+  parentId,
+  parentName,
+  activityGroups,
+  onSave,
+  saving = false,
+}: Props) {
+  const { control, formState, handleSubmit, reset } =
+    useForm<CostCenterFormValues>({
+      defaultValues: getDefaultValues(editing),
+      resolver: zodResolver(costCenterSchema),
+    });
 
   useEffect(() => {
-    setName(editing?.name ?? '');
-    setCode(editing?.code ?? '');
-    setType(editing?.type ?? 'OPEX');
-    setDescription(editing?.description ?? '');
-    setAccepts(editing?.accepts_transaction ?? true);
-    setActivityGroupId(String(editing?.activity_group_id ?? ''));
-  }, [editing, open]);
+    reset(getDefaultValues(editing));
+  }, [editing, open, reset]);
 
-  const handleSave = () => {
-    onSave({
-      name, code: code || undefined, type, description: description || undefined,
-      accepts_transaction: accepts, active: true,
-      activity_group_id: activityGroupId ? Number(activityGroupId) : undefined,
-      parent_id: editing ? editing.parent_id : parentId,
+  const disabled = saving || formState.isSubmitting;
+
+  const handleFormSubmit = handleSubmit(async (values) => {
+    await onSave({
+      name: requiredTextFromInput(values.name),
+      code: optionalTextFromInput(values.code),
+      type: values.type,
+      description: optionalTextFromInput(values.description),
+      acceptsTransaction: values.accepts === 'sim',
+      active: true,
+      activityGroupId: optionalIdFromInput(values.activityGroupId),
+      parentId: editing ? editing.parentId : parentId,
     });
-  };
+  });
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>
-        {editing ? 'Editar Centro de Custo' : parentId ? 'Novo Sub-centro' : 'Novo Centro de Custo'}
+        {editing
+          ? 'Editar Centro de Custo'
+          : parentId
+            ? 'Novo Sub-centro'
+            : 'Novo Centro de Custo'}
       </DialogTitle>
       <DialogContent>
         {parentId && !editing && (
@@ -55,42 +113,73 @@ export function CostCenterDialog({ open, onClose, editing, parentId, onSave }: P
           </Box>
         )}
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField label="Nome" value={name} onChange={e => setName(e.target.value)} fullWidth />
+          <FormTextField control={control} name="name" label="Nome" fullWidth />
           <Stack direction="row" spacing={1.5}>
-            <TextField label="Código" value={code} onChange={e => setCode(e.target.value)} fullWidth />
-            <FormControl fullWidth size="small">
-              <InputLabel>Tipo</InputLabel>
-              <Select value={type} label="Tipo" onChange={e => setType(e.target.value as 'CAPEX' | 'OPEX')}>
-                <MenuItem value="CAPEX">CAPEX</MenuItem>
-                <MenuItem value="OPEX">OPEX</MenuItem>
-              </Select>
-            </FormControl>
+            <FormTextField
+              control={control}
+              name="code"
+              label="Codigo"
+              fullWidth
+            />
+            <FormTextField
+              control={control}
+              name="type"
+              label="Tipo"
+              select
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="CAPEX">CAPEX</MenuItem>
+              <MenuItem value="OPEX">OPEX</MenuItem>
+            </FormTextField>
           </Stack>
-          <TextField label="Descrição" value={description}
-            onChange={e => setDescription(e.target.value)} fullWidth />
-          <FormControl fullWidth size="small">
-            <InputLabel>Grupo de Atividade</InputLabel>
-            <Select value={activityGroupId} label="Grupo de Atividade"
-              onChange={e => setActivityGroupId(e.target.value)}>
-              <MenuItem value="">— Nenhum —</MenuItem>
-              {activityGroups.map(ag => (
-                <MenuItem key={ag.id} value={String(ag.id)}>{ag.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small">
-            <InputLabel>Aceita Lançamentos</InputLabel>
-            <Select value={accepts ? 'sim' : 'nao'} label="Aceita Lançamentos"
-              onChange={e => setAccepts(e.target.value === 'sim')}>
-              <MenuItem value="sim">Sim</MenuItem>
-              <MenuItem value="nao">Não</MenuItem>
-            </Select>
-          </FormControl>
+          <FormTextField
+            control={control}
+            name="description"
+            label="Descricao"
+            fullWidth
+          />
+          <FormTextField
+            control={control}
+            name="activityGroupId"
+            label="Grupo de Atividade"
+            select
+            fullWidth
+            size="small"
+          >
+            <MenuItem value="">- Nenhum -</MenuItem>
+            {activityGroups.map((activityGroup) => (
+              <MenuItem key={activityGroup.id} value={String(activityGroup.id)}>
+                {activityGroup.name}
+              </MenuItem>
+            ))}
+          </FormTextField>
+          <FormTextField
+            control={control}
+            name="accepts"
+            label="Aceita Lancamentos"
+            select
+            fullWidth
+            size="small"
+          >
+            <MenuItem value="sim">Sim</MenuItem>
+            <MenuItem value="nao">Nao</MenuItem>
+          </FormTextField>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" disabled={!name} onClick={handleSave}>Salvar</Button>
+        <Button onClick={onClose} disabled={disabled}>
+          Cancelar
+        </Button>
+        <Button
+          variant="contained"
+          disabled={disabled}
+          onClick={() => {
+            void handleFormSubmit();
+          }}
+        >
+          Salvar
+        </Button>
       </DialogActions>
     </Dialog>
   );

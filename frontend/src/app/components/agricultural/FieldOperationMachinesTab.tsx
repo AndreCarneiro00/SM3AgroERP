@@ -1,66 +1,123 @@
 import {
-  FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material';
-import { useApp } from '../../context/AppContext';
+import type {
+  FieldOperationMachine,
+  FieldOperationMachineInput,
+} from '../../../domains/agricultural/model/entities';
+import {
+  selectFieldOperationLabelById,
+  selectMachineLabelById,
+} from '../../../domains/agricultural/selectors/selectors';
+import {
+  useAgriculturalCatalogData,
+  useAgriculturalMutations,
+} from '../../../domains/agricultural/ui/hooks';
 import { CrudTable } from '../shared/CrudTable';
-import type { FieldOperationMachine } from '../../data/types';
+
+function toFieldOperationMachineInput(
+  form: Partial<FieldOperationMachine>,
+): FieldOperationMachineInput {
+  return {
+    fieldOperationId: form.fieldOperationId,
+    machineId: form.machineId,
+    hoursWorked: form.hoursWorked,
+    observation: form.observation,
+  };
+}
 
 export function FieldOperationMachinesTab() {
+  const { catalog, fieldOperationMachines, fieldOperations, machines } =
+    useAgriculturalCatalogData();
   const {
-    fieldOperationMachines,
-    setFieldOperationMachines,
-    fieldOperations,
-    fields,
-    machines,
-    nextId,
-  } = useApp();
-
-  const describeOperation = (operationId?: number) => {
-    const operation = fieldOperations.find((item) => item.id === operationId);
-    const field = fields.find((item) => item.id === operation?.field_id);
-    if (!operation) return '-';
-    return `${field?.name ?? 'Campo'} • ${operation.operation_type} • ${operation.operation_date}`;
-  };
+    createFieldOperationMachine,
+    updateFieldOperationMachine,
+    deleteFieldOperationMachine,
+  } = useAgriculturalMutations();
 
   return (
     <CrudTable<FieldOperationMachine>
       items={fieldOperationMachines}
-      setItems={setFieldOperationMachines}
-      nextId={nextId}
-      actionLabel="Novo Vínculo de Máquina"
-      dialogTitle={(editing) => editing ? 'Editar Vínculo de Máquina' : 'Novo Vínculo de Máquina'}
+      onCreate={(input) =>
+        createFieldOperationMachine.mutateAsync(
+          toFieldOperationMachineInput(input),
+        )
+      }
+      onUpdate={({ id, input }) =>
+        updateFieldOperationMachine.mutateAsync({
+          id,
+          input: toFieldOperationMachineInput(input),
+        })
+      }
+      onDelete={(id) => deleteFieldOperationMachine.mutateAsync(id)}
+      actionLabel="Novo Vinculo de Maquina"
+      dialogTitle={(editing) =>
+        editing ? 'Editar Vinculo de Maquina' : 'Novo Vinculo de Maquina'
+      }
       createInitial={() => ({})}
       columns={[
-        { label: 'Operação', render: (item) => <Typography variant="body2" fontWeight={500}>{describeOperation(item.field_operation_id)}</Typography> },
-        { label: 'Máquina', render: (item) => machines.find((machine) => machine.id === item.machine_id)?.name ?? '-' },
-        { label: 'Horas', align: 'right', render: (item) => item.hours_worked?.toLocaleString('pt-BR') ?? '-' },
-        { label: 'Observação', render: (item) => item.observation ?? '-' },
+        {
+          label: 'Operacao',
+          render: (item) => (
+            <Typography variant="body2" fontWeight={500}>
+              {selectFieldOperationLabelById(catalog, item.fieldOperationId)}
+            </Typography>
+          ),
+        },
+        {
+          label: 'Maquina',
+          render: (item) => selectMachineLabelById(catalog, item.machineId),
+        },
+        {
+          label: 'Horas',
+          align: 'right',
+          render: (item) => item.hoursWorked?.toLocaleString('pt-BR') ?? '-',
+        },
+        { label: 'Observacao', render: (item) => item.observation ?? '-' },
       ]}
       renderForm={({ form, setForm }) => (
         <>
           <FormControl fullWidth size="small">
-            <InputLabel>Operação</InputLabel>
+            <InputLabel>Operacao</InputLabel>
             <Select
-              value={String(form.field_operation_id ?? '')}
-              label="Operação"
-              onChange={(event) => setForm((current) => ({ ...current, field_operation_id: Number(event.target.value) }))}
+              value={String(form.fieldOperationId ?? '')}
+              label="Operacao"
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  fieldOperationId: Number(event.target.value),
+                }))
+              }
             >
               {fieldOperations.map((operation) => (
                 <MenuItem key={operation.id} value={String(operation.id)}>
-                  {describeOperation(operation.id)}
+                  {selectFieldOperationLabelById(catalog, operation.id)}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
           <FormControl fullWidth size="small">
-            <InputLabel>Máquina</InputLabel>
+            <InputLabel>Maquina</InputLabel>
             <Select
-              value={String(form.machine_id ?? '')}
-              label="Máquina"
-              onChange={(event) => setForm((current) => ({ ...current, machine_id: Number(event.target.value) }))}
+              value={String(form.machineId ?? '')}
+              label="Maquina"
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  machineId: Number(event.target.value),
+                }))
+              }
             >
               {machines.map((machine) => (
-                <MenuItem key={machine.id} value={String(machine.id)}>{machine.name}</MenuItem>
+                <MenuItem key={machine.id} value={String(machine.id)}>
+                  {machine.name}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
@@ -68,21 +125,33 @@ export function FieldOperationMachinesTab() {
             <TextField
               label="Horas Trabalhadas"
               type="number"
-              value={String(form.hours_worked ?? '')}
-              onChange={(event) => setForm((current) => ({ ...current, hours_worked: event.target.value ? Number(event.target.value) : undefined }))}
+              value={String(form.hoursWorked ?? '')}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  hoursWorked: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
+                }))
+              }
               fullWidth
             />
             <TextField
-              label="Observação"
+              label="Observacao"
               value={form.observation ?? ''}
-              onChange={(event) => setForm((current) => ({ ...current, observation: event.target.value || undefined }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  observation: event.target.value || undefined,
+                }))
+              }
               fullWidth
             />
           </Stack>
         </>
       )}
-      isSaveDisabled={(form) => !form.field_operation_id || !form.machine_id}
-      emptyMessage="Nenhum vínculo de máquina cadastrado."
+      isSaveDisabled={(form) => !form.fieldOperationId || !form.machineId}
+      emptyMessage="Nenhum vinculo de maquina cadastrado."
     />
   );
 }

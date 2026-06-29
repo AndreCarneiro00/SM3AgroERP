@@ -1,7 +1,7 @@
 [
-  { "id": 1, "name": "Receita Bruta", "display_order": 1 },
-  { "id": 2, "name": "Custos Operacionais", "display_order": 2 },
-  { "id": 3, "name": "Despesas Administrativas", "display_order": 3 },
-  { "id": 4, "name": "Despesas Financeiras", "display_order": 4 },
-  { "id": 5, "name": "Resultado Operacional", "display_order": 5 }
+  { "id": 1, "name": "Receita Bruta", "displayOrder": 1 },
+  { "id": 2, "name": "Custos Operacionais", "displayOrder": 2 },
+  { "id": 3, "name": "Despesas Administrativas", "displayOrder": 3 },
+  { "id": 4, "name": "Despesas Financeiras", "displayOrder": 4 },
+  { "id": 5, "name": "Resultado Operacional", "displayOrder": 5 }
 ]

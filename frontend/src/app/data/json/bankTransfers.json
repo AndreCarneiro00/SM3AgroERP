@@ -1,5 +1,5 @@
 [
-  { "id": 1, "source_bank_account_id": 1, "destination_bank_account_id": 2, "amount": 5000.00,  "transfer_date": "2025-06-05", "observation": "Reforço de caixa operacional" },
-  { "id": 2, "source_bank_account_id": 1, "destination_bank_account_id": 3, "amount": 10000.00, "transfer_date": "2025-05-20", "observation": "Reserva financeira mensal" },
-  { "id": 3, "source_bank_account_id": 2, "destination_bank_account_id": 1, "amount": 8500.00,  "transfer_date": "2025-06-12", "observation": "Consolidação de recebimentos" }
+  { "id": 1, "sourceBankAccountId": 1, "destinationBankAccountId": 2, "amount": 5000.00,  "transferDate": "2025-06-05", "observation": "Reforço de caixa operacional" },
+  { "id": 2, "sourceBankAccountId": 1, "destinationBankAccountId": 3, "amount": 10000.00, "transferDate": "2025-05-20", "observation": "Reserva financeira mensal" },
+  { "id": 3, "sourceBankAccountId": 2, "destinationBankAccountId": 1, "amount": 8500.00,  "transferDate": "2025-06-12", "observation": "Consolidação de recebimentos" }
 ]
