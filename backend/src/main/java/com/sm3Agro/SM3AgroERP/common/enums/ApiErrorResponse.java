@@ -8,5 +8,7 @@ public record ApiErrorResponse(
         String error,
         String message,
         String path,
-        List<FieldErrorDetail> details
+        List<FieldErrorDetail> details,
+        String exception,
+        String trace
 ) {}
