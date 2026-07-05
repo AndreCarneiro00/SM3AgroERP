@@ -1,9 +1,9 @@
-package com.sm3Agro.SM3AgroERP.financial.service;
+package com.sm3Agro.SM3AgroERP.financial.masterData.service;
 
-import com.sm3Agro.SM3AgroERP.financial.dto.documentType.CreateDocumentTypeRequest;
-import com.sm3Agro.SM3AgroERP.financial.dto.documentType.UpdateDocumentTypeRequest;
-import com.sm3Agro.SM3AgroERP.financial.entity.DocumentType;
-import com.sm3Agro.SM3AgroERP.financial.repository.DocumentTypeRepository;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.documentType.CreateDocumentTypeRequest;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.documentType.UpdateDocumentTypeRequest;
+import com.sm3Agro.SM3AgroERP.financial.masterData.entity.DocumentType;
+import com.sm3Agro.SM3AgroERP.financial.masterData.repository.DocumentTypeRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

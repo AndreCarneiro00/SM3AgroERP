@@ -1,4 +1,4 @@
-package com.sm3Agro.SM3AgroERP.financial.entity;
+package com.sm3Agro.SM3AgroERP.financial.masterData.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

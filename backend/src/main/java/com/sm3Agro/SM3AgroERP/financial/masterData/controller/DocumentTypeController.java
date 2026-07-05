@@ -1,12 +1,12 @@
-package com.sm3Agro.SM3AgroERP.financial.controller;
+package com.sm3Agro.SM3AgroERP.financial.masterData.controller;
 
-import com.sm3Agro.SM3AgroERP.financial.dto.documentType.CreateDocumentTypeRequest;
-import com.sm3Agro.SM3AgroERP.financial.dto.documentType.CreateDocumentTypeResponse;
-import com.sm3Agro.SM3AgroERP.financial.dto.documentType.FindAllDocumentTypeResponse;
-import com.sm3Agro.SM3AgroERP.financial.dto.documentType.UpdateDocumentTypeRequest;
-import com.sm3Agro.SM3AgroERP.financial.dto.documentType.UpdateDocumentTypeResponse;
-import com.sm3Agro.SM3AgroERP.financial.entity.DocumentType;
-import com.sm3Agro.SM3AgroERP.financial.service.DocumentTypeService;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.documentType.CreateDocumentTypeRequest;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.documentType.CreateDocumentTypeResponse;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.documentType.FindAllDocumentTypeResponse;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.documentType.UpdateDocumentTypeRequest;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.documentType.UpdateDocumentTypeResponse;
+import com.sm3Agro.SM3AgroERP.financial.masterData.entity.DocumentType;
+import com.sm3Agro.SM3AgroERP.financial.masterData.service.DocumentTypeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;

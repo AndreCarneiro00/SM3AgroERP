@@ -1,9 +1,9 @@
-package com.sm3Agro.SM3AgroERP.financial.service;
+package com.sm3Agro.SM3AgroERP.financial.masterData.service;
 
-import com.sm3Agro.SM3AgroERP.financial.dto.incomeStatementGroup.CreateIncomeStatementGroupRequest;
-import com.sm3Agro.SM3AgroERP.financial.dto.incomeStatementGroup.UpdateIncomeStatementGroupRequest;
-import com.sm3Agro.SM3AgroERP.financial.entity.IncomeStatementGroup;
-import com.sm3Agro.SM3AgroERP.financial.repository.IncomeStatementGroupRepository;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.incomeStatementGroup.CreateIncomeStatementGroupRequest;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.incomeStatementGroup.UpdateIncomeStatementGroupRequest;
+import com.sm3Agro.SM3AgroERP.financial.masterData.entity.IncomeStatementGroup;
+import com.sm3Agro.SM3AgroERP.financial.masterData.repository.IncomeStatementGroupRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

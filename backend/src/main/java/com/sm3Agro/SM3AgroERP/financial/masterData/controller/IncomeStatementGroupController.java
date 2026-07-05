@@ -1,12 +1,12 @@
-package com.sm3Agro.SM3AgroERP.financial.controller;
+package com.sm3Agro.SM3AgroERP.financial.masterData.controller;
 
-import com.sm3Agro.SM3AgroERP.financial.dto.incomeStatementGroup.CreateIncomeStatementGroupRequest;
-import com.sm3Agro.SM3AgroERP.financial.dto.incomeStatementGroup.CreateIncomeStatementGroupResponse;
-import com.sm3Agro.SM3AgroERP.financial.dto.incomeStatementGroup.FindAllIncomeStatementGroupResponse;
-import com.sm3Agro.SM3AgroERP.financial.dto.incomeStatementGroup.UpdateIncomeStatementGroupRequest;
-import com.sm3Agro.SM3AgroERP.financial.dto.incomeStatementGroup.UpdateIncomeStatementGroupResponse;
-import com.sm3Agro.SM3AgroERP.financial.entity.IncomeStatementGroup;
-import com.sm3Agro.SM3AgroERP.financial.service.IncomeStatementGroupService;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.incomeStatementGroup.CreateIncomeStatementGroupRequest;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.incomeStatementGroup.CreateIncomeStatementGroupResponse;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.incomeStatementGroup.FindAllIncomeStatementGroupResponse;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.incomeStatementGroup.UpdateIncomeStatementGroupRequest;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.incomeStatementGroup.UpdateIncomeStatementGroupResponse;
+import com.sm3Agro.SM3AgroERP.financial.masterData.entity.IncomeStatementGroup;
+import com.sm3Agro.SM3AgroERP.financial.masterData.service.IncomeStatementGroupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;

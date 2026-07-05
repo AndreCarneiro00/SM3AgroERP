@@ -1,4 +1,4 @@
-package com.sm3Agro.SM3AgroERP.financial.dto.incomeStatementGroup;
+package com.sm3Agro.SM3AgroERP.financial.masterData.dto.incomeStatementGroup;
 
 public record UpdateIncomeStatementGroupResponse(
         Long id,
