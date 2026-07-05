@@ -6,6 +6,7 @@ import {
 import type {
   BankTransferDto,
   CreateBankTransferDto,
+  CreateFinancialTransactionMultipartDto,
   CreateFinancialTransactionAttachmentDto,
   CreateFinancialTransactionDto,
   CreateFinancialTransactionFulfillmentDto,
@@ -25,34 +26,63 @@ const FINANCIAL_TRANSACTIONS_API_BASE = {
   mock: '/api/financial-transactions',
   api: '/financial-transactions',
 } as const;
-const FINANCIAL_TRANSACTION_ATTACHMENTS_API_BASE = {
-  mock: '/api/financial-transaction-attachments',
-  api: '/financial-transaction-attachments',
-} as const;
-const FINANCIAL_TRANSACTION_ITEMS_API_BASE = {
-  mock: '/api/financial-transaction-items',
-  api: '/financial-transaction-items',
-} as const;
-const FINANCIAL_TRANSACTION_FULFILLMENTS_API_BASE = {
-  mock: '/api/financial-transaction-fulfillments',
-  api: '/financial-transaction-fulfillments',
-} as const;
 const BANK_TRANSFERS_API_BASE = {
   mock: '/api/bank-transfers',
   api: '/bank-transfers',
 } as const;
+
+function transactionPath(id: number) {
+  return resolveResourceItemPath(FINANCIAL_TRANSACTIONS_API_BASE, id);
+}
+
+function appendJsonPart(formData: FormData, name: string, payload: unknown) {
+  formData.append(
+    name,
+    new Blob([JSON.stringify(payload)], { type: 'application/json' }),
+  );
+}
+
+function createTransactionFormData(payload: CreateFinancialTransactionMultipartDto) {
+  const formData = new FormData();
+  appendJsonPart(formData, 'payload', payload.payload);
+  payload.files.forEach((file) => formData.append('files', file, file.name));
+  return formData;
+}
+
+function requireTransactionId(financialTransactionId?: number) {
+  if (!financialTransactionId) {
+    throw new Error('financialTransactionId is required.');
+  }
+
+  return financialTransactionId;
+}
+
+async function listFinancialTransactionDetails() {
+  const transactions = await httpListRequest<FinancialTransactionDto>(
+    resolveResourcePath(FINANCIAL_TRANSACTIONS_API_BASE),
+  );
+
+  return Promise.all(
+    transactions.map((transaction) =>
+      httpRequest<FinancialTransactionDto>(transactionPath(transaction.id)),
+    ),
+  );
+}
 
 export const financialRepository = {
   listFinancialTransactions: () =>
     httpListRequest<FinancialTransactionDto>(
       resolveResourcePath(FINANCIAL_TRANSACTIONS_API_BASE),
     ),
-  createFinancialTransaction: (payload: CreateFinancialTransactionDto) =>
+  listFinancialTransactionDetails,
+  findFinancialTransaction: (id: number) =>
+    httpRequest<FinancialTransactionDto>(transactionPath(id)),
+  createFinancialTransaction: (payload: CreateFinancialTransactionMultipartDto) =>
     httpRequest<FinancialTransactionDto>(
       resolveResourcePath(FINANCIAL_TRANSACTIONS_API_BASE),
       {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: createTransactionFormData(payload),
       },
     ),
   updateFinancialTransaction: (
@@ -60,112 +90,194 @@ export const financialRepository = {
     payload: UpdateFinancialTransactionDto,
   ) =>
     httpRequest<FinancialTransactionDto>(
-      resolveResourceItemPath(FINANCIAL_TRANSACTIONS_API_BASE, id),
+      transactionPath(id),
       {
-        method: 'PUT',
+        method: 'PATCH',
         body: JSON.stringify(payload),
       },
     ),
   deleteFinancialTransaction: (id: number) =>
-    httpRequest<void>(
-      resolveResourceItemPath(FINANCIAL_TRANSACTIONS_API_BASE, id),
+    httpRequest<FinancialTransactionDto>(
+      `${transactionPath(id)}/cancel`,
       {
-        method: 'DELETE',
+        method: 'POST',
       },
     ),
 
   listFinancialTransactionAttachments: () =>
-    httpListRequest<FinancialTransactionAttachmentDto>(
-      resolveResourcePath(FINANCIAL_TRANSACTION_ATTACHMENTS_API_BASE),
+    listFinancialTransactionDetails().then((transactions) =>
+      transactions.flatMap((transaction) =>
+        (transaction.attachments ?? []).map((attachment) => ({
+          ...attachment,
+          financialTransactionId: transaction.id,
+          active: attachment.active ?? true,
+        })),
+      ),
     ),
   createFinancialTransactionAttachment: (
     payload: CreateFinancialTransactionAttachmentDto,
-  ) =>
-    httpRequest<FinancialTransactionAttachmentDto>(
-      resolveResourcePath(FINANCIAL_TRANSACTION_ATTACHMENTS_API_BASE),
+    financialTransactionId: number,
+    file: File,
+  ) => {
+    const formData = new FormData();
+    appendJsonPart(formData, 'payload', payload);
+    formData.append('file', file, file.name);
+
+    return httpRequest<FinancialTransactionAttachmentDto>(
+      `${transactionPath(financialTransactionId)}/attachments`,
       {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: formData,
       },
-    ),
+    ).then((attachment) => ({
+      ...attachment,
+      financialTransactionId,
+      active: attachment.active ?? true,
+    }));
+  },
   updateFinancialTransactionAttachment: (
     id: number,
+    financialTransactionId: number,
     payload: UpdateFinancialTransactionAttachmentDto,
   ) =>
     httpRequest<FinancialTransactionAttachmentDto>(
-      resolveResourceItemPath(FINANCIAL_TRANSACTION_ATTACHMENTS_API_BASE, id),
+      `${transactionPath(financialTransactionId)}/attachments/${id}`,
       {
-        method: 'PUT',
+        method: 'PATCH',
         body: JSON.stringify(payload),
       },
-    ),
-  deleteFinancialTransactionAttachment: (id: number) =>
+    ).then((attachment) => ({
+      ...attachment,
+      financialTransactionId,
+      active: attachment.active ?? true,
+    })),
+  replaceFinancialTransactionAttachmentFile: (
+    financialTransactionId: number,
+    id: number,
+    file: File,
+  ) => {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+
+    return httpRequest<FinancialTransactionAttachmentDto>(
+      `${transactionPath(financialTransactionId)}/attachments/${id}/file`,
+      {
+        method: 'PUT',
+        body: formData,
+      },
+    ).then((attachment) => ({
+      ...attachment,
+      financialTransactionId,
+      active: attachment.active ?? true,
+    }));
+  },
+  deleteFinancialTransactionAttachment: (
+    financialTransactionId: number,
+    id: number,
+  ) =>
     httpRequest<void>(
-      resolveResourceItemPath(FINANCIAL_TRANSACTION_ATTACHMENTS_API_BASE, id),
+      `${transactionPath(financialTransactionId)}/attachments/${id}`,
       {
         method: 'DELETE',
       },
     ),
 
   listFinancialTransactionItems: () =>
-    httpListRequest<FinancialTransactionItemDto>(
-      resolveResourcePath(FINANCIAL_TRANSACTION_ITEMS_API_BASE),
+    listFinancialTransactionDetails().then((transactions) =>
+      transactions.flatMap((transaction) =>
+        (transaction.items ?? []).map((item) => ({
+          ...item,
+          financialTransactionId: transaction.id,
+        })),
+      ),
     ),
-  createFinancialTransactionItem: (payload: CreateFinancialTransactionItemDto) =>
-    httpRequest<FinancialTransactionItemDto>(
-      resolveResourcePath(FINANCIAL_TRANSACTION_ITEMS_API_BASE),
+  createFinancialTransactionItem: (payload: CreateFinancialTransactionItemDto) => {
+    const financialTransactionId = requireTransactionId(
+      payload.financialTransactionId,
+    );
+    const { financialTransactionId: _, ...body } = payload;
+
+    return httpRequest<FinancialTransactionItemDto>(
+      `${transactionPath(financialTransactionId)}/items`,
       {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       },
-    ),
+    ).then((item) => ({ ...item, financialTransactionId }));
+  },
   updateFinancialTransactionItem: (
     id: number,
     payload: UpdateFinancialTransactionItemDto,
-  ) =>
-    httpRequest<FinancialTransactionItemDto>(
-      resolveResourceItemPath(FINANCIAL_TRANSACTION_ITEMS_API_BASE, id),
+  ) => {
+    const financialTransactionId = requireTransactionId(
+      payload.financialTransactionId,
+    );
+    const { financialTransactionId: _, ...body } = payload;
+
+    return httpRequest<FinancialTransactionItemDto>(
+      `${transactionPath(financialTransactionId)}/items/${id}`,
       {
-        method: 'PUT',
-        body: JSON.stringify(payload),
+        method: 'PATCH',
+        body: JSON.stringify(body),
       },
-    ),
-  deleteFinancialTransactionItem: (id: number) =>
+    ).then((item) => ({ ...item, financialTransactionId }));
+  },
+  deleteFinancialTransactionItem: (financialTransactionId: number, id: number) =>
     httpRequest<void>(
-      resolveResourceItemPath(FINANCIAL_TRANSACTION_ITEMS_API_BASE, id),
+      `${transactionPath(financialTransactionId)}/items/${id}`,
       {
         method: 'DELETE',
       },
     ),
 
   listFinancialTransactionFulfillments: () =>
-    httpListRequest<FinancialTransactionFulfillmentDto>(
-      resolveResourcePath(FINANCIAL_TRANSACTION_FULFILLMENTS_API_BASE),
+    listFinancialTransactionDetails().then((transactions) =>
+      transactions.flatMap((transaction) =>
+        (transaction.fulfillments ?? []).map((fulfillment) => ({
+          ...fulfillment,
+          financialTransactionId: transaction.id,
+        })),
+      ),
     ),
   createFinancialTransactionFulfillment: (
     payload: CreateFinancialTransactionFulfillmentDto,
-  ) =>
-    httpRequest<FinancialTransactionFulfillmentDto>(
-      resolveResourcePath(FINANCIAL_TRANSACTION_FULFILLMENTS_API_BASE),
+  ) => {
+    const financialTransactionId = requireTransactionId(
+      payload.financialTransactionId,
+    );
+    const { financialTransactionId: _, ...body } = payload;
+
+    return httpRequest<FinancialTransactionFulfillmentDto>(
+      `${transactionPath(financialTransactionId)}/fulfillments`,
       {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       },
-    ),
+    ).then((fulfillment) => ({ ...fulfillment, financialTransactionId }));
+  },
   updateFinancialTransactionFulfillment: (
     id: number,
     payload: UpdateFinancialTransactionFulfillmentDto,
-  ) =>
-    httpRequest<FinancialTransactionFulfillmentDto>(
-      resolveResourceItemPath(FINANCIAL_TRANSACTION_FULFILLMENTS_API_BASE, id),
+  ) => {
+    const financialTransactionId = requireTransactionId(
+      payload.financialTransactionId,
+    );
+    const { financialTransactionId: _, ...body } = payload;
+
+    return httpRequest<FinancialTransactionFulfillmentDto>(
+      `${transactionPath(financialTransactionId)}/fulfillments/${id}`,
       {
-        method: 'PUT',
-        body: JSON.stringify(payload),
+        method: 'PATCH',
+        body: JSON.stringify(body),
       },
-    ),
-  deleteFinancialTransactionFulfillment: (id: number) =>
+    ).then((fulfillment) => ({ ...fulfillment, financialTransactionId }));
+  },
+  deleteFinancialTransactionFulfillment: (
+    financialTransactionId: number,
+    id: number,
+  ) =>
     httpRequest<void>(
-      resolveResourceItemPath(FINANCIAL_TRANSACTION_FULFILLMENTS_API_BASE, id),
+      `${transactionPath(financialTransactionId)}/fulfillments/${id}`,
       {
         method: 'DELETE',
       },

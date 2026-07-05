@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
-import PaymentsIcon from '@mui/icons-material/Payments';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import SpaceDashboardIcon from '@mui/icons-material/SpaceDashboard';
@@ -20,9 +19,6 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 export const appPaths = {
   dashboard: '/dashboard',
   financialTransactions: '/financeiro/transacoes',
-  financialItems: '/financeiro/itens',
-  financialAttachments: '/financeiro/anexos',
-  financialFulfillments: '/financeiro/pagamentos',
   financialBankTransfers: '/financeiro/transferencias',
   accountingChart: '/contabilidade/plano-de-contas',
   accountingCostCenters: '/contabilidade/centros-de-custo',
@@ -74,27 +70,6 @@ export const routeMetaByKey: Record<AppRouteKey, AppRouteMeta> = {
     title: 'Transacoes Financeiras',
     navLabel: 'Transacoes',
     icon: <ReceiptLongIcon fontSize="small" />,
-  },
-  financialItems: {
-    key: 'financialItems',
-    path: appPaths.financialItems,
-    title: 'Itens Financeiros',
-    navLabel: 'Itens Financeiros',
-    icon: <PaymentsIcon fontSize="small" />,
-  },
-  financialAttachments: {
-    key: 'financialAttachments',
-    path: appPaths.financialAttachments,
-    title: 'Anexos de Transacoes',
-    navLabel: 'Anexos',
-    icon: <PaymentsIcon fontSize="small" />,
-  },
-  financialFulfillments: {
-    key: 'financialFulfillments',
-    path: appPaths.financialFulfillments,
-    title: 'Pagamentos e Recebimentos',
-    navLabel: 'Pagamentos',
-    icon: <PaymentsIcon fontSize="small" />,
   },
   financialBankTransfers: {
     key: 'financialBankTransfers',
@@ -308,9 +283,6 @@ export const navSections = [
     icon: <ReceiptLongIcon fontSize="small" />,
     children: childRoutes(
       'financialTransactions',
-      'financialItems',
-      'financialAttachments',
-      'financialFulfillments',
       'financialBankTransfers',
     ),
   },

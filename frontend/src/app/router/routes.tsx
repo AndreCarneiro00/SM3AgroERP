@@ -65,9 +65,6 @@ function LazyRoute({ children }: { children: ReactNode }) {
 const routeElements: Record<AppRouteKey, ReactNode> = {
   dashboard: <Dashboard />,
   financialTransactions: <FinancialModule tab="transactions" />,
-  financialItems: <FinancialModule tab="items" />,
-  financialAttachments: <FinancialModule tab="attachments" />,
-  financialFulfillments: <FinancialModule tab="fulfillments" />,
   financialBankTransfers: <FinancialModule tab="bank-transfers" />,
   accountingChart: <AccountingModule tab="chart" />,
   accountingCostCenters: <AccountingModule tab="cost-centers" />,
@@ -92,9 +89,7 @@ const routeElements: Record<AppRouteKey, ReactNode> = {
   masterSegments: <MasterDataModule tab="segments" />,
   masterActivityGroups: <MasterDataModule tab="activity-groups" />,
   masterDocumentTypes: <MasterDataModule tab="document-types" />,
-  masterAdjustmentRootCauses: (
-    <MasterDataModule tab="adjustment-root-causes" />
-  ),
+  masterAdjustmentRootCauses: <MasterDataModule tab="adjustment-root-causes" />
 };
 
 export function AppRoutes() {

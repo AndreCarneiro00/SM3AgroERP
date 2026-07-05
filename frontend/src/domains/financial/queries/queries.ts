@@ -9,6 +9,13 @@ export function useFinancialTransactionsQuery() {
   });
 }
 
+export function useFinancialTransactionDetailsQuery() {
+  return useQuery({
+    queryKey: financialKeys.financialTransactionDetails(),
+    queryFn: financialRepository.listFinancialTransactionDetails,
+  });
+}
+
 export function useFinancialTransactionAttachmentsQuery() {
   return useQuery({
     queryKey: financialKeys.financialTransactionAttachments(),
@@ -39,28 +46,13 @@ export function useBankTransfersQuery() {
 
 export function useFinancialCatalogQueries() {
   const [
-    financialTransactionsQuery,
-    financialTransactionAttachmentsQuery,
-    financialTransactionItemsQuery,
-    financialTransactionFulfillmentsQuery,
+    financialTransactionDetailsQuery,
     bankTransfersQuery,
   ] = useQueries({
     queries: [
       {
-        queryKey: financialKeys.financialTransactions(),
-        queryFn: financialRepository.listFinancialTransactions,
-      },
-      {
-        queryKey: financialKeys.financialTransactionAttachments(),
-        queryFn: financialRepository.listFinancialTransactionAttachments,
-      },
-      {
-        queryKey: financialKeys.financialTransactionItems(),
-        queryFn: financialRepository.listFinancialTransactionItems,
-      },
-      {
-        queryKey: financialKeys.financialTransactionFulfillments(),
-        queryFn: financialRepository.listFinancialTransactionFulfillments,
+        queryKey: financialKeys.financialTransactionDetails(),
+        queryFn: financialRepository.listFinancialTransactionDetails,
       },
       {
         queryKey: financialKeys.bankTransfers(),
@@ -70,10 +62,7 @@ export function useFinancialCatalogQueries() {
   });
 
   return {
-    financialTransactionsQuery,
-    financialTransactionAttachmentsQuery,
-    financialTransactionItemsQuery,
-    financialTransactionFulfillmentsQuery,
+    financialTransactionDetailsQuery,
     bankTransfersQuery,
   };
 }

@@ -2,6 +2,8 @@ export const financialKeys = {
   all: ['financial'] as const,
   financialTransactions: () =>
     [...financialKeys.all, 'financialTransactions'] as const,
+  financialTransactionDetails: () =>
+    [...financialKeys.all, 'financialTransactionDetails'] as const,
   financialTransactionAttachments: () =>
     [...financialKeys.all, 'financialTransactionAttachments'] as const,
   financialTransactionItems: () =>

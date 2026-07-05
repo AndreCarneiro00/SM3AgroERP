@@ -6,6 +6,7 @@ import {
 import { financialRepository } from '../api/repository';
 import {
   mapBankTransferInputToDto,
+  mapCreateFinancialTransactionInputToMultipartDto,
   mapFinancialTransactionAttachmentInputToDto,
   mapFinancialTransactionFulfillmentInputToDto,
   mapFinancialTransactionInputToDto,
@@ -13,6 +14,7 @@ import {
 } from '../model/mappers';
 import type {
   BankTransferInput,
+  CreateFinancialTransactionInput,
   FinancialTransactionAttachmentInput,
   FinancialTransactionFulfillmentInput,
   FinancialTransactionInput,
@@ -30,22 +32,34 @@ function useFinancialInvalidation() {
   };
 }
 
-export function useCreateFinancialTransactionMutation() {
+function useFinancialGraphInvalidation() {
   const invalidate = useFinancialInvalidation();
 
+  return async () => {
+    await invalidate(
+      financialKeys.financialTransactions(),
+      financialKeys.financialTransactionDetails(),
+      financialKeys.financialTransactionAttachments(),
+      financialKeys.financialTransactionItems(),
+      financialKeys.financialTransactionFulfillments(),
+    );
+  };
+}
+
+export function useCreateFinancialTransactionMutation() {
+  const invalidateGraph = useFinancialGraphInvalidation();
+
   return useMutation({
-    mutationFn: (input: FinancialTransactionInput) =>
+    mutationFn: (input: CreateFinancialTransactionInput) =>
       financialRepository.createFinancialTransaction(
-        mapFinancialTransactionInputToDto(input),
+        mapCreateFinancialTransactionInputToMultipartDto(input),
       ),
-    onSuccess: async () => {
-      await invalidate(financialKeys.financialTransactions());
-    },
+    onSuccess: invalidateGraph,
   });
 }
 
 export function useUpdateFinancialTransactionMutation() {
-  const invalidate = useFinancialInvalidation();
+  const invalidateGraph = useFinancialGraphInvalidation();
 
   return useMutation({
     mutationFn: ({
@@ -59,44 +73,40 @@ export function useUpdateFinancialTransactionMutation() {
         id,
         mapFinancialTransactionInputToDto(input),
       ),
-    onSuccess: async () => {
-      await invalidate(financialKeys.financialTransactions());
-    },
+    onSuccess: invalidateGraph,
   });
 }
 
 export function useDeleteFinancialTransactionMutation() {
-  const invalidate = useFinancialInvalidation();
+  const invalidateGraph = useFinancialGraphInvalidation();
 
   return useMutation({
     mutationFn: (id: number) => financialRepository.deleteFinancialTransaction(id),
-    onSuccess: async () => {
-      await invalidate(
-        financialKeys.financialTransactions(),
-        financialKeys.financialTransactionAttachments(),
-        financialKeys.financialTransactionItems(),
-        financialKeys.financialTransactionFulfillments(),
-      );
-    },
+    onSuccess: invalidateGraph,
   });
 }
 
 export function useCreateFinancialTransactionAttachmentMutation() {
-  const invalidate = useFinancialInvalidation();
+  const invalidateGraph = useFinancialGraphInvalidation();
 
   return useMutation({
-    mutationFn: (input: FinancialTransactionAttachmentInput) =>
-      financialRepository.createFinancialTransactionAttachment(
+    mutationFn: (input: FinancialTransactionAttachmentInput) => {
+      if (!input.financialTransactionId || !input.file) {
+        throw new Error('Transacao e arquivo sao obrigatorios para anexar.');
+      }
+
+      return financialRepository.createFinancialTransactionAttachment(
         mapFinancialTransactionAttachmentInputToDto(input),
-      ),
-    onSuccess: async () => {
-      await invalidate(financialKeys.financialTransactionAttachments());
+        input.financialTransactionId,
+        input.file,
+      );
     },
+    onSuccess: invalidateGraph,
   });
 }
 
 export function useUpdateFinancialTransactionAttachmentMutation() {
-  const invalidate = useFinancialInvalidation();
+  const invalidateGraph = useFinancialGraphInvalidation();
 
   return useMutation({
     mutationFn: ({
@@ -105,45 +115,76 @@ export function useUpdateFinancialTransactionAttachmentMutation() {
     }: {
       id: number;
       input: FinancialTransactionAttachmentInput;
-    }) =>
-      financialRepository.updateFinancialTransactionAttachment(
+    }) => {
+      if (!input.financialTransactionId) {
+        throw new Error('Transacao e obrigatoria para editar o anexo.');
+      }
+
+      return financialRepository.updateFinancialTransactionAttachment(
         id,
+        input.financialTransactionId,
         mapFinancialTransactionAttachmentInputToDto(input),
-      ),
-    onSuccess: async () => {
-      await invalidate(financialKeys.financialTransactionAttachments());
+      );
     },
+    onSuccess: invalidateGraph,
+  });
+}
+
+export function useReplaceFinancialTransactionAttachmentFileMutation() {
+  const invalidateGraph = useFinancialGraphInvalidation();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      financialTransactionId,
+      file,
+    }: {
+      id: number;
+      financialTransactionId: number;
+      file: File;
+    }) =>
+      financialRepository.replaceFinancialTransactionAttachmentFile(
+        financialTransactionId,
+        id,
+        file,
+      ),
+    onSuccess: invalidateGraph,
   });
 }
 
 export function useDeleteFinancialTransactionAttachmentMutation() {
-  const invalidate = useFinancialInvalidation();
+  const invalidateGraph = useFinancialGraphInvalidation();
 
   return useMutation({
-    mutationFn: (id: number) =>
-      financialRepository.deleteFinancialTransactionAttachment(id),
-    onSuccess: async () => {
-      await invalidate(financialKeys.financialTransactionAttachments());
-    },
+    mutationFn: ({
+      financialTransactionId,
+      id,
+    }: {
+      financialTransactionId: number;
+      id: number;
+    }) =>
+      financialRepository.deleteFinancialTransactionAttachment(
+        financialTransactionId,
+        id,
+      ),
+    onSuccess: invalidateGraph,
   });
 }
 
 export function useCreateFinancialTransactionItemMutation() {
-  const invalidate = useFinancialInvalidation();
+  const invalidateGraph = useFinancialGraphInvalidation();
 
   return useMutation({
     mutationFn: (input: FinancialTransactionItemInput) =>
       financialRepository.createFinancialTransactionItem(
         mapFinancialTransactionItemInputToDto(input),
       ),
-    onSuccess: async () => {
-      await invalidate(financialKeys.financialTransactionItems());
-    },
+    onSuccess: invalidateGraph,
   });
 }
 
 export function useUpdateFinancialTransactionItemMutation() {
-  const invalidate = useFinancialInvalidation();
+  const invalidateGraph = useFinancialGraphInvalidation();
 
   return useMutation({
     mutationFn: ({
@@ -157,42 +198,39 @@ export function useUpdateFinancialTransactionItemMutation() {
         id,
         mapFinancialTransactionItemInputToDto(input),
       ),
-    onSuccess: async () => {
-      await invalidate(financialKeys.financialTransactionItems());
-    },
+    onSuccess: invalidateGraph,
   });
 }
 
 export function useDeleteFinancialTransactionItemMutation() {
-  const invalidate = useFinancialInvalidation();
+  const invalidateGraph = useFinancialGraphInvalidation();
 
   return useMutation({
-    mutationFn: (id: number) => financialRepository.deleteFinancialTransactionItem(id),
-    onSuccess: async () => {
-      await invalidate(financialKeys.financialTransactionItems());
-    },
+    mutationFn: ({
+      financialTransactionId,
+      id,
+    }: {
+      financialTransactionId: number;
+      id: number;
+    }) => financialRepository.deleteFinancialTransactionItem(financialTransactionId, id),
+    onSuccess: invalidateGraph,
   });
 }
 
 export function useCreateFinancialTransactionFulfillmentMutation() {
-  const invalidate = useFinancialInvalidation();
+  const invalidateGraph = useFinancialGraphInvalidation();
 
   return useMutation({
     mutationFn: (input: FinancialTransactionFulfillmentInput) =>
       financialRepository.createFinancialTransactionFulfillment(
         mapFinancialTransactionFulfillmentInputToDto(input),
       ),
-    onSuccess: async () => {
-      await invalidate(
-        financialKeys.financialTransactionFulfillments(),
-        financialKeys.financialTransactions(),
-      );
-    },
+    onSuccess: invalidateGraph,
   });
 }
 
 export function useUpdateFinancialTransactionFulfillmentMutation() {
-  const invalidate = useFinancialInvalidation();
+  const invalidateGraph = useFinancialGraphInvalidation();
 
   return useMutation({
     mutationFn: ({
@@ -206,27 +244,26 @@ export function useUpdateFinancialTransactionFulfillmentMutation() {
         id,
         mapFinancialTransactionFulfillmentInputToDto(input),
       ),
-    onSuccess: async () => {
-      await invalidate(
-        financialKeys.financialTransactionFulfillments(),
-        financialKeys.financialTransactions(),
-      );
-    },
+    onSuccess: invalidateGraph,
   });
 }
 
 export function useDeleteFinancialTransactionFulfillmentMutation() {
-  const invalidate = useFinancialInvalidation();
+  const invalidateGraph = useFinancialGraphInvalidation();
 
   return useMutation({
-    mutationFn: (id: number) =>
-      financialRepository.deleteFinancialTransactionFulfillment(id),
-    onSuccess: async () => {
-      await invalidate(
-        financialKeys.financialTransactionFulfillments(),
-        financialKeys.financialTransactions(),
-      );
-    },
+    mutationFn: ({
+      financialTransactionId,
+      id,
+    }: {
+      financialTransactionId: number;
+      id: number;
+    }) =>
+      financialRepository.deleteFinancialTransactionFulfillment(
+        financialTransactionId,
+        id,
+      ),
+    onSuccess: invalidateGraph,
   });
 }
 

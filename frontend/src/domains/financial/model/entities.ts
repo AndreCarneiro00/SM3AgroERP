@@ -17,6 +17,11 @@ export interface FinancialTransaction {
   observation?: string;
   hasNf?: boolean;
   totalAmount?: number;
+  paidAmount?: number;
+  remainingAmount?: number;
+  itemCount?: number;
+  attachmentCount?: number;
+  fulfillmentCount?: number;
 }
 
 export interface FinancialTransactionAttachment {
@@ -33,7 +38,7 @@ export interface FinancialTransactionAttachment {
   webUrl?: string;
   checksumSha256?: string;
   uploadedAt?: string;
-  active: boolean;
+  active?: boolean;
   observation?: string;
 }
 
@@ -54,7 +59,15 @@ export interface FinancialTransactionFulfillment {
   bankAccountId: number;
   paymentDate: string;
   amountPaid: number;
+  allocations: FinancialTransactionFulfillmentAllocation[];
   observation?: string;
+}
+
+export interface FinancialTransactionFulfillmentAllocation {
+  id?: number;
+  itemId?: number;
+  itemIndex?: number;
+  amount: number;
 }
 
 export interface BankTransfer {
@@ -80,27 +93,16 @@ export interface FinancialTransactionInput {
   issueDate?: string;
   dueDate?: string;
   documentNumber?: string;
-  status: FinancialTransactionStatus;
   type: FinancialTransactionType;
   observation?: string;
   hasNf?: boolean;
-  totalAmount?: number;
 }
 
 export interface FinancialTransactionAttachmentInput {
   financialTransactionId?: number;
-  fileName: string;
-  declaredContentType?: string;
-  sizeBytes?: number;
   documentTypeId?: number;
-  storageProvider: AttachmentStorageProvider;
-  storagePath?: string;
-  externalFileId?: string;
-  externalParentId?: string;
-  webUrl?: string;
-  checksumSha256?: string;
-  uploadedAt?: string;
-  active: boolean;
+  file?: File;
+  storageProvider?: AttachmentStorageProvider;
   observation?: string;
 }
 
@@ -115,11 +117,24 @@ export interface FinancialTransactionItemInput {
 }
 
 export interface FinancialTransactionFulfillmentInput {
-  financialTransactionId: number;
+  financialTransactionId?: number;
   bankAccountId: number;
   paymentDate: string;
   amountPaid: number;
+  allocations: FinancialTransactionFulfillmentAllocationInput[];
   observation?: string;
+}
+
+export interface FinancialTransactionFulfillmentAllocationInput {
+  itemId?: number;
+  itemIndex?: number;
+  amount: number;
+}
+
+export interface CreateFinancialTransactionInput extends FinancialTransactionInput {
+  items: FinancialTransactionItemInput[];
+  attachments?: FinancialTransactionAttachmentInput[];
+  fulfillments?: FinancialTransactionFulfillmentInput[];
 }
 
 export interface BankTransferInput {

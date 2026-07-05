@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -16,15 +16,61 @@ import { FormTextField } from '../../forms/FormTextField';
 import { todayIsoDate, toInputValue } from '../../forms/valueParsers';
 import { zodResolver } from '../../forms/zodResolver';
 import type { BankAccount } from '../../../domains/banking/model/entities';
-import type { FinancialTransaction } from '../../../domains/financial/model/entities';
+import type {
+  FinancialTransaction,
+  FinancialTransactionFulfillment,
+} from '../../../domains/financial/model/entities';
 
 const fmtBRL = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+function roundCurrency(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function getMaximumPayableAmount(
+  transaction?: FinancialTransaction,
+  fulfillment?: FinancialTransactionFulfillment,
+) {
+  if (!transaction) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const availableAmount =
+    transaction.remainingAmount ?? transaction.totalAmount ?? 0;
+  const currentFulfillmentAmount = fulfillment?.amountPaid ?? 0;
+
+  return roundCurrency(availableAmount + currentFulfillmentAmount);
+}
+
+function createFulfillmentSchema(maximumPayableAmount: number) {
+  return z.object({
+    bankId: z.string().min(1, 'Selecione a conta bancaria.'),
+    date: z.string().min(1, 'Informe a data do pagamento.'),
+    amount: z
+      .string()
+      .trim()
+      .min(1, 'Informe o valor pago.')
+      .refine(
+        (value) => !Number.isNaN(Number(value)) && Number(value) > 0,
+        'Informe um valor pago valido.',
+      )
+      .refine(
+        (value) =>
+          Number.isFinite(maximumPayableAmount)
+            ? Number(value) <= maximumPayableAmount
+            : true,
+        `O valor pago nao pode exceder ${fmtBRL(maximumPayableAmount)}.`,
+      ),
+    observation: z.string(),
+  });
+}
 
 interface Props {
   open: boolean;
   onClose: () => void;
   transaction?: FinancialTransaction;
+  fulfillment?: FinancialTransactionFulfillment;
   activeBankAccounts: BankAccount[];
   onSave: (
     bankId: number,
@@ -35,30 +81,21 @@ interface Props {
   saving?: boolean;
 }
 
-const fulfillmentSchema = z.object({
-  bankId: z.string().min(1, 'Selecione a conta bancaria.'),
-  date: z.string().min(1, 'Informe a data do pagamento.'),
-  amount: z
-    .string()
-    .trim()
-    .min(1, 'Informe o valor pago.')
-    .refine(
-      (value) => !Number.isNaN(Number(value)) && Number(value) > 0,
-      'Informe um valor pago valido.',
-    ),
-  observation: z.string(),
-});
-
-type FulfillmentFormValues = z.infer<typeof fulfillmentSchema>;
+type FulfillmentFormValues = z.infer<ReturnType<typeof createFulfillmentSchema>>;
 
 function getDefaultValues(
   transaction?: FinancialTransaction,
+  fulfillment?: FinancialTransactionFulfillment,
 ): FulfillmentFormValues {
   return {
-    bankId: '',
-    date: todayIsoDate(),
-    amount: toInputValue(transaction?.totalAmount),
-    observation: '',
+    bankId: toInputValue(fulfillment?.bankAccountId),
+    date: fulfillment?.paymentDate ?? todayIsoDate(),
+    amount: toInputValue(
+      fulfillment?.amountPaid ??
+        transaction?.remainingAmount ??
+        transaction?.totalAmount,
+    ),
+    observation: fulfillment?.observation ?? '',
   };
 }
 
@@ -66,13 +103,22 @@ export function FulfillmentDialog({
   open,
   onClose,
   transaction,
+  fulfillment,
   activeBankAccounts,
   onSave,
   saving = false,
 }: Props) {
+  const maximumPayableAmount = useMemo(
+    () => getMaximumPayableAmount(transaction, fulfillment),
+    [fulfillment, transaction],
+  );
+  const fulfillmentSchema = useMemo(
+    () => createFulfillmentSchema(maximumPayableAmount),
+    [maximumPayableAmount],
+  );
   const { control, formState, handleSubmit, reset } =
     useForm<FulfillmentFormValues>({
-      defaultValues: getDefaultValues(transaction),
+      defaultValues: getDefaultValues(transaction, fulfillment),
       resolver: zodResolver(fulfillmentSchema),
     });
 
@@ -81,8 +127,8 @@ export function FulfillmentDialog({
       return;
     }
 
-    reset(getDefaultValues(transaction));
-  }, [open, reset, transaction]);
+    reset(getDefaultValues(transaction, fulfillment));
+  }, [fulfillment, open, reset, transaction]);
 
   const disabled = saving || formState.isSubmitting;
 
@@ -97,7 +143,9 @@ export function FulfillmentDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Registrar Pagamento</DialogTitle>
+      <DialogTitle>
+        {fulfillment ? 'Editar Pagamento' : 'Registrar Pagamento'}
+      </DialogTitle>
       <DialogContent>
         {transaction && (
           <Box sx={{ mb: 2, p: 1.5, bgcolor: '#F5F5F5', borderRadius: 1 }}>
@@ -106,6 +154,14 @@ export function FulfillmentDialog({
             </Typography>
             <Typography variant="caption" color="text.secondary">
               Total: {fmtBRL(transaction.totalAmount ?? 0)}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              display="block"
+            >
+              {fulfillment ? 'Limite deste pagamento' : 'Saldo disponivel'}:{' '}
+              {fmtBRL(maximumPayableAmount)}
             </Typography>
           </Box>
         )}
@@ -138,6 +194,13 @@ export function FulfillmentDialog({
             label="Valor Pago (R$)"
             type="number"
             fullWidth
+            inputProps={{
+              min: 0,
+              max: Number.isFinite(maximumPayableAmount)
+                ? maximumPayableAmount
+                : undefined,
+              step: '0.01',
+            }}
           />
           <FormTextField
             control={control}

@@ -2,6 +2,7 @@ import { normalizeById } from '../../../core/collections/normalize';
 import type {
   BankTransferDto,
   CreateBankTransferDto,
+  CreateFinancialTransactionMultipartDto,
   CreateFinancialTransactionAttachmentDto,
   CreateFinancialTransactionDto,
   CreateFinancialTransactionFulfillmentDto,
@@ -14,6 +15,7 @@ import type {
 import type {
   BankTransfer,
   BankTransferInput,
+  CreateFinancialTransactionInput,
   FinancialCatalog,
   FinancialTransaction,
   FinancialTransactionAttachment,
@@ -40,6 +42,11 @@ export function mapFinancialTransactionDto(
     observation: dto.observation,
     hasNf: dto.hasNf,
     totalAmount: dto.totalAmount,
+    paidAmount: dto.paidAmount,
+    remainingAmount: dto.remainingAmount,
+    itemCount: dto.itemCount,
+    attachmentCount: dto.attachmentCount,
+    fulfillmentCount: dto.fulfillmentCount,
   };
 }
 
@@ -60,7 +67,7 @@ export function mapFinancialTransactionAttachmentDto(
     webUrl: dto.webUrl,
     checksumSha256: dto.checksumSha256,
     uploadedAt: dto.uploadedAt,
-    active: dto.active,
+    active: dto.active ?? true,
     observation: dto.observation,
   };
 }
@@ -89,6 +96,7 @@ export function mapFinancialTransactionFulfillmentDto(
     bankAccountId: dto.bankAccountId,
     paymentDate: dto.paymentDate,
     amountPaid: dto.amountPaid,
+    allocations: dto.allocations ?? [],
     observation: dto.observation,
   };
 }
@@ -113,11 +121,33 @@ export function mapFinancialTransactionInputToDto(
     issueDate: input.issueDate,
     dueDate: input.dueDate,
     documentNumber: input.documentNumber,
-    status: input.status,
     type: input.type,
     observation: input.observation,
     hasNf: input.hasNf,
-    totalAmount: input.totalAmount,
+  };
+}
+
+export function mapCreateFinancialTransactionInputToMultipartDto(
+  input: CreateFinancialTransactionInput,
+): CreateFinancialTransactionMultipartDto {
+  const attachmentsWithFiles = (input.attachments ?? []).filter(
+    (attachment) => !!attachment.file,
+  );
+
+  return {
+    payload: {
+      ...mapFinancialTransactionInputToDto(input),
+      items: input.items.map(mapFinancialTransactionItemInputToDto),
+      attachments: attachmentsWithFiles.map((attachment, fileIndex) => ({
+        documentTypeId: attachment.documentTypeId,
+        fileIndex,
+        observation: attachment.observation,
+      })),
+      fulfillments: (input.fulfillments ?? []).map(
+        mapFinancialTransactionFulfillmentInputToDto,
+      ),
+    },
+    files: attachmentsWithFiles.map((attachment) => attachment.file as File),
   };
 }
 
@@ -125,19 +155,7 @@ export function mapFinancialTransactionAttachmentInputToDto(
   input: FinancialTransactionAttachmentInput,
 ): CreateFinancialTransactionAttachmentDto {
   return {
-    financialTransactionId: input.financialTransactionId,
-    fileName: input.fileName,
-    declaredContentType: input.declaredContentType,
-    sizeBytes: input.sizeBytes,
     documentTypeId: input.documentTypeId,
-    storageProvider: input.storageProvider,
-    storagePath: input.storagePath,
-    externalFileId: input.externalFileId,
-    externalParentId: input.externalParentId,
-    webUrl: input.webUrl,
-    checksumSha256: input.checksumSha256,
-    uploadedAt: input.uploadedAt,
-    active: input.active,
     observation: input.observation,
   };
 }
@@ -164,6 +182,7 @@ export function mapFinancialTransactionFulfillmentInputToDto(
     bankAccountId: input.bankAccountId,
     paymentDate: input.paymentDate,
     amountPaid: input.amountPaid,
+    allocations: input.allocations,
     observation: input.observation,
   };
 }
@@ -182,23 +201,46 @@ export function mapBankTransferInputToDto(
 
 export function createFinancialCatalog(params: {
   financialTransactions: FinancialTransactionDto[];
-  financialTransactionAttachments: FinancialTransactionAttachmentDto[];
-  financialTransactionItems: FinancialTransactionItemDto[];
-  financialTransactionFulfillments: FinancialTransactionFulfillmentDto[];
+  financialTransactionAttachments?: FinancialTransactionAttachmentDto[];
+  financialTransactionItems?: FinancialTransactionItemDto[];
+  financialTransactionFulfillments?: FinancialTransactionFulfillmentDto[];
   bankTransfers: BankTransferDto[];
 }): FinancialCatalog {
   const financialTransactions = params.financialTransactions.map(
     mapFinancialTransactionDto,
   );
+  const nestedAttachments = params.financialTransactions.flatMap(
+    (financialTransaction) =>
+      (financialTransaction.attachments ?? []).map((attachment) => ({
+        ...attachment,
+        financialTransactionId: financialTransaction.id,
+      })),
+  );
+  const nestedItems = params.financialTransactions.flatMap(
+    (financialTransaction) =>
+      (financialTransaction.items ?? []).map((item) => ({
+        ...item,
+        financialTransactionId: financialTransaction.id,
+      })),
+  );
+  const nestedFulfillments = params.financialTransactions.flatMap(
+    (financialTransaction) =>
+      (financialTransaction.fulfillments ?? []).map((fulfillment) => ({
+        ...fulfillment,
+        financialTransactionId: financialTransaction.id,
+      })),
+  );
   const financialTransactionAttachments =
-    params.financialTransactionAttachments.map(
+    (params.financialTransactionAttachments ?? nestedAttachments).map(
       mapFinancialTransactionAttachmentDto,
     );
-  const financialTransactionItems = params.financialTransactionItems.map(
+  const financialTransactionItems = (
+    params.financialTransactionItems ?? nestedItems
+  ).map(
     mapFinancialTransactionItemDto,
   );
   const financialTransactionFulfillments =
-    params.financialTransactionFulfillments.map(
+    (params.financialTransactionFulfillments ?? nestedFulfillments).map(
       mapFinancialTransactionFulfillmentDto,
     );
   const bankTransfers = params.bankTransfers.map(mapBankTransferDto);

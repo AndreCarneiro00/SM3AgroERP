@@ -6,7 +6,7 @@ export type FinancialTransactionStatus =
 
 export type FinancialTransactionType = 'INCOME' | 'EXPENSE';
 
-export type AttachmentStorageProvider = 'LOCAL' | 'ONEDRIVE';
+export type AttachmentStorageProvider = 'LOCAL' | 'ONEDRIVE' | 'S3';
 
 export interface FinancialTransactionDto {
   id: number;
@@ -20,6 +20,14 @@ export interface FinancialTransactionDto {
   observation?: string;
   hasNf?: boolean;
   totalAmount?: number;
+  paidAmount?: number;
+  remainingAmount?: number;
+  itemCount?: number;
+  attachmentCount?: number;
+  fulfillmentCount?: number;
+  items?: FinancialTransactionItemDto[];
+  attachments?: FinancialTransactionAttachmentDto[];
+  fulfillments?: FinancialTransactionFulfillmentDto[];
 }
 
 export interface FinancialTransactionAttachmentDto {
@@ -36,7 +44,7 @@ export interface FinancialTransactionAttachmentDto {
   webUrl?: string;
   checksumSha256?: string;
   uploadedAt?: string;
-  active: boolean;
+  active?: boolean;
   observation?: string;
 }
 
@@ -57,7 +65,15 @@ export interface FinancialTransactionFulfillmentDto {
   bankAccountId: number;
   paymentDate: string;
   amountPaid: number;
+  allocations: FinancialTransactionFulfillmentAllocationDto[];
   observation?: string;
+}
+
+export interface FinancialTransactionFulfillmentAllocationDto {
+  id?: number;
+  itemId?: number;
+  itemIndex?: number;
+  amount: number;
 }
 
 export interface BankTransferDto {
@@ -69,12 +85,52 @@ export interface BankTransferDto {
   observation?: string;
 }
 
-export type CreateFinancialTransactionDto = Omit<FinancialTransactionDto, 'id'>;
-export type UpdateFinancialTransactionDto = CreateFinancialTransactionDto;
+export type UpdateFinancialTransactionDto = Pick<
+  FinancialTransactionDto,
+  | 'description'
+  | 'counterpartyId'
+  | 'issueDate'
+  | 'dueDate'
+  | 'documentNumber'
+  | 'type'
+  | 'observation'
+  | 'hasNf'
+>;
+export type CreateFinancialTransactionDto = UpdateFinancialTransactionDto;
+
+export interface CreateFinancialTransactionAttachmentPayloadDto {
+  documentTypeId?: number;
+  fileIndex: number;
+  observation?: string;
+}
+
+export interface CreateFinancialTransactionPayloadDto
+  extends UpdateFinancialTransactionDto {
+  items: CreateFinancialTransactionItemDto[];
+  attachments?: CreateFinancialTransactionAttachmentPayloadDto[];
+  fulfillments?: CreateFinancialTransactionFulfillmentDto[];
+}
+
+export interface CreateFinancialTransactionMultipartDto {
+  payload: CreateFinancialTransactionPayloadDto;
+  files: File[];
+}
 
 export type CreateFinancialTransactionAttachmentDto = Omit<
   FinancialTransactionAttachmentDto,
-  'id'
+  | 'id'
+  | 'financialTransactionId'
+  | 'fileName'
+  | 'declaredContentType'
+  | 'sizeBytes'
+  | 'storageProvider'
+  | 'storagePath'
+  | 'externalFileId'
+  | 'externalParentId'
+  | 'webUrl'
+  | 'checksumSha256'
+  | 'uploadedAt'
+  | 'active'
 >;
 export type UpdateFinancialTransactionAttachmentDto =
   CreateFinancialTransactionAttachmentDto;
@@ -87,8 +143,10 @@ export type UpdateFinancialTransactionItemDto = CreateFinancialTransactionItemDt
 
 export type CreateFinancialTransactionFulfillmentDto = Omit<
   FinancialTransactionFulfillmentDto,
-  'id'
->;
+  'id' | 'financialTransactionId'
+> & {
+  financialTransactionId?: number;
+};
 export type UpdateFinancialTransactionFulfillmentDto =
   CreateFinancialTransactionFulfillmentDto;
 

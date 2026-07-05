@@ -11,6 +11,7 @@ import {
   useDeleteFinancialTransactionFulfillmentMutation,
   useDeleteFinancialTransactionItemMutation,
   useDeleteFinancialTransactionMutation,
+  useReplaceFinancialTransactionAttachmentFileMutation,
   useUpdateBankTransferMutation,
   useUpdateFinancialTransactionAttachmentMutation,
   useUpdateFinancialTransactionFulfillmentMutation,
@@ -28,29 +29,18 @@ import {
 
 export function useFinancialCatalogData() {
   const {
-    financialTransactionsQuery,
-    financialTransactionAttachmentsQuery,
-    financialTransactionItemsQuery,
-    financialTransactionFulfillmentsQuery,
+    financialTransactionDetailsQuery,
     bankTransfersQuery,
   } = useFinancialCatalogQueries();
 
   const catalog = useMemo(
     () =>
       createFinancialCatalog({
-        financialTransactions: financialTransactionsQuery.data ?? [],
-        financialTransactionAttachments:
-          financialTransactionAttachmentsQuery.data ?? [],
-        financialTransactionItems: financialTransactionItemsQuery.data ?? [],
-        financialTransactionFulfillments:
-          financialTransactionFulfillmentsQuery.data ?? [],
+        financialTransactions: financialTransactionDetailsQuery.data ?? [],
         bankTransfers: bankTransfersQuery.data ?? [],
       }),
     [
-      financialTransactionsQuery.data,
-      financialTransactionAttachmentsQuery.data,
-      financialTransactionItemsQuery.data,
-      financialTransactionFulfillmentsQuery.data,
+      financialTransactionDetailsQuery.data,
       bankTransfersQuery.data,
     ],
   );
@@ -81,16 +71,10 @@ export function useFinancialCatalogData() {
     financialTransactionFulfillments,
     bankTransfers,
     isLoading:
-      financialTransactionsQuery.isLoading ||
-      financialTransactionAttachmentsQuery.isLoading ||
-      financialTransactionItemsQuery.isLoading ||
-      financialTransactionFulfillmentsQuery.isLoading ||
+      financialTransactionDetailsQuery.isLoading ||
       bankTransfersQuery.isLoading,
     isFetching:
-      financialTransactionsQuery.isFetching ||
-      financialTransactionAttachmentsQuery.isFetching ||
-      financialTransactionItemsQuery.isFetching ||
-      financialTransactionFulfillmentsQuery.isFetching ||
+      financialTransactionDetailsQuery.isFetching ||
       bankTransfersQuery.isFetching,
   };
 }
@@ -104,6 +88,8 @@ export function useFinancialMutations() {
       useCreateFinancialTransactionAttachmentMutation(),
     updateFinancialTransactionAttachment:
       useUpdateFinancialTransactionAttachmentMutation(),
+    replaceFinancialTransactionAttachmentFile:
+      useReplaceFinancialTransactionAttachmentFileMutation(),
     deleteFinancialTransactionAttachment:
       useDeleteFinancialTransactionAttachmentMutation(),
     createFinancialTransactionItem: useCreateFinancialTransactionItemMutation(),

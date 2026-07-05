@@ -35,12 +35,16 @@ export async function httpRequest<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  const bodyIsFormData = init.body instanceof FormData;
+  const headers = new Headers(init.headers);
+
+  if (!bodyIsFormData && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
   const response = await fetch(resolveUrl(path), {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
+    headers,
   });
 
   if (response.status === 204) {
