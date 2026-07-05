@@ -1,10 +1,10 @@
 package com.sm3Agro.SM3AgroERP.financial.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sm3Agro.SM3AgroERP.financial.dto.documentType.CreateDocumentTypeRequest;
-import com.sm3Agro.SM3AgroERP.financial.dto.documentType.UpdateDocumentTypeRequest;
-import com.sm3Agro.SM3AgroERP.financial.entity.DocumentType;
-import com.sm3Agro.SM3AgroERP.financial.repository.DocumentTypeRepository;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.documentType.CreateDocumentTypeRequest;
+import com.sm3Agro.SM3AgroERP.financial.masterData.dto.documentType.UpdateDocumentTypeRequest;
+import com.sm3Agro.SM3AgroERP.financial.masterData.entity.DocumentType;
+import com.sm3Agro.SM3AgroERP.financial.masterData.repository.DocumentTypeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
