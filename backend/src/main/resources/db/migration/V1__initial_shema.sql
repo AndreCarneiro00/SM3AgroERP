@@ -168,7 +168,7 @@ CREATE TABLE cost_center (
                              active BOOLEAN NOT NULL DEFAULT 1,
                              parent_id INTEGER,
                              code TEXT,
-                             activity_group_id INTEGER,
+                             activity_group_id INTEGER NOT NULL,
 
                              FOREIGN KEY (parent_id) REFERENCES cost_center(id),
                              FOREIGN KEY (activity_group_id) REFERENCES activity_group(id)
@@ -270,7 +270,7 @@ CREATE TABLE financial_transaction_attachment (
                                                   size_bytes INTEGER,
                                                   document_type_id INTEGER NOT NULL,
                                                   storage_provider TEXT NOT NULL CHECK (
-                                                      storage_provider IN ('LOCAL', 'ONEDRIVE')
+                                                      storage_provider IN ('LOCAL', 'ONEDRIVE', 'S3')
                                                       ),
                                                   storage_path TEXT,
                                                   external_file_id TEXT,
@@ -315,7 +315,19 @@ CREATE TABLE financial_transaction_fulfillment (
                                                    observation TEXT,
 
                                                    FOREIGN KEY (financial_transaction_id) REFERENCES financial_transaction(id),
-                                                   FOREIGN KEY (bank_account_id) REFERENCES bank_account(id)
+                                                   FOREIGN KEY (bank_account_id) REFERENCES bank_account(id),
+                                                   CHECK (amount_paid > 0)
+);
+
+CREATE TABLE financial_transaction_fulfillment_item_allocation (
+                                                                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                                   fulfillment_id INTEGER NOT NULL,
+                                                                   financial_transaction_item_id INTEGER NOT NULL,
+                                                                   amount REAL NOT NULL,
+
+                                                                   FOREIGN KEY (fulfillment_id) REFERENCES financial_transaction_fulfillment(id),
+                                                                   FOREIGN KEY (financial_transaction_item_id) REFERENCES financial_transaction_items(id),
+                                                                   CHECK (amount > 0)
 );
 
 CREATE TABLE bank_transfer (
