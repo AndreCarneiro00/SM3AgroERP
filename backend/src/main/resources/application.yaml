@@ -16,6 +16,11 @@ spring:
   flyway:
     enabled: true
 
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 25MB
+
 server:
   servlet:
     context-path: /api
@@ -23,3 +28,8 @@ server:
     include-stacktrace: never
     include-message: never
     include-binding-errors: never
+
+sm3:
+  storage:
+    attachments:
+      local-root: uploads/financial-attachments

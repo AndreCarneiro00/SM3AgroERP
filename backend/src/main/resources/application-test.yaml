@@ -11,3 +11,8 @@ spring:
 
   flyway:
     enabled: false
+
+sm3:
+  storage:
+    attachments:
+      local-root: target/test-attachments
