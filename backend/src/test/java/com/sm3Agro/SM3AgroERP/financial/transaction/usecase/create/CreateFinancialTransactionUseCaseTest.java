@@ -58,6 +58,7 @@ class CreateFinancialTransactionUseCaseTest {
         CreateFinancialTransactionRequest request = createRequest();
         List<MultipartFile> files = createFiles();
         FinancialTransaction transaction = createTransaction();
+        FinancialTransaction recalculatedTransaction = createTransaction();
         List<FinancialTransactionItemResult> items = List.of(
                 new FinancialTransactionItemResult(10L, 100L, 200L, new BigDecimal("2.00"),
                         new BigDecimal("50.00"), new BigDecimal("100.00"), 300L)
@@ -80,6 +81,7 @@ class CreateFinancialTransactionUseCaseTest {
         when(itemService.createAll(transaction, request.items())).thenReturn(items);
         when(fulfillmentService.createAll(transaction, request.fulfillments())).thenReturn(fulfillments);
         when(attachmentService.createAll(transaction, request.attachments(), files)).thenReturn(attachments);
+        when(financialTransactionService.recalculate(transaction.getId())).thenReturn(recalculatedTransaction);
 
         CreateFinancialTransactionResult result = useCase.execute(request, files);
 
@@ -98,6 +100,7 @@ class CreateFinancialTransactionUseCaseTest {
         orderedFlow.verify(itemService).createAll(transaction, request.items());
         orderedFlow.verify(fulfillmentService).createAll(transaction, request.fulfillments());
         orderedFlow.verify(attachmentService).createAll(transaction, request.attachments(), files);
+        orderedFlow.verify(financialTransactionService).recalculate(transaction.getId());
     }
 
     @Test
@@ -119,6 +122,7 @@ class CreateFinancialTransactionUseCaseTest {
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()
         );
+        verify(financialTransactionService, never()).recalculate(org.mockito.ArgumentMatchers.anyLong());
     }
 
     private CreateFinancialTransactionRequest createRequest() {

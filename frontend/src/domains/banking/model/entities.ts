@@ -7,6 +7,7 @@ export interface BankAccount {
   name: string;
   active: boolean;
   initialBalance?: number;
+  currentBalance?: number;
   initialBalanceDate?: string;
   financialInstitution?: string;
   agency?: string;

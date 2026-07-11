@@ -5,11 +5,12 @@ export interface BankAccountDto {
   name: string;
   active: boolean;
   initialBalance?: number;
+  currentBalance?: number;
   initialBalanceDate?: string;
   financialInstitution?: string;
   agency?: string;
   accountNumber?: string;
 }
 
-export type CreateBankAccountDto = Omit<BankAccountDto, 'id'>;
+export type CreateBankAccountDto = Omit<BankAccountDto, 'id' | 'currentBalance'>;
 export type UpdateBankAccountDto = CreateBankAccountDto;

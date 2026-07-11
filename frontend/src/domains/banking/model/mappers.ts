@@ -17,6 +17,7 @@ export function mapBankAccountDto(dto: BankAccountDto): BankAccount {
     name: dto.name,
     active: dto.active,
     initialBalance: dto.initialBalance,
+    currentBalance: dto.currentBalance,
     initialBalanceDate: dto.initialBalanceDate,
     financialInstitution: dto.financialInstitution,
     agency: dto.agency,

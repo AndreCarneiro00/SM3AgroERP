@@ -5,6 +5,12 @@ import com.sm3Agro.SM3AgroERP.bank.dto.bankAccount.CreateBankAccountRequest;
 import com.sm3Agro.SM3AgroERP.bank.dto.bankAccount.UpdateBankAccountRequest;
 import com.sm3Agro.SM3AgroERP.bank.entity.BankAccount;
 import com.sm3Agro.SM3AgroERP.bank.repository.BankAccountRepository;
+import com.sm3Agro.SM3AgroERP.financial.bankTransfer.repository.BankTransferRepository;
+import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionAttachmentRepository;
+import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionFulfillmentAllocationRepository;
+import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionFulfillmentRepository;
+import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionItemRepository;
+import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,8 +45,32 @@ class BankAccountControllerIT {
     @Autowired
     private BankAccountRepository repository;
 
+    @Autowired
+    private BankTransferRepository bankTransferRepository;
+
+    @Autowired
+    private FinancialTransactionFulfillmentAllocationRepository fulfillmentAllocationRepository;
+
+    @Autowired
+    private FinancialTransactionFulfillmentRepository fulfillmentRepository;
+
+    @Autowired
+    private FinancialTransactionAttachmentRepository attachmentRepository;
+
+    @Autowired
+    private FinancialTransactionItemRepository itemRepository;
+
+    @Autowired
+    private FinancialTransactionRepository transactionRepository;
+
     @BeforeEach
     void setup() {
+        fulfillmentAllocationRepository.deleteAll();
+        fulfillmentRepository.deleteAll();
+        attachmentRepository.deleteAll();
+        itemRepository.deleteAll();
+        transactionRepository.deleteAll();
+        bankTransferRepository.deleteAll();
         repository.deleteAll();
     }
 
@@ -65,7 +95,8 @@ class BankAccountControllerIT {
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.name").value("Conta Principal"))
                 .andExpect(jsonPath("$.accountType").value("CHECKING"))
-                .andExpect(jsonPath("$.financialInstitution").value("Banco XPTO"));
+                .andExpect(jsonPath("$.financialInstitution").value("Banco XPTO"))
+                .andExpect(jsonPath("$.currentBalance").value(1500.50));
     }
 
     @Test
@@ -80,7 +111,8 @@ class BankAccountControllerIT {
         mockMvc.perform(get("/bank-account"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].name").value("Conta A"));
+                .andExpect(jsonPath("$[0].name").value("Conta A"))
+                .andExpect(jsonPath("$[0].currentBalance").value(0));
     }
 
     @Test
@@ -111,7 +143,8 @@ class BankAccountControllerIT {
                 .andExpect(jsonPath("$.id").value(bankAccount.getId()))
                 .andExpect(jsonPath("$.name").value("Conta Nova"))
                 .andExpect(jsonPath("$.accountType").value("SAVINGS"))
-                .andExpect(jsonPath("$.active").value(false));
+                .andExpect(jsonPath("$.active").value(false))
+                .andExpect(jsonPath("$.currentBalance").value(900.00));
     }
 
     @Test

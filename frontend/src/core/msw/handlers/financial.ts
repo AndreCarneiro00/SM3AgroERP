@@ -14,9 +14,14 @@ import type {
   FinancialTransactionFulfillmentDto,
   FinancialTransactionItemDto,
 } from '../../../domains/financial/api/dtos';
-import { createFinancialFixtures } from '../fixtures/financial';
+import { cashManagementState } from '../state/cashManagement';
+import {
+  validateBankTransfer,
+  validateFulfillment,
+  validateTransactionTypeChange,
+} from '../utils/bankBalances';
 
-const fixtures = createFinancialFixtures();
+const fixtures = cashManagementState;
 
 function nextId(items: Array<{ id: number }>) {
   return items.length > 0 ? Math.max(...items.map((item) => item.id)) + 1 : 1;
@@ -92,6 +97,12 @@ function resolveFulfillmentAllocations(
   items: FinancialTransactionItemDto[],
   excludedFulfillmentId?: number,
 ): FinancialTransactionFulfillmentAllocationDto[] | undefined {
+  type ResolvedFulfillmentAllocation = {
+    id: number;
+    itemId: number;
+    amount: number;
+  };
+
   const totalAmount = getTotalAmount(financialTransactionId);
   const alreadyPaid = getPaidAmount(
     financialTransactionId,
@@ -185,8 +196,7 @@ function resolveFulfillmentAllocations(
     .filter(
       (
         allocation,
-      ): allocation is FinancialTransactionFulfillmentAllocationDto =>
-        !!allocation,
+      ): allocation is ResolvedFulfillmentAllocation => allocation !== undefined,
     );
 
   if (resolvedAllocations.length !== incomingAllocations.length) {
@@ -351,6 +361,23 @@ function createAttachmentFromFile(
   };
 }
 
+function rollbackCreatedTransaction(financialTransactionId: number) {
+  fixtures.financialTransactionAttachments =
+    fixtures.financialTransactionAttachments.filter(
+      (attachment) => attachment.financialTransactionId !== financialTransactionId,
+    );
+  fixtures.financialTransactionFulfillments =
+    fixtures.financialTransactionFulfillments.filter(
+      (fulfillment) => fulfillment.financialTransactionId !== financialTransactionId,
+    );
+  fixtures.financialTransactionItems = fixtures.financialTransactionItems.filter(
+    (item) => item.financialTransactionId !== financialTransactionId,
+  );
+  fixtures.financialTransactions = fixtures.financialTransactions.filter(
+    (financialTransaction) => financialTransaction.id !== financialTransactionId,
+  );
+}
+
 export const financialHandlers: RequestHandler[] = [
   http.get(`/api/financial-transactions`, () => {
     syncAllTransactions();
@@ -415,8 +442,23 @@ export const financialHandlers: RequestHandler[] = [
       );
 
       if (!allocations) {
+        rollbackCreatedTransaction(id);
         return HttpResponse.json(
           { message: 'Invalid fulfillment allocations' },
+          { status: 400 },
+        );
+      }
+
+      try {
+        validateFulfillment(fixtures, id, {
+          bankAccountId: fulfillment.bankAccountId ?? 0,
+          paymentDate: fulfillment.paymentDate,
+          amountPaid: fulfillment.amountPaid,
+        });
+      } catch (error) {
+        rollbackCreatedTransaction(id);
+        return HttpResponse.json(
+          { message: error instanceof Error ? error.message : 'Invalid fulfillment' },
           { status: 400 },
         );
       }
@@ -451,6 +493,15 @@ export const financialHandlers: RequestHandler[] = [
     );
 
     if (index < 0) return notFound();
+
+    try {
+      validateTransactionTypeChange(fixtures, id ?? 0, payload.type);
+    } catch (error) {
+      return HttpResponse.json(
+        { message: error instanceof Error ? error.message : 'Invalid transaction update' },
+        { status: 400 },
+      );
+    }
 
     fixtures.financialTransactions[index] = {
       ...fixtures.financialTransactions[index],
@@ -587,6 +638,19 @@ export const financialHandlers: RequestHandler[] = [
         );
       }
 
+      try {
+        validateFulfillment(fixtures, financialTransactionId ?? 0, {
+          bankAccountId: payload.bankAccountId,
+          paymentDate: payload.paymentDate,
+          amountPaid: payload.amountPaid,
+        });
+      } catch (error) {
+        return HttpResponse.json(
+          { message: error instanceof Error ? error.message : 'Invalid fulfillment' },
+          { status: 400 },
+        );
+      }
+
       const created: FinancialTransactionFulfillmentDto = {
         id: nextId(fixtures.financialTransactionFulfillments),
         financialTransactionId: financialTransactionId ?? 0,
@@ -628,6 +692,24 @@ export const financialHandlers: RequestHandler[] = [
       if (!allocations) {
         return HttpResponse.json(
           { message: 'Invalid fulfillment allocations' },
+          { status: 400 },
+        );
+      }
+
+      try {
+        validateFulfillment(
+          fixtures,
+          financialTransactionId ?? 0,
+          {
+            bankAccountId: payload.bankAccountId,
+            paymentDate: payload.paymentDate,
+            amountPaid: payload.amountPaid,
+          },
+          fulfillmentId,
+        );
+      } catch (error) {
+        return HttpResponse.json(
+          { message: error instanceof Error ? error.message : 'Invalid fulfillment' },
           { status: 400 },
         );
       }
@@ -756,6 +838,16 @@ export const financialHandlers: RequestHandler[] = [
   }),
   http.post(`/api/bank-transfers`, async ({ request }) => {
     const payload = (await request.json()) as CreateBankTransferDto;
+
+    try {
+      validateBankTransfer(fixtures, payload);
+    } catch (error) {
+      return HttpResponse.json(
+        { message: error instanceof Error ? error.message : 'Invalid bank transfer' },
+        { status: 400 },
+      );
+    }
+
     const created: BankTransferDto = {
       id: nextId(fixtures.bankTransfers),
       sourceBankAccountId: payload.sourceBankAccountId,
@@ -773,6 +865,15 @@ export const financialHandlers: RequestHandler[] = [
     const index = fixtures.bankTransfers.findIndex((item) => item.id === id);
 
     if (index < 0) return notFound();
+
+    try {
+      validateBankTransfer(fixtures, payload, id);
+    } catch (error) {
+      return HttpResponse.json(
+        { message: error instanceof Error ? error.message : 'Invalid bank transfer' },
+        { status: 400 },
+      );
+    }
 
     fixtures.bankTransfers[index] = {
       ...fixtures.bankTransfers[index],

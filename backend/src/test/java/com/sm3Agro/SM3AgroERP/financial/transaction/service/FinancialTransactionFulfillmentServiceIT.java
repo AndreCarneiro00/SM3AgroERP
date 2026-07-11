@@ -67,4 +67,37 @@ class FinancialTransactionFulfillmentServiceIT extends AbstractFinancialTransact
                 )
         )));
     }
+
+    @Test
+    void shouldRejectExpenseFulfillmentWhenBankBalanceWouldBecomeNegative() {
+        FinancialTransaction transaction = createPersistedTransaction();
+        var item = createPersistedTransactionItem(transaction);
+        var bankAccount = createBankAccount();
+
+        bankAccount.setInitialBalance(new BigDecimal("50.00"));
+        bankAccount.setInitialBalanceDate(LocalDate.of(2026, 6, 1));
+        bankAccount = bankAccountRepository.save(bankAccount);
+        Long bankAccountId = bankAccount.getId();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                fulfillmentService.createAll(transaction, List.of(
+                        new FinancialTransactionFulfillmentRequest(
+                                bankAccountId,
+                                LocalDate.of(2026, 6, 29),
+                                new BigDecimal("100.00"),
+                                "paid",
+                                List.of(new FinancialTransactionFulfillmentAllocationRequest(
+                                        item.getId(),
+                                        null,
+                                        new BigDecimal("100.00")
+                                ))
+                        )
+                ))
+        );
+
+        assertEquals(
+                "Expense fulfillment would make bank account 'Main Account' negative on 2026-06-29.",
+                exception.getMessage()
+        );
+    }
 }

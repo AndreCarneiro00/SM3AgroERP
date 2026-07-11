@@ -128,13 +128,14 @@ function BankCard({
         <Stack direction="row" justifyContent="space-between" alignItems="flex-end">
           <Box>
             <Typography variant="caption" color="text.secondary">
-              Saldo Inicial
+              Saldo Atual
             </Typography>
             <Typography variant="h6" fontWeight={700} color="primary.main">
-              {fmtBRL(bankAccount.initialBalance ?? 0)}
+              {fmtBRL(bankAccount.currentBalance ?? bankAccount.initialBalance ?? 0)}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              em {fmtDate(bankAccount.initialBalanceDate)}
+              Inicial {fmtBRL(bankAccount.initialBalance ?? 0)} em{' '}
+              {fmtDate(bankAccount.initialBalanceDate)}
             </Typography>
           </Box>
           <RowActions onEdit={onEdit} onDelete={onDelete} />
@@ -274,6 +275,7 @@ export function BankingModule() {
               <TableCell>Agencia</TableCell>
               <TableCell>Conta</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell align="right">Saldo Atual</TableCell>
               <TableCell align="right">Saldo Inicial</TableCell>
               <TableCell align="center">Acoes</TableCell>
             </TableRow>
@@ -281,7 +283,7 @@ export function BankingModule() {
           <TableBody>
             {isLoading && (
               <EmptyTableRow
-                colSpan={8}
+                colSpan={9}
                 message="Carregando contas bancarias..."
               />
             )}
@@ -306,6 +308,11 @@ export function BankingModule() {
                 </TableCell>
                 <TableCell align="right">
                   <Typography variant="body2" fontWeight={700} color="primary.main">
+                    {fmtBRL(bankAccount.currentBalance ?? bankAccount.initialBalance ?? 0)}
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">
+                  <Typography variant="body2" fontWeight={700} color="text.secondary">
                     {fmtBRL(bankAccount.initialBalance ?? 0)}
                   </Typography>
                 </TableCell>
@@ -324,7 +331,7 @@ export function BankingModule() {
             ))}
             {!isLoading && bankAccounts.length === 0 && (
               <EmptyTableRow
-                colSpan={8}
+                colSpan={9}
                 message="Nenhuma conta bancaria cadastrada."
               />
             )}

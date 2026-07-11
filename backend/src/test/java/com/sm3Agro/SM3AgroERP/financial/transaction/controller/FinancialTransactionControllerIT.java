@@ -2,6 +2,7 @@ package com.sm3Agro.SM3AgroERP.financial.transaction.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sm3Agro.SM3AgroERP.bank.entity.BankAccount;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionAttachmentRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentRequest;
@@ -55,7 +56,27 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
 
     @Test
     void shouldCreateFinancialTransaction() throws Exception {
-        CreateFinancialTransactionRequest request = createValidRequest();
+        CreateFinancialTransactionRequest valid = createValidRequest();
+        CreateFinancialTransactionRequest request = new CreateFinancialTransactionRequest(
+                valid.description(),
+                valid.counterpartyId(),
+                valid.issueDate(),
+                valid.dueDate(),
+                valid.documentNumber(),
+                valid.type(),
+                valid.observation(),
+                valid.hasNf(),
+                List.of(new FinancialTransactionItemRequest(
+                        valid.items().getFirst().chartOfAccountId(),
+                        valid.items().getFirst().costCenterId(),
+                        valid.items().getFirst().quantity(),
+                        valid.items().getFirst().unitPrice(),
+                        new BigDecimal("999.99"),
+                        valid.items().getFirst().productId()
+                )),
+                valid.attachments(),
+                valid.fulfillments()
+        );
 
         mockMvc.perform(multipart("/financial-transactions")
                         .file(payloadPart(request))
@@ -66,6 +87,7 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                 .andExpect(jsonPath("$.status").value("PAID"))
                 .andExpect(jsonPath("$.totalAmount").value(100.00))
                 .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].amount").value(100.00))
                 .andExpect(jsonPath("$.attachments", hasSize(1)))
                 .andExpect(jsonPath("$.attachments[0].storageProvider").value("LOCAL"))
                 .andExpect(jsonPath("$.fulfillments", hasSize(1)))
@@ -156,6 +178,31 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
     }
 
     @Test
+    void shouldRejectChangingTransactionTypeWhenProjectedExpenseBreaksBankBalance() throws Exception {
+        CreateFinancialTransactionRequest request = createIncomeRequestWithFulfillment("50.00");
+        Long transactionId = createTransaction(request);
+
+        UpdateFinancialTransactionRequest updateRequest = new UpdateFinancialTransactionRequest(
+                request.description(),
+                request.counterpartyId(),
+                request.issueDate(),
+                request.dueDate(),
+                request.documentNumber(),
+                FinancialTransactionType.EXPENSE,
+                request.observation(),
+                request.hasNf()
+        );
+
+        mockMvc.perform(patch("/financial-transactions/{id}", transactionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(updateRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Changing transaction type to EXPENSE would make bank account 'Conta Recebimento' negative on 2026-06-29."
+                ));
+    }
+
+    @Test
     void shouldManageItemsAndRecalculateTotal() throws Exception {
         Long transactionId = createTransaction(createValidRequest(), createAttachmentFile());
         var chartOfAccount = createChartOfAccount();
@@ -167,7 +214,7 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                 costCenter.getId(),
                 new BigDecimal("1.00"),
                 new BigDecimal("50.00"),
-                new BigDecimal("50.00"),
+                new BigDecimal("999.99"),
                 product.getId()
         );
 
@@ -189,7 +236,7 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                 costCenter.getId(),
                 new BigDecimal("1.00"),
                 new BigDecimal("80.00"),
-                new BigDecimal("80.00"),
+                new BigDecimal("999.99"),
                 product.getId()
         );
 
@@ -376,6 +423,56 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                 valid.items(),
                 null,
                 List.of()
+        );
+    }
+
+    private CreateFinancialTransactionRequest createIncomeRequestWithFulfillment(String initialBalance) {
+        var counterparty = createCounterparty();
+        var chartOfAccount = createChartOfAccount();
+        var costCenter = createCostCenter();
+        var product = createProduct();
+        BankAccount bankAccount = bankAccountRepository.save(
+                BankAccount.builder()
+                        .name("Conta Recebimento")
+                        .active(true)
+                        .initialBalance(new BigDecimal(initialBalance))
+                        .initialBalanceDate(LocalDate.of(2026, 6, 1))
+                        .build()
+        );
+
+        return new CreateFinancialTransactionRequest(
+                "Recebimento antecipado",
+                counterparty.getId(),
+                LocalDate.of(2026, 6, 29),
+                LocalDate.of(2026, 7, 10),
+                "REC-001",
+                FinancialTransactionType.INCOME,
+                "entrada de caixa",
+                false,
+                List.of(
+                        new FinancialTransactionItemRequest(
+                                chartOfAccount.getId(),
+                                costCenter.getId(),
+                                BigDecimal.ONE,
+                                new BigDecimal("100.00"),
+                                new BigDecimal("100.00"),
+                                product.getId()
+                        )
+                ),
+                null,
+                List.of(
+                        new FinancialTransactionFulfillmentRequest(
+                                bankAccount.getId(),
+                                LocalDate.of(2026, 6, 29),
+                                new BigDecimal("100.00"),
+                                "recebido",
+                                List.of(new FinancialTransactionFulfillmentAllocationRequest(
+                                        null,
+                                        0,
+                                        new BigDecimal("100.00")
+                                ))
+                        )
+                )
         );
     }
 

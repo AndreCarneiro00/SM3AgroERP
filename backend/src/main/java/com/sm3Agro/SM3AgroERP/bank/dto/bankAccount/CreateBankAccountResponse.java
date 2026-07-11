@@ -13,6 +13,7 @@ public record CreateBankAccountResponse(
         LocalDate initialBalanceDate,
         String financialInstitution,
         String agency,
-        String accountNumber
+        String accountNumber,
+        BigDecimal currentBalance
 ) {
 }

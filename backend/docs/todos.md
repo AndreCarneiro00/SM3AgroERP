@@ -1,0 +1,1 @@
+Cuidar do monetario classe Money/Currency para BigDecimals e tratar separado em base centavos e valor? Armazenar como string?

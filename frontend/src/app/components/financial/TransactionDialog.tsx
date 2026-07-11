@@ -36,6 +36,10 @@ import type {
 import type { FinancialTransaction } from '../../../domains/financial/model/entities';
 import type { Counterparty, DocumentType } from '../../../domains/master-data/model/entities';
 import type { Product } from '../../../domains/products/model/entities';
+import {
+  calculateFinancialItemAmount,
+  resolveFinancialItemAmount,
+} from './itemAmount';
 
 export interface TransactionItemFormData {
   chartOfAccountId?: number;
@@ -184,6 +188,25 @@ function getEntityLabel(entity: { code?: string; name: string }) {
   return entity.code ? `${entity.code} - ${entity.name}` : entity.name;
 }
 
+function mergeItemWithResolvedAmount(
+  item: TransactionItemFormData,
+  patch: Partial<TransactionItemFormData>,
+): TransactionItemFormData {
+  const nextItem = { ...item, ...patch };
+  const shouldRecalculate =
+    Object.prototype.hasOwnProperty.call(patch, 'quantity') ||
+    Object.prototype.hasOwnProperty.call(patch, 'unitPrice');
+
+  if (!shouldRecalculate) {
+    return nextItem;
+  }
+
+  return {
+    ...nextItem,
+    amount: calculateFinancialItemAmount(nextItem.quantity, nextItem.unitPrice),
+  };
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -234,7 +257,7 @@ export function TransactionDialog({
   }, [editing, open, reset]);
 
   const totalAmount = useMemo(
-    () => items.reduce((sum, item) => sum + (item.amount ?? 0), 0),
+    () => items.reduce((sum, item) => sum + (resolveFinancialItemAmount(item) ?? 0), 0),
     [items],
   );
   const partialPaidAmount = useMemo(
@@ -246,7 +269,10 @@ export function TransactionDialog({
     [fulfillments],
   );
   const hasValidItem = items.some(
-    (item) => item.chartOfAccountId && item.amount && item.amount > 0,
+    (item) => {
+      const amount = resolveFinancialItemAmount(item);
+      return !!item.chartOfAccountId && !!amount && amount > 0;
+    },
   );
   const paymentIsValid =
     editing ||
@@ -277,7 +303,7 @@ export function TransactionDialog({
   const updateItem = (index: number, patch: Partial<TransactionItemFormData>) => {
     setItems((current) =>
       current.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, ...patch } : item,
+        itemIndex === index ? mergeItemWithResolvedAmount(item, patch) : item,
       ),
     );
   };
@@ -307,16 +333,22 @@ export function TransactionDialog({
   };
 
   const handleFormSubmit = handleSubmit(async (values) => {
-    const normalizedItems = items
-      .filter((item) => item.chartOfAccountId && item.amount)
-      .map((item) => ({
+    const normalizedItems = items.flatMap((item) => {
+      const amount = resolveFinancialItemAmount(item);
+
+      if (!item.chartOfAccountId || !amount || amount <= 0) {
+        return [];
+      }
+
+      return [{
         chartOfAccountId: item.chartOfAccountId,
         costCenterId: item.costCenterId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        amount: item.amount,
+        amount,
         productId: item.productId,
-      }));
+      }];
+    });
     const normalizedTotalAmount = normalizedItems.reduce(
       (sum, item) => sum + (item.amount ?? 0),
       0,
@@ -605,12 +637,8 @@ export function TransactionDialog({
                       label="Valor"
                       type="number"
                       size="small"
-                      value={toInputValue(item.amount)}
-                      onChange={(event) =>
-                        updateItem(index, {
-                          amount: parseOptionalNumber(event.target.value),
-                        })
-                      }
+                      value={toInputValue(resolveFinancialItemAmount(item))}
+                      InputProps={{ readOnly: true }}
                       fullWidth
                       required
                     />

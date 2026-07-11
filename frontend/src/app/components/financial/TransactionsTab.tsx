@@ -26,6 +26,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import { extractApiErrorMessage } from '../../../core/http/client';
 import { selectChartOfAccountLabelById, selectCostCenterLabelById } from '../../../domains/accounting/selectors/selectors';
 import { useAccountingCatalogData } from '../../../domains/accounting/ui/hooks';
 import { selectBankAccountLabelById } from '../../../domains/banking/selectors/selectors';
@@ -300,19 +301,26 @@ export function TransactionsTab() {
   );
 
   const handleSave = async (form: TransactionFormData) => {
-    if (editing) {
-      await updateFinancialTransaction.mutateAsync({
-        id: editing.id,
-        input: toFinancialTransactionInput(form),
-      });
-    } else {
-      await createFinancialTransaction.mutateAsync(
-        toCreateFinancialTransactionInput(form),
+    try {
+      if (editing) {
+        await updateFinancialTransaction.mutateAsync({
+          id: editing.id,
+          input: toFinancialTransactionInput(form),
+        });
+      } else {
+        await createFinancialTransaction.mutateAsync(
+          toCreateFinancialTransactionInput(form),
+        );
+      }
+
+      setDialogOpen(false);
+      setEditing(undefined);
+    } catch (error) {
+      window.alert(
+        extractApiErrorMessage(error) ??
+          'Nao foi possivel salvar a transacao.',
       );
     }
-
-    setDialogOpen(false);
-    setEditing(undefined);
   };
 
   const handleFulfill = async (
@@ -350,17 +358,24 @@ export function TransactionsTab() {
       observation: observation || undefined,
     };
 
-    if (editingFulfillment) {
-      await updateFinancialTransactionFulfillment.mutateAsync({
-        id: editingFulfillment.id,
-        input,
-      });
-    } else {
-      await createFinancialTransactionFulfillment.mutateAsync(input);
-    }
+    try {
+      if (editingFulfillment) {
+        await updateFinancialTransactionFulfillment.mutateAsync({
+          id: editingFulfillment.id,
+          input,
+        });
+      } else {
+        await createFinancialTransactionFulfillment.mutateAsync(input);
+      }
 
-    setFulfillTarget(undefined);
-    setEditingFulfillment(undefined);
+      setFulfillTarget(undefined);
+      setEditingFulfillment(undefined);
+    } catch (error) {
+      window.alert(
+        extractApiErrorMessage(error) ??
+          'Nao foi possivel registrar o pagamento.',
+      );
+    }
   };
 
   const handleSaveItem = async (input: FinancialTransactionItemInput) => {

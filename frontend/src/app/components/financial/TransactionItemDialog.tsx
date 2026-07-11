@@ -22,6 +22,10 @@ import type {
 } from '../../../domains/financial/model/entities';
 import type { Product } from '../../../domains/products/model/entities';
 import { toInputValue } from '../../forms/valueParsers';
+import {
+  calculateFinancialItemAmount,
+  resolveFinancialItemAmount,
+} from './itemAmount';
 
 interface Props {
   open: boolean;
@@ -43,6 +47,25 @@ function parseOptionalNumber(value: string) {
   return value.trim() ? Number(value) : undefined;
 }
 
+function mergeItemWithResolvedAmount(
+  item: FinancialTransactionItemInput,
+  patch: Partial<FinancialTransactionItemInput>,
+): FinancialTransactionItemInput {
+  const nextItem = { ...item, ...patch };
+  const shouldRecalculate =
+    Object.prototype.hasOwnProperty.call(patch, 'quantity') ||
+    Object.prototype.hasOwnProperty.call(patch, 'unitPrice');
+
+  if (!shouldRecalculate) {
+    return nextItem;
+  }
+
+  return {
+    ...nextItem,
+    amount: calculateFinancialItemAmount(nextItem.quantity, nextItem.unitPrice),
+  };
+}
+
 function getInitialForm(
   financialTransactionId?: number,
   editing?: FinancialTransactionItem,
@@ -53,7 +76,11 @@ function getInitialForm(
     costCenterId: editing?.costCenterId,
     quantity: editing?.quantity,
     unitPrice: editing?.unitPrice,
-    amount: editing?.amount,
+    amount: resolveFinancialItemAmount({
+      quantity: editing?.quantity,
+      unitPrice: editing?.unitPrice,
+      amount: editing?.amount,
+    }),
     productId: editing?.productId,
   };
 }
@@ -78,11 +105,19 @@ export function TransactionItemDialog({
     setForm(getInitialForm(financialTransactionId, editing));
   }, [editing, financialTransactionId, open]);
 
+  const resolvedAmount = resolveFinancialItemAmount(form);
   const saveDisabled =
-    saving || !form.financialTransactionId || !form.chartOfAccountId || !form.amount;
+    saving ||
+    !form.financialTransactionId ||
+    !form.chartOfAccountId ||
+    !resolvedAmount ||
+    resolvedAmount <= 0;
 
   const handleSave = async () => {
-    await onSave(form);
+    await onSave({
+      ...form,
+      amount: resolvedAmount,
+    });
   };
 
   return (
@@ -163,10 +198,11 @@ export function TransactionItemDialog({
               type="number"
               value={toInputValue(form.quantity)}
               onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  quantity: parseOptionalNumber(event.target.value),
-                }))
+                setForm((current) =>
+                  mergeItemWithResolvedAmount(current, {
+                    quantity: parseOptionalNumber(event.target.value),
+                  }),
+                )
               }
               fullWidth
             />
@@ -175,23 +211,19 @@ export function TransactionItemDialog({
               type="number"
               value={toInputValue(form.unitPrice)}
               onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  unitPrice: parseOptionalNumber(event.target.value),
-                }))
+                setForm((current) =>
+                  mergeItemWithResolvedAmount(current, {
+                    unitPrice: parseOptionalNumber(event.target.value),
+                  }),
+                )
               }
               fullWidth
             />
             <TextField
               label="Valor"
               type="number"
-              value={toInputValue(form.amount)}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  amount: parseOptionalNumber(event.target.value),
-                }))
-              }
+              value={toInputValue(resolvedAmount)}
+              InputProps={{ readOnly: true }}
               fullWidth
               required
             />

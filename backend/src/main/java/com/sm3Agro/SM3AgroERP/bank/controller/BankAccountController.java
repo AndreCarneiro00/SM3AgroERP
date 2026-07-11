@@ -6,6 +6,7 @@ import com.sm3Agro.SM3AgroERP.bank.dto.bankAccount.FindAllBankAccountResponse;
 import com.sm3Agro.SM3AgroERP.bank.dto.bankAccount.UpdateBankAccountRequest;
 import com.sm3Agro.SM3AgroERP.bank.dto.bankAccount.UpdateBankAccountResponse;
 import com.sm3Agro.SM3AgroERP.bank.entity.BankAccount;
+import com.sm3Agro.SM3AgroERP.bank.service.BankBalanceService;
 import com.sm3Agro.SM3AgroERP.bank.service.BankAccountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,23 +28,13 @@ import java.util.List;
 public class BankAccountController {
 
     private final BankAccountService service;
+    private final BankBalanceService balanceService;
 
     @GetMapping
     public List<FindAllBankAccountResponse> findAllBankAccount() {
         List<BankAccount> bankAccounts = service.findAll();
         return bankAccounts.stream()
-                .map(bankAccount -> new FindAllBankAccountResponse(
-                        bankAccount.getId(),
-                        bankAccount.getAccountType(),
-                        bankAccount.getAccountGroup(),
-                        bankAccount.getName(),
-                        bankAccount.getActive(),
-                        bankAccount.getInitialBalance(),
-                        bankAccount.getInitialBalanceDate(),
-                        bankAccount.getFinancialInstitution(),
-                        bankAccount.getAgency(),
-                        bankAccount.getAccountNumber()
-                ))
+                .map(this::toFindAllResponse)
                 .toList();
     }
 
@@ -51,18 +42,7 @@ public class BankAccountController {
     @PostMapping
     public CreateBankAccountResponse createBankAccount(@RequestBody CreateBankAccountRequest request) {
         BankAccount created = service.create(request);
-        return new CreateBankAccountResponse(
-                created.getId(),
-                created.getAccountType(),
-                created.getAccountGroup(),
-                created.getName(),
-                created.getActive(),
-                created.getInitialBalance(),
-                created.getInitialBalanceDate(),
-                created.getFinancialInstitution(),
-                created.getAgency(),
-                created.getAccountNumber()
-        );
+        return toCreateResponse(created);
     }
 
     @PutMapping("/{id}")
@@ -71,23 +51,60 @@ public class BankAccountController {
             @RequestBody UpdateBankAccountRequest request
     ) {
         BankAccount updated = service.update(id, request);
-        return new UpdateBankAccountResponse(
-                updated.getId(),
-                updated.getAccountType(),
-                updated.getAccountGroup(),
-                updated.getName(),
-                updated.getActive(),
-                updated.getInitialBalance(),
-                updated.getInitialBalanceDate(),
-                updated.getFinancialInstitution(),
-                updated.getAgency(),
-                updated.getAccountNumber()
-        );
+        return toUpdateResponse(updated);
     }
 
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/{id}")
     public void deleteBankAccount(@PathVariable Long id) {
         service.delete(id);
+    }
+
+    private FindAllBankAccountResponse toFindAllResponse(BankAccount bankAccount) {
+        return new FindAllBankAccountResponse(
+                bankAccount.getId(),
+                bankAccount.getAccountType(),
+                bankAccount.getAccountGroup(),
+                bankAccount.getName(),
+                bankAccount.getActive(),
+                bankAccount.getInitialBalance(),
+                bankAccount.getInitialBalanceDate(),
+                bankAccount.getFinancialInstitution(),
+                bankAccount.getAgency(),
+                bankAccount.getAccountNumber(),
+                balanceService.calculateCurrentBalance(bankAccount)
+        );
+    }
+
+    private CreateBankAccountResponse toCreateResponse(BankAccount bankAccount) {
+        return new CreateBankAccountResponse(
+                bankAccount.getId(),
+                bankAccount.getAccountType(),
+                bankAccount.getAccountGroup(),
+                bankAccount.getName(),
+                bankAccount.getActive(),
+                bankAccount.getInitialBalance(),
+                bankAccount.getInitialBalanceDate(),
+                bankAccount.getFinancialInstitution(),
+                bankAccount.getAgency(),
+                bankAccount.getAccountNumber(),
+                balanceService.calculateCurrentBalance(bankAccount)
+        );
+    }
+
+    private UpdateBankAccountResponse toUpdateResponse(BankAccount bankAccount) {
+        return new UpdateBankAccountResponse(
+                bankAccount.getId(),
+                bankAccount.getAccountType(),
+                bankAccount.getAccountGroup(),
+                bankAccount.getName(),
+                bankAccount.getActive(),
+                bankAccount.getInitialBalance(),
+                bankAccount.getInitialBalanceDate(),
+                bankAccount.getFinancialInstitution(),
+                bankAccount.getAgency(),
+                bankAccount.getAccountNumber(),
+                balanceService.calculateCurrentBalance(bankAccount)
+        );
     }
 }

@@ -2,6 +2,7 @@ package com.sm3Agro.SM3AgroERP.financial.transaction.service;
 
 import com.sm3Agro.SM3AgroERP.counterparty.entity.Counterparty;
 import com.sm3Agro.SM3AgroERP.counterparty.repository.CounterpartyRepository;
+import com.sm3Agro.SM3AgroERP.bank.service.BankBalanceService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.domain.FinancialTransactionRules;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentRequest;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Service
@@ -30,6 +32,7 @@ public class FinancialTransactionService {
     private final FinancialTransactionFulfillmentRepository fulfillmentRepository;
     private final CounterpartyRepository counterpartyRepository;
     private final FinancialTransactionRules rules;
+    private final BankBalanceService bankBalanceService;
 
     public List<FinancialTransaction> findAll() {
         return financialTransactionRepository.findAll(
@@ -86,6 +89,8 @@ public class FinancialTransactionService {
                         "Counterparty not found: " + request.counterpartyId()
                 ));
 
+        bankBalanceService.validateTransactionTypeChange(transaction, request.type());
+
         transaction.setDescription(request.description());
         transaction.setCounterparty(counterparty);
         transaction.setIssueDate(request.issueDate());
@@ -124,8 +129,18 @@ public class FinancialTransactionService {
 
     private BigDecimal calculateRequestedTotalAmount(List<FinancialTransactionItemRequest> items) {
         return items.stream()
-                .map(item -> item.amount() == null ? BigDecimal.ZERO : item.amount())
+                .map(this::resolveRequestedItemAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal resolveRequestedItemAmount(FinancialTransactionItemRequest item) {
+        if (item.quantity() == null || item.unitPrice() == null) {
+            return item.amount() == null ? BigDecimal.ZERO : item.amount();
+        }
+
+        return item.quantity()
+                .multiply(item.unitPrice())
+                .setScale(2, RoundingMode.HALF_UP);
     }
 
     private BigDecimal calculateRequestedPaidAmount(List<FinancialTransactionFulfillmentRequest> fulfillments) {

@@ -1,12 +1,16 @@
 import { HttpResponse, http } from 'msw';
 import type { RequestHandler } from 'msw';
-import { createBankingFixtures } from '../fixtures/banking';
 import type {
   BankAccountDto,
   CreateBankAccountDto,
 } from '../../../domains/banking/api/dtos';
+import { cashManagementState } from '../state/cashManagement';
+import {
+  listBankAccountsWithCurrentBalance,
+  withCurrentBalance,
+} from '../utils/bankBalances';
 
-const fixtures = createBankingFixtures();
+const fixtures = cashManagementState;
 
 function nextId(items: Array<{ id: number }>) {
   return items.length > 0 ? Math.max(...items.map((item) => item.id)) + 1 : 1;
@@ -24,7 +28,7 @@ function notFound() {
 
 export const bankingHandlers: RequestHandler[] = [
   http.get(`/api/bank-accounts`, () => {
-    return HttpResponse.json(fixtures.bankAccounts);
+    return HttpResponse.json(listBankAccountsWithCurrentBalance(fixtures));
   }),
   http.post(`/api/bank-accounts`, async ({ request }) => {
     const payload = (await request.json()) as CreateBankAccountDto;
@@ -41,7 +45,7 @@ export const bankingHandlers: RequestHandler[] = [
       accountNumber: payload.accountNumber,
     };
     fixtures.bankAccounts.push(created);
-    return HttpResponse.json(created, { status: 201 });
+    return HttpResponse.json(withCurrentBalance(fixtures, created), { status: 201 });
   }),
   http.put(
     `/api/bank-accounts/:id`,
@@ -65,7 +69,9 @@ export const bankingHandlers: RequestHandler[] = [
         accountNumber: payload.accountNumber,
       };
 
-      return HttpResponse.json(fixtures.bankAccounts[index]);
+      return HttpResponse.json(
+        withCurrentBalance(fixtures, fixtures.bankAccounts[index]),
+      );
     },
   ),
   http.delete(`/api/bank-accounts/:id`, ({ params }) => {

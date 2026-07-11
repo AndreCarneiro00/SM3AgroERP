@@ -19,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -58,8 +60,13 @@ public class FinancialTransactionItemService {
     ) {
         transactionService.findMutableById(financialTransactionId);
         FinancialTransactionItem item = findOwnedItem(financialTransactionId, itemId);
+        BigDecimal resolvedAmount = resolveAmount(
+                request.quantity(),
+                request.unitPrice(),
+                request.amount()
+        );
         rules.requireItemAllocationNotOverAmount(
-                request.amount(),
+                resolvedAmount,
                 allocationRepository.sumAmountByItemExcludingFulfillment(itemId, null)
         );
 
@@ -67,7 +74,7 @@ public class FinancialTransactionItemService {
         item.setCostCenter(resolveCostCenter(request.costCenterId()));
         item.setQuantity(request.quantity());
         item.setUnitPrice(request.unitPrice());
-        item.setAmount(request.amount());
+        item.setAmount(resolvedAmount);
         item.setProduct(resolveProduct(request.productId()));
 
         FinancialTransactionItem saved = itemRepository.save(item);
@@ -110,9 +117,25 @@ public class FinancialTransactionItemService {
                 .costCenter(resolveCostCenter(itemRequest.costCenterId()))
                 .quantity(itemRequest.quantity())
                 .unitPrice(itemRequest.unitPrice())
-                .amount(itemRequest.amount())
+                .amount(resolveAmount(
+                        itemRequest.quantity(),
+                        itemRequest.unitPrice(),
+                        itemRequest.amount()
+                ))
                 .product(resolveProduct(itemRequest.productId()))
                 .build();
+    }
+
+    private BigDecimal resolveAmount(
+            BigDecimal quantity,
+            BigDecimal unitPrice,
+            BigDecimal providedAmount
+    ) {
+        if (quantity == null || unitPrice == null) {
+            return providedAmount;
+        }
+
+        return quantity.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
     }
 
     private ChartOfAccount resolveChartOfAccount(Long chartOfAccountId) {

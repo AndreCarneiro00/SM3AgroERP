@@ -2,6 +2,7 @@ package com.sm3Agro.SM3AgroERP.financial.transaction.service;
 
 import com.sm3Agro.SM3AgroERP.bank.entity.BankAccount;
 import com.sm3Agro.SM3AgroERP.bank.repository.BankAccountRepository;
+import com.sm3Agro.SM3AgroERP.bank.service.BankBalanceService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.domain.FinancialTransactionRules;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentAllocationRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentRequest;
@@ -35,6 +36,7 @@ public class FinancialTransactionFulfillmentService {
     private final BankAccountRepository bankAccountRepository;
     private final FinancialTransactionService transactionService;
     private final FinancialTransactionRules rules;
+    private final BankBalanceService bankBalanceService;
 
     public List<FinancialTransactionFulfillmentResult> createAll(
             FinancialTransaction financialTransaction,
@@ -69,8 +71,17 @@ public class FinancialTransactionFulfillmentService {
     ) {
         transactionService.findMutableById(financialTransactionId);
         FinancialTransactionFulfillment fulfillment = findOwnedFulfillment(financialTransactionId, fulfillmentId);
+        BankAccount bankAccount = resolveBankAccount(request.bankAccountId());
 
-        fulfillment.setBankAccount(resolveBankAccount(request.bankAccountId()));
+        bankBalanceService.validateFulfillment(
+                fulfillment.getFinancialTransaction(),
+                bankAccount,
+                request.paymentDate(),
+                request.amountPaid(),
+                fulfillmentId
+        );
+
+        fulfillment.setBankAccount(bankAccount);
         fulfillment.setPaymentDate(request.paymentDate());
         fulfillment.setAmountPaid(request.amountPaid());
         fulfillment.setObservation(request.observation());
@@ -106,9 +117,17 @@ public class FinancialTransactionFulfillmentService {
             FinancialTransactionFulfillmentRequest request,
             Long excludedFulfillmentId
     ) {
+        BankAccount bankAccount = resolveBankAccount(request.bankAccountId());
+        bankBalanceService.validateFulfillment(
+                transaction,
+                bankAccount,
+                request.paymentDate(),
+                request.amountPaid(),
+                excludedFulfillmentId
+        );
         validatePaymentBounds(transaction, request.amountPaid(), excludedFulfillmentId);
         validateAndResolveAllocations(transaction, excludedFulfillmentId, request.amountPaid(), request.allocations());
-        FinancialTransactionFulfillment saved = fulfillmentRepository.save(buildEntity(transaction, request));
+        FinancialTransactionFulfillment saved = fulfillmentRepository.save(buildEntity(transaction, bankAccount, request));
         replaceAllocations(saved, request.allocations());
         return saved;
     }
@@ -122,11 +141,12 @@ public class FinancialTransactionFulfillmentService {
 
     private FinancialTransactionFulfillment buildEntity(
             FinancialTransaction financialTransaction,
+            BankAccount bankAccount,
             FinancialTransactionFulfillmentRequest fulfillmentRequest
     ) {
         return FinancialTransactionFulfillment.builder()
                 .financialTransaction(financialTransaction)
-                .bankAccount(resolveBankAccount(fulfillmentRequest.bankAccountId()))
+                .bankAccount(bankAccount)
                 .paymentDate(fulfillmentRequest.paymentDate())
                 .amountPaid(fulfillmentRequest.amountPaid())
                 .observation(fulfillmentRequest.observation())

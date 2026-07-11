@@ -16,6 +16,16 @@ public interface FinancialTransactionFulfillmentRepository extends JpaRepository
     Optional<FinancialTransactionFulfillment> findByIdAndFinancialTransactionId(Long id, Long financialTransactionId);
 
     @Query("""
+            select fulfillment
+            from FinancialTransactionFulfillment fulfillment
+            join fetch fulfillment.financialTransaction transaction
+            where fulfillment.bankAccount.id = :bankAccountId
+            """)
+    List<FinancialTransactionFulfillment> findByBankAccountIdWithTransaction(
+            @Param("bankAccountId") Long bankAccountId
+    );
+
+    @Query("""
             select coalesce(sum(fulfillment.amountPaid), 0)
             from FinancialTransactionFulfillment fulfillment
             where fulfillment.financialTransaction.id = :financialTransactionId

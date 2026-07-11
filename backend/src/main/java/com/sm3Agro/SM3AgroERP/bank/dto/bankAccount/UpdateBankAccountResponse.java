@@ -13,6 +13,7 @@ public record UpdateBankAccountResponse(
         LocalDate initialBalanceDate,
         String financialInstitution,
         String agency,
-        String accountNumber
+        String accountNumber,
+        BigDecimal currentBalance
 ) {
 }

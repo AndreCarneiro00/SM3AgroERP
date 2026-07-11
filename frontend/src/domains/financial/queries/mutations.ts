@@ -3,6 +3,7 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
+import { bankingKeys } from '../../banking/queries/keys';
 import { financialRepository } from '../api/repository';
 import {
   mapBankTransferInputToDto,
@@ -46,8 +47,23 @@ function useFinancialGraphInvalidation() {
   };
 }
 
+function useFinancialCashGraphInvalidation() {
+  const invalidate = useFinancialInvalidation();
+
+  return async () => {
+    await invalidate(
+      financialKeys.financialTransactions(),
+      financialKeys.financialTransactionDetails(),
+      financialKeys.financialTransactionAttachments(),
+      financialKeys.financialTransactionItems(),
+      financialKeys.financialTransactionFulfillments(),
+      bankingKeys.list(),
+    );
+  };
+}
+
 export function useCreateFinancialTransactionMutation() {
-  const invalidateGraph = useFinancialGraphInvalidation();
+  const invalidateGraph = useFinancialCashGraphInvalidation();
 
   return useMutation({
     mutationFn: (input: CreateFinancialTransactionInput) =>
@@ -59,7 +75,7 @@ export function useCreateFinancialTransactionMutation() {
 }
 
 export function useUpdateFinancialTransactionMutation() {
-  const invalidateGraph = useFinancialGraphInvalidation();
+  const invalidateGraph = useFinancialCashGraphInvalidation();
 
   return useMutation({
     mutationFn: ({
@@ -218,7 +234,7 @@ export function useDeleteFinancialTransactionItemMutation() {
 }
 
 export function useCreateFinancialTransactionFulfillmentMutation() {
-  const invalidateGraph = useFinancialGraphInvalidation();
+  const invalidateGraph = useFinancialCashGraphInvalidation();
 
   return useMutation({
     mutationFn: (input: FinancialTransactionFulfillmentInput) =>
@@ -230,7 +246,7 @@ export function useCreateFinancialTransactionFulfillmentMutation() {
 }
 
 export function useUpdateFinancialTransactionFulfillmentMutation() {
-  const invalidateGraph = useFinancialGraphInvalidation();
+  const invalidateGraph = useFinancialCashGraphInvalidation();
 
   return useMutation({
     mutationFn: ({
@@ -249,7 +265,7 @@ export function useUpdateFinancialTransactionFulfillmentMutation() {
 }
 
 export function useDeleteFinancialTransactionFulfillmentMutation() {
-  const invalidateGraph = useFinancialGraphInvalidation();
+  const invalidateGraph = useFinancialCashGraphInvalidation();
 
   return useMutation({
     mutationFn: ({
@@ -274,7 +290,7 @@ export function useCreateBankTransferMutation() {
     mutationFn: (input: BankTransferInput) =>
       financialRepository.createBankTransfer(mapBankTransferInputToDto(input)),
     onSuccess: async () => {
-      await invalidate(financialKeys.bankTransfers());
+      await invalidate(financialKeys.bankTransfers(), bankingKeys.list());
     },
   });
 }
@@ -286,7 +302,7 @@ export function useUpdateBankTransferMutation() {
     mutationFn: ({ id, input }: { id: number; input: BankTransferInput }) =>
       financialRepository.updateBankTransfer(id, mapBankTransferInputToDto(input)),
     onSuccess: async () => {
-      await invalidate(financialKeys.bankTransfers());
+      await invalidate(financialKeys.bankTransfers(), bankingKeys.list());
     },
   });
 }
@@ -297,7 +313,7 @@ export function useDeleteBankTransferMutation() {
   return useMutation({
     mutationFn: (id: number) => financialRepository.deleteBankTransfer(id),
     onSuccess: async () => {
-      await invalidate(financialKeys.bankTransfers());
+      await invalidate(financialKeys.bankTransfers(), bankingKeys.list());
     },
   });
 }

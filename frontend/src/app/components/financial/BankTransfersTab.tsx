@@ -21,6 +21,7 @@ import {
   useFinancialCatalogData,
   useFinancialMutations,
 } from '../../../domains/financial/ui/hooks';
+import { extractApiErrorMessage } from '../../../core/http/client';
 import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
@@ -48,14 +49,21 @@ export function BankTransfersTab() {
   );
 
   const handleSave = async (input: BankTransferInput) => {
-    if (editing) {
-      await updateBankTransfer.mutateAsync({ id: editing.id, input });
-    } else {
-      await createBankTransfer.mutateAsync(input);
-    }
+    try {
+      if (editing) {
+        await updateBankTransfer.mutateAsync({ id: editing.id, input });
+      } else {
+        await createBankTransfer.mutateAsync(input);
+      }
 
-    setDialogOpen(false);
-    setEditing(undefined);
+      setDialogOpen(false);
+      setEditing(undefined);
+    } catch (error) {
+      window.alert(
+        extractApiErrorMessage(error) ??
+          'Nao foi possivel salvar a transferencia.',
+      );
+    }
   };
 
   return (

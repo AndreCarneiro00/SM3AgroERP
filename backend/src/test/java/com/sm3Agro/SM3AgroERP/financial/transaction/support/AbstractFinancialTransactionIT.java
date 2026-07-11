@@ -7,6 +7,7 @@ import com.sm3Agro.SM3AgroERP.accounting.repository.ChartOfAccountRepository;
 import com.sm3Agro.SM3AgroERP.accounting.repository.CostCenterRepository;
 import com.sm3Agro.SM3AgroERP.bank.entity.BankAccount;
 import com.sm3Agro.SM3AgroERP.bank.repository.BankAccountRepository;
+import com.sm3Agro.SM3AgroERP.financial.bankTransfer.repository.BankTransferRepository;
 import com.sm3Agro.SM3AgroERP.counterparty.entity.Counterparty;
 import com.sm3Agro.SM3AgroERP.counterparty.entity.CounterpartyType;
 import com.sm3Agro.SM3AgroERP.counterparty.repository.CounterpartyRepository;
@@ -74,6 +75,8 @@ public abstract class AbstractFinancialTransactionIT {
     @Autowired
     protected BankAccountRepository bankAccountRepository;
     @Autowired
+    protected BankTransferRepository bankTransferRepository;
+    @Autowired
     protected ProductRepository productRepository;
     @Autowired
     protected UnitOfMeasureRepository unitOfMeasureRepository;
@@ -85,6 +88,7 @@ public abstract class AbstractFinancialTransactionIT {
     @BeforeEach
     void cleanupFinancialData() {
         cleanupAttachmentStorage();
+        bankTransferRepository.deleteAll();
         financialTransactionFulfillmentAllocationRepository.deleteAll();
         financialTransactionFulfillmentRepository.deleteAll();
         financialTransactionAttachmentRepository.deleteAll();
@@ -200,7 +204,8 @@ public abstract class AbstractFinancialTransactionIT {
                 BankAccount.builder()
                         .name("Main Account")
                         .active(true)
-                        .initialBalance(BigDecimal.ZERO)
+                        .initialBalance(new BigDecimal("1000.00"))
+                        .initialBalanceDate(LocalDate.of(2026, 6, 1))
                         .build()
         );
     }

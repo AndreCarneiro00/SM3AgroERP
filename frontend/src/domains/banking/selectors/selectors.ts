@@ -25,7 +25,8 @@ export function selectBankAccountLabelById(
 
 export function selectTotalActiveBalance(catalog: BankingCatalog) {
   return selectActiveBankAccounts(catalog).reduce(
-    (sum, bankAccount) => sum + (bankAccount.initialBalance ?? 0),
+    (sum, bankAccount) =>
+      sum + (bankAccount.currentBalance ?? bankAccount.initialBalance ?? 0),
     0,
   );
 }

@@ -42,18 +42,21 @@ public class CreateFinancialTransactionUseCase {
         List<FinancialTransactionAttachmentResult> attachments =
                 attachmentService.createAll(transaction, request.attachments(), files);
 
+        FinancialTransaction recalculatedTransaction =
+                financialTransactionService.recalculate(transaction.getId());
+
         return new CreateFinancialTransactionResult(
-                transaction.getId(),
-                transaction.getDescription(),
-                transaction.getCounterparty() != null ? transaction.getCounterparty().getId() : null,
-                transaction.getIssueDate(),
-                transaction.getDueDate(),
-                transaction.getDocumentNumber(),
-                transaction.getStatus(),
-                transaction.getType(),
-                transaction.getObservation(),
-                transaction.getHasNf(),
-                transaction.getTotalAmount(),
+                recalculatedTransaction.getId(),
+                recalculatedTransaction.getDescription(),
+                recalculatedTransaction.getCounterparty() != null ? recalculatedTransaction.getCounterparty().getId() : null,
+                recalculatedTransaction.getIssueDate(),
+                recalculatedTransaction.getDueDate(),
+                recalculatedTransaction.getDocumentNumber(),
+                recalculatedTransaction.getStatus(),
+                recalculatedTransaction.getType(),
+                recalculatedTransaction.getObservation(),
+                recalculatedTransaction.getHasNf(),
+                recalculatedTransaction.getTotalAmount(),
                 items,
                 attachments,
                 fulfillments
