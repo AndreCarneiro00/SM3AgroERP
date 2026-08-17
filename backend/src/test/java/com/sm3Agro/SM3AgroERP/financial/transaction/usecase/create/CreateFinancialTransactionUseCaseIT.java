@@ -1,17 +1,27 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create;
 
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
+import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionItemRequest;
+import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransaction;
+import com.sm3Agro.SM3AgroERP.financial.transaction.enums.FinancialTransactionType;
 import com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create.CreateFinancialTransactionResult;
 import com.sm3Agro.SM3AgroERP.financial.transaction.support.AbstractFinancialTransactionIT;
+import com.sm3Agro.SM3AgroERP.inventory.entity.InventoryBatch;
+import com.sm3Agro.SM3AgroERP.inventory.entity.Product;
+import com.sm3Agro.SM3AgroERP.inventory.enums.InventoryBatchStatus;
+import com.sm3Agro.SM3AgroERP.inventory.enums.InventoryMovementType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -36,6 +46,134 @@ class CreateFinancialTransactionUseCaseIT extends AbstractFinancialTransactionIT
         assertEquals(1, result.attachments().size());
         assertEquals(1, result.fulfillments().size());
         assertEquals(new BigDecimal("100.00"), result.totalAmount());
+    }
+
+    @Test
+    void shouldCreatePurchaseInventoryForStockControlledProduct() {
+        CreateFinancialTransactionRequest valid = createValidRequest();
+        Product product = createStockControlledProduct(LocalDate.of(2026, 6, 1));
+        CreateFinancialTransactionRequest request = withSingleItem(
+                valid,
+                FinancialTransactionType.EXPENSE,
+                product.getId(),
+                null,
+                new BigDecimal("42.50"),
+                new BigDecimal("2.00")
+        );
+
+        CreateFinancialTransactionResult result = useCase.execute(request, createAttachmentFiles());
+
+        assertEquals(1, inventoryBatchRepository.count());
+        assertEquals(1, inventoryMovementRepository.count());
+        var movement = inventoryMovementRepository.findAll().getFirst();
+        var batch = movement.getBatch();
+        assertEquals(InventoryMovementType.PURCHASE_IN, movement.getMovementType());
+        assertEquals(result.items().getFirst().id(), movement.getFinancialTransactionItemId());
+        assertEquals(new BigDecimal("42.50"), movement.getUnitCost());
+        assertEquals(new BigDecimal("2.00"), batch.getQuantity());
+        assertEquals(result.items().getFirst().inventoryMovementId(), movement.getId());
+        assertEquals(result.items().getFirst().inventoryBatchId(), batch.getId());
+    }
+
+    @Test
+    void shouldSkipInventoryWhenIssueDateIsBeforeStockControlStartDate() {
+        CreateFinancialTransactionRequest valid = createValidRequest();
+        Product product = createStockControlledProduct(LocalDate.of(2026, 7, 1));
+        CreateFinancialTransactionRequest request = withSingleItem(
+                valid,
+                FinancialTransactionType.EXPENSE,
+                product.getId(),
+                null,
+                new BigDecimal("42.50"),
+                new BigDecimal("2.00")
+        );
+
+        CreateFinancialTransactionResult result = useCase.execute(request, createAttachmentFiles());
+
+        assertEquals(0, inventoryBatchRepository.count());
+        assertEquals(0, inventoryMovementRepository.count());
+        assertEquals(1, result.items().size());
+        assertEquals(null, result.items().getFirst().inventoryMovementId());
+    }
+
+    @Test
+    void shouldCreateSaleInventoryMovementAndDecreaseBatchQuantity() {
+        CreateFinancialTransactionRequest valid = createValidRequest();
+        Product product = createStockControlledProduct(LocalDate.of(2026, 6, 1));
+        InventoryBatch batch = inventoryBatchRepository.save(InventoryBatch.builder()
+                .product(product)
+                .code("OPEN-1")
+                .batchDate(LocalDate.of(2026, 6, 1))
+                .status(InventoryBatchStatus.ACTIVE)
+                .unitCost(new BigDecimal("20.00"))
+                .quantity(new BigDecimal("5.00"))
+                .build());
+        CreateFinancialTransactionRequest request = withSingleItem(
+                valid,
+                FinancialTransactionType.INCOME,
+                product.getId(),
+                batch.getId(),
+                null,
+                new BigDecimal("2.00")
+        );
+
+        CreateFinancialTransactionResult result = useCase.execute(request, createAttachmentFiles());
+
+        var movement = inventoryMovementRepository.findAll().getFirst();
+        var updatedBatch = inventoryBatchRepository.findById(batch.getId()).orElseThrow();
+        assertEquals(InventoryMovementType.SALE_OUT, movement.getMovementType());
+        assertEquals(new BigDecimal("20.00"), movement.getUnitCost());
+        assertEquals(new BigDecimal("3.00"), updatedBatch.getQuantity());
+        assertEquals(InventoryBatchStatus.ACTIVE, updatedBatch.getStatus());
+        assertEquals(result.items().getFirst().inventoryBatchId(), batch.getId());
+    }
+
+    @Test
+    void shouldRollbackFinancialTransactionWhenStockFails() {
+        CreateFinancialTransactionRequest valid = createValidRequest();
+        Product product = createStockControlledProduct(LocalDate.of(2026, 6, 1));
+        InventoryBatch batch = inventoryBatchRepository.save(InventoryBatch.builder()
+                .product(product)
+                .code("OPEN-1")
+                .batchDate(LocalDate.of(2026, 6, 1))
+                .status(InventoryBatchStatus.ACTIVE)
+                .unitCost(new BigDecimal("20.00"))
+                .quantity(new BigDecimal("1.00"))
+                .build());
+        CreateFinancialTransactionRequest request = withSingleItem(
+                valid,
+                FinancialTransactionType.INCOME,
+                product.getId(),
+                batch.getId(),
+                null,
+                new BigDecimal("2.00")
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> useCase.execute(request, createAttachmentFiles()));
+        assertEquals(0, financialTransactionRepository.count());
+        assertEquals(0, financialTransactionItemRepository.count());
+        assertEquals(0, inventoryMovementRepository.count());
+        assertEquals(new BigDecimal("1.00"), inventoryBatchRepository.findById(batch.getId()).orElseThrow().getQuantity());
+    }
+
+    @Test
+    void shouldRejectUnclassifiedProductInFinancialTransaction() {
+        CreateFinancialTransactionRequest valid = createValidRequest();
+        Product product = createProduct();
+        product.setHasStock(null);
+        productRepository.save(product);
+        CreateFinancialTransactionRequest request = withSingleItem(
+                valid,
+                FinancialTransactionType.EXPENSE,
+                product.getId(),
+                null,
+                new BigDecimal("42.50"),
+                new BigDecimal("2.00")
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> useCase.execute(request, createAttachmentFiles()));
+        assertEquals(0, financialTransactionRepository.count());
+        assertEquals(0, financialTransactionItemRepository.count());
     }
 
     @Test
@@ -131,5 +269,38 @@ class CreateFinancialTransactionUseCaseIT extends AbstractFinancialTransactionIT
         assertEquals(0, financialTransactionAttachmentRepository.count());
         assertEquals(0, financialTransactionFulfillmentRepository.count());
         assertEquals(0, financialTransactionFulfillmentAllocationRepository.count());
+    }
+
+    private CreateFinancialTransactionRequest withSingleItem(
+            CreateFinancialTransactionRequest valid,
+            FinancialTransactionType type,
+            Long productId,
+            Long inventoryBatchId,
+            BigDecimal inventoryUnitCost,
+            BigDecimal quantity
+    ) {
+        FinancialTransactionItemRequest validItem = valid.items().getFirst();
+        return new CreateFinancialTransactionRequest(
+                valid.description(),
+                valid.counterpartyId(),
+                valid.issueDate(),
+                valid.dueDate(),
+                valid.documentNumber(),
+                type,
+                valid.observation(),
+                valid.hasNf(),
+                List.of(new FinancialTransactionItemRequest(
+                        validItem.chartOfAccountId(),
+                        validItem.costCenterId(),
+                        quantity,
+                        validItem.unitPrice(),
+                        quantity.multiply(validItem.unitPrice()),
+                        productId,
+                        inventoryBatchId,
+                        inventoryUnitCost
+                )),
+                valid.attachments(),
+                valid.fulfillments()
+        );
     }
 }

@@ -93,7 +93,10 @@ public class FinancialTransactionController {
                                 item.quantity(),
                                 item.unitPrice(),
                                 item.amount(),
-                                item.productId()
+                                item.productId(),
+                                item.inventoryMovementId(),
+                                item.inventoryBatchId(),
+                                item.stockMovementType()
                         ))
                         .toList(),
                 created.attachments().stream()

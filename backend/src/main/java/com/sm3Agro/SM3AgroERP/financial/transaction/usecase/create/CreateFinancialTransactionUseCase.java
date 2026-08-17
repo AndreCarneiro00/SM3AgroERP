@@ -6,15 +6,13 @@ import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransaction
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionFulfillmentService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionItemService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionService;
-import com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create.CreateFinancialTransactionResult;
-import com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create.FinancialTransactionAttachmentResult;
-import com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create.FinancialTransactionFulfillmentResult;
-import com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create.FinancialTransactionItemResult;
+import com.sm3Agro.SM3AgroERP.inventory.service.InventoryStockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -26,6 +24,7 @@ public class CreateFinancialTransactionUseCase {
     private final FinancialTransactionItemService itemService;
     private final FinancialTransactionFulfillmentService fulfillmentService;
     private final FinancialTransactionAttachmentService attachmentService;
+    private final InventoryStockService inventoryStockService;
 
     public CreateFinancialTransactionResult execute(
             CreateFinancialTransactionRequest request,
@@ -35,6 +34,8 @@ public class CreateFinancialTransactionUseCase {
 
         List<FinancialTransactionItemResult> items =
                 itemService.createAll(transaction, request.items());
+        List<FinancialTransactionItemResult> itemsWithStock =
+                createStockMovements(transaction, request, items);
 
         List<FinancialTransactionFulfillmentResult> fulfillments =
                 fulfillmentService.createAll(transaction, request.fulfillments());
@@ -57,10 +58,42 @@ public class CreateFinancialTransactionUseCase {
                 recalculatedTransaction.getObservation(),
                 recalculatedTransaction.getHasNf(),
                 recalculatedTransaction.getTotalAmount(),
-                items,
+                itemsWithStock,
                 attachments,
                 fulfillments
         );
+    }
+
+    private List<FinancialTransactionItemResult> createStockMovements(
+            FinancialTransaction transaction,
+            CreateFinancialTransactionRequest request,
+            List<FinancialTransactionItemResult> items
+    ) {
+        List<FinancialTransactionItemResult> result = new ArrayList<>();
+
+        for (int index = 0; index < items.size(); index++) {
+            FinancialTransactionItemResult item = items.get(index);
+            var itemRequest = request.items().get(index);
+
+            inventoryStockService.createFinancialMovement(
+                            transaction.getType(),
+                            transaction.getId(),
+                            transaction.getIssueDate(),
+                            item.id(),
+                            item.productId(),
+                            item.quantity(),
+                            itemRequest.inventoryUnitCost(),
+                            itemRequest.inventoryBatchId()
+                    )
+                    .map(stockMovement -> item.withStockMovement(
+                            stockMovement.movement().getId(),
+                            stockMovement.batch().getId(),
+                            stockMovement.movement().getMovementType()
+                    ))
+                    .ifPresentOrElse(result::add, () -> result.add(item));
+        }
+
+        return result;
     }
 
 }

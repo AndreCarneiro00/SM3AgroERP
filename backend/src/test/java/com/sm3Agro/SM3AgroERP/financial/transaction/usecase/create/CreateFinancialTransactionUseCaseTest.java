@@ -13,10 +13,7 @@ import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransaction
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionFulfillmentService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionItemService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionService;
-import com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create.CreateFinancialTransactionResult;
-import com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create.FinancialTransactionAttachmentResult;
-import com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create.FinancialTransactionFulfillmentResult;
-import com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create.FinancialTransactionItemResult;
+import com.sm3Agro.SM3AgroERP.inventory.service.InventoryStockService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,6 +27,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -49,6 +47,8 @@ class CreateFinancialTransactionUseCaseTest {
     private FinancialTransactionFulfillmentService fulfillmentService;
     @Mock
     private FinancialTransactionAttachmentService attachmentService;
+    @Mock
+    private InventoryStockService inventoryStockService;
 
     @InjectMocks
     private CreateFinancialTransactionUseCase useCase;
@@ -79,6 +79,16 @@ class CreateFinancialTransactionUseCaseTest {
 
         when(financialTransactionService.create(request)).thenReturn(transaction);
         when(itemService.createAll(transaction, request.items())).thenReturn(items);
+        when(inventoryStockService.createFinancialMovement(
+                transaction.getType(),
+                transaction.getId(),
+                transaction.getIssueDate(),
+                items.getFirst().id(),
+                items.getFirst().productId(),
+                items.getFirst().quantity(),
+                request.items().getFirst().inventoryUnitCost(),
+                request.items().getFirst().inventoryBatchId()
+        )).thenReturn(Optional.empty());
         when(fulfillmentService.createAll(transaction, request.fulfillments())).thenReturn(fulfillments);
         when(attachmentService.createAll(transaction, request.attachments(), files)).thenReturn(attachments);
         when(financialTransactionService.recalculate(transaction.getId())).thenReturn(recalculatedTransaction);
@@ -93,11 +103,22 @@ class CreateFinancialTransactionUseCaseTest {
         InOrder orderedFlow = inOrder(
                 financialTransactionService,
                 itemService,
+                inventoryStockService,
                 fulfillmentService,
                 attachmentService
         );
         orderedFlow.verify(financialTransactionService).create(request);
         orderedFlow.verify(itemService).createAll(transaction, request.items());
+        orderedFlow.verify(inventoryStockService).createFinancialMovement(
+                transaction.getType(),
+                transaction.getId(),
+                transaction.getIssueDate(),
+                items.getFirst().id(),
+                items.getFirst().productId(),
+                items.getFirst().quantity(),
+                request.items().getFirst().inventoryUnitCost(),
+                request.items().getFirst().inventoryBatchId()
+        );
         orderedFlow.verify(fulfillmentService).createAll(transaction, request.fulfillments());
         orderedFlow.verify(attachmentService).createAll(transaction, request.attachments(), files);
         orderedFlow.verify(financialTransactionService).recalculate(transaction.getId());

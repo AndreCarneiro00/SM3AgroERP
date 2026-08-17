@@ -13,6 +13,7 @@ import com.sm3Agro.SM3AgroERP.financial.transaction.enums.FinancialTransactionSt
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionFulfillmentRepository;
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionItemRepository;
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionRepository;
+import com.sm3Agro.SM3AgroERP.inventory.repository.InventoryMovementRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -33,6 +34,7 @@ public class FinancialTransactionService {
     private final CounterpartyRepository counterpartyRepository;
     private final FinancialTransactionRules rules;
     private final BankBalanceService bankBalanceService;
+    private final InventoryMovementRepository inventoryMovementRepository;
 
     public List<FinancialTransaction> findAll() {
         return financialTransactionRepository.findAll(
@@ -89,6 +91,11 @@ public class FinancialTransactionService {
                         "Counterparty not found: " + request.counterpartyId()
                 ));
 
+        if (transaction.getType() != request.type()
+                && inventoryMovementRepository.existsByFinancialTransactionId(id)) {
+            throw new IllegalArgumentException("Cannot change type of a financial transaction with inventory movements.");
+        }
+
         bankBalanceService.validateTransactionTypeChange(transaction, request.type());
 
         transaction.setDescription(request.description());
@@ -106,6 +113,9 @@ public class FinancialTransactionService {
     @Transactional
     public FinancialTransaction cancel(Long id) {
         FinancialTransaction transaction = findById(id);
+        if (inventoryMovementRepository.existsByFinancialTransactionId(id)) {
+            throw new IllegalArgumentException("Cannot cancel a financial transaction with inventory movements.");
+        }
         transaction.setStatus(FinancialTransactionStatus.CANCELED);
         return financialTransactionRepository.save(transaction);
     }
