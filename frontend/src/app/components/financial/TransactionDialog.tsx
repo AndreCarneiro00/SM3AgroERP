@@ -34,6 +34,7 @@ import type {
   FinancialTransactionType,
 } from '../../../domains/financial/api/dtos';
 import type { FinancialTransaction } from '../../../domains/financial/model/entities';
+import type { InventoryBatch } from '../../../domains/inventory/model/entities';
 import type { Counterparty, DocumentType } from '../../../domains/master-data/model/entities';
 import type { Product } from '../../../domains/products/model/entities';
 import {
@@ -48,6 +49,8 @@ export interface TransactionItemFormData {
   unitPrice?: number;
   amount?: number;
   productId?: number;
+  inventoryBatchId?: number;
+  inventoryUnitCost?: number;
 }
 
 export interface TransactionFulfillmentFormData {
@@ -143,6 +146,98 @@ function roundCurrency(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function getProduct(products: Product[], productId?: number) {
+  return products.find((product) => product.id === productId);
+}
+
+function stockApplies(product: Product | undefined, issueDate: string) {
+  if (!product || product.hasStock !== true) {
+    return false;
+  }
+
+  return !product.stockControlStartDate || issueDate >= product.stockControlStartDate;
+}
+
+function getSellableBatches(
+  inventoryBatches: InventoryBatch[],
+  productId?: number,
+) {
+  return inventoryBatches
+    .filter(
+      (batch) =>
+        batch.productId === productId &&
+        batch.status === 'ACTIVE' &&
+        (batch.quantity ?? 0) > 0,
+    )
+    .sort((left, right) => {
+      const dateOrder = (left.batchDate ?? '').localeCompare(
+        right.batchDate ?? '',
+      );
+      return dateOrder !== 0 ? dateOrder : left.id - right.id;
+    });
+}
+
+function getTotalSellableQuantity(inventoryBatches: InventoryBatch[]) {
+  return inventoryBatches.reduce(
+    (sum, batch) => sum + (batch.quantity ?? 0),
+    0,
+  );
+}
+
+function getItemStockError(params: {
+  item: TransactionItemFormData;
+  transactionType: FinancialTransactionType;
+  issueDate: string;
+  products: Product[];
+  inventoryBatches: InventoryBatch[];
+}) {
+  const product = getProduct(params.products, params.item.productId);
+
+  if (!product) {
+    return undefined;
+  }
+
+  if (product.hasStock === null || product.hasStock === undefined) {
+    return 'Classifique o produto no cadastro antes de usar em lancamentos.';
+  }
+
+  if (!stockApplies(product, params.issueDate)) {
+    return undefined;
+  }
+
+  if (!params.item.quantity || params.item.quantity <= 0) {
+    return 'Produto com estoque exige quantidade maior que zero.';
+  }
+
+  if (params.transactionType === 'EXPENSE') {
+    const inventoryUnitCost =
+      params.item.inventoryUnitCost ?? params.item.unitPrice;
+
+    return inventoryUnitCost === undefined ||
+      inventoryUnitCost < 0
+      ? 'Compra com estoque exige custo unitario de estoque.'
+      : undefined;
+  }
+
+  if (!params.item.inventoryBatchId) {
+    return 'Venda com estoque exige lote.';
+  }
+
+  const batch = params.inventoryBatches.find(
+    (candidate) => candidate.id === params.item.inventoryBatchId,
+  );
+
+  if (!batch) {
+    return 'Lote de estoque nao encontrado.';
+  }
+
+  if ((batch.quantity ?? 0) < params.item.quantity) {
+    return 'Quantidade vendida excede o saldo do lote.';
+  }
+
+  return undefined;
+}
+
 function allocateFulfillmentsByItemIndex(
   items: TransactionItemFormData[],
   paymentAmounts: number[],
@@ -215,6 +310,7 @@ interface Props {
   chartOfAccounts: ChartOfAccount[];
   costCenters: CostCenter[];
   products: Product[];
+  inventoryBatches: InventoryBatch[];
   activeBankAccounts: BankAccount[];
   documentTypes: DocumentType[];
   onSave: (data: TransactionFormData) => void | Promise<void>;
@@ -229,12 +325,13 @@ export function TransactionDialog({
   chartOfAccounts,
   costCenters,
   products,
+  inventoryBatches,
   activeBankAccounts,
   documentTypes,
   onSave,
   saving = false,
 }: Props) {
-  const { control, formState, handleSubmit, reset } =
+  const { control, formState, handleSubmit, reset, watch } =
     useForm<TransactionDialogValues>({
       defaultValues: getDefaultValues(editing),
       resolver: zodResolver(transactionSchema),
@@ -260,6 +357,8 @@ export function TransactionDialog({
     () => items.reduce((sum, item) => sum + (resolveFinancialItemAmount(item) ?? 0), 0),
     [items],
   );
+  const transactionType = watch('type');
+  const issueDate = watch('issueDate');
   const partialPaidAmount = useMemo(
     () =>
       fulfillments.reduce(
@@ -268,12 +367,30 @@ export function TransactionDialog({
       ),
     [fulfillments],
   );
+  const itemStockErrors = useMemo(
+    () =>
+      items.map((item) =>
+        getItemStockError({
+          item,
+          transactionType,
+          issueDate,
+          products,
+          inventoryBatches,
+        }),
+      ),
+    [inventoryBatches, issueDate, items, products, transactionType],
+  );
   const hasValidItem = items.some(
-    (item) => {
+    (item, index) => {
       const amount = resolveFinancialItemAmount(item);
-      return !!item.chartOfAccountId && !!amount && amount > 0;
+      return !!item.chartOfAccountId && !!amount && amount > 0 && !itemStockErrors[index];
     },
   );
+  const stockItemsAreValid = itemStockErrors.every((error, index) => {
+    const item = items[index];
+    const amount = resolveFinancialItemAmount(item);
+    return !item.chartOfAccountId || !amount || amount <= 0 || !error;
+  });
   const paymentIsValid =
     editing ||
     paymentMode === 'unpaid' ||
@@ -298,7 +415,12 @@ export function TransactionDialog({
     );
   const busy = saving || formState.isSubmitting;
   const saveDisabled =
-    busy || (!editing && (!hasValidItem || !paymentIsValid || !attachmentsAreValid));
+    busy ||
+    (!editing &&
+      (!hasValidItem ||
+        !stockItemsAreValid ||
+        !paymentIsValid ||
+        !attachmentsAreValid));
 
   const updateItem = (index: number, patch: Partial<TransactionItemFormData>) => {
     setItems((current) =>
@@ -306,6 +428,73 @@ export function TransactionDialog({
         itemIndex === index ? mergeItemWithResolvedAmount(item, patch) : item,
       ),
     );
+  };
+
+  const splitSaleItemByFifo = (index: number) => {
+    const currentItem = items[index];
+    const selectedProduct = getProduct(products, currentItem.productId);
+
+    if (
+      transactionType !== 'INCOME' ||
+      !stockApplies(selectedProduct, issueDate) ||
+      !currentItem.quantity ||
+      currentItem.quantity <= 0
+    ) {
+      return;
+    }
+
+    const sellableBatches = getSellableBatches(
+      inventoryBatches,
+      currentItem.productId,
+    );
+    const totalSellableQuantity = getTotalSellableQuantity(sellableBatches);
+
+    if (
+      sellableBatches.length < 2 ||
+      currentItem.quantity > totalSellableQuantity
+    ) {
+      window.alert(
+        'Nao foi possivel dividir por FIFO com os lotes disponiveis.',
+      );
+      return;
+    }
+
+    let remainingQuantity = currentItem.quantity;
+    const splitItems: TransactionItemFormData[] = [];
+
+    for (const batch of sellableBatches) {
+      if (remainingQuantity <= 0) {
+        break;
+      }
+
+      const availableQuantity = batch.quantity ?? 0;
+
+      if (availableQuantity <= 0) {
+        continue;
+      }
+
+      const splitQuantity = Math.min(availableQuantity, remainingQuantity);
+      splitItems.push({
+        ...currentItem,
+        quantity: splitQuantity,
+        inventoryBatchId: batch.id,
+        amount: calculateFinancialItemAmount(splitQuantity, currentItem.unitPrice),
+      });
+      remainingQuantity -= splitQuantity;
+    }
+
+    if (remainingQuantity > 0) {
+      window.alert(
+        'Nao foi possivel dividir por FIFO com os lotes disponiveis.',
+      );
+      return;
+    }
+
+    setItems((current) => [
+      ...current.slice(0, index),
+      ...splitItems,
+      ...current.slice(index + 1),
+    ]);
   };
 
   const updateFulfillment = (
@@ -335,6 +524,9 @@ export function TransactionDialog({
   const handleFormSubmit = handleSubmit(async (values) => {
     const normalizedItems = items.flatMap((item) => {
       const amount = resolveFinancialItemAmount(item);
+      const product = getProduct(products, item.productId);
+      const shouldSendInventoryUnitCost =
+        values.type === 'EXPENSE' && stockApplies(product, values.issueDate);
 
       if (!item.chartOfAccountId || !amount || amount <= 0) {
         return [];
@@ -347,6 +539,10 @@ export function TransactionDialog({
         unitPrice: item.unitPrice,
         amount,
         productId: item.productId,
+        inventoryBatchId: item.inventoryBatchId,
+        inventoryUnitCost: shouldSendInventoryUnitCost
+          ? item.inventoryUnitCost ?? item.unitPrice
+          : item.inventoryUnitCost,
       }];
     });
     const normalizedTotalAmount = normalizedItems.reduce(
@@ -532,7 +728,28 @@ export function TransactionDialog({
                 </Button>
               </Stack>
 
-              {items.map((item, index) => (
+              {items.map((item, index) => {
+                const selectedProduct = getProduct(products, item.productId);
+                const itemStockApplies = stockApplies(
+                  selectedProduct,
+                  issueDate,
+                );
+                const sellableBatches = getSellableBatches(
+                  inventoryBatches,
+                  item.productId,
+                );
+                const totalSellableQuantity = getTotalSellableQuantity(
+                  sellableBatches,
+                );
+                const needsFifoSplit =
+                  itemStockApplies &&
+                  transactionType === 'INCOME' &&
+                  (item.quantity ?? 0) > (sellableBatches[0]?.quantity ?? 0) &&
+                  (item.quantity ?? 0) <= totalSellableQuantity &&
+                  sellableBatches.length > 1;
+                const stockError = itemStockErrors[index];
+
+                return (
                 <Stack key={index} spacing={1} sx={{ p: 1.5, bgcolor: '#F7F8FA' }}>
                   <Stack direction="row" spacing={1.5}>
                     <FormControl fullWidth size="small">
@@ -593,13 +810,32 @@ export function TransactionDialog({
                       <Select
                         value={String(item.productId ?? '')}
                         label="Produto"
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const productId = event.target.value
+                            ? Number(event.target.value)
+                            : undefined;
+                          const nextProduct = getProduct(products, productId);
+                          const nextStockApplies = stockApplies(
+                            nextProduct,
+                            issueDate,
+                          );
+                          const nextSellableBatch = getSellableBatches(
+                            inventoryBatches,
+                            productId,
+                          )[0];
+
                           updateItem(index, {
-                            productId: event.target.value
-                              ? Number(event.target.value)
-                              : undefined,
-                          })
-                        }
+                            productId,
+                            inventoryBatchId:
+                              transactionType === 'INCOME' && nextStockApplies
+                                ? nextSellableBatch?.id
+                                : undefined,
+                            inventoryUnitCost:
+                              transactionType === 'EXPENSE' && nextStockApplies
+                                ? item.inventoryUnitCost ?? item.unitPrice
+                                : undefined,
+                          });
+                        }}
                       >
                         <MenuItem value="">- Nenhum -</MenuItem>
                         {products.map((product) => (
@@ -626,11 +862,18 @@ export function TransactionDialog({
                       type="number"
                       size="small"
                       value={toInputValue(item.unitPrice)}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const unitPrice = parseOptionalNumber(event.target.value);
                         updateItem(index, {
-                          unitPrice: parseOptionalNumber(event.target.value),
-                        })
-                      }
+                          unitPrice,
+                          inventoryUnitCost:
+                            transactionType === 'EXPENSE' &&
+                            itemStockApplies &&
+                            item.inventoryUnitCost === undefined
+                              ? unitPrice
+                              : item.inventoryUnitCost,
+                        });
+                      }}
                       fullWidth
                     />
                     <TextField
@@ -643,8 +886,76 @@ export function TransactionDialog({
                       required
                     />
                   </Stack>
+                  {itemStockApplies && transactionType === 'EXPENSE' && (
+                    <TextField
+                      label="Custo Unit. Estoque"
+                      type="number"
+                      size="small"
+                      value={toInputValue(
+                        item.inventoryUnitCost ?? item.unitPrice,
+                      )}
+                      onChange={(event) =>
+                        updateItem(index, {
+                          inventoryUnitCost: parseOptionalNumber(
+                            event.target.value,
+                          ),
+                        })
+                      }
+                      fullWidth
+                    />
+                  )}
+                  {itemStockApplies && transactionType === 'INCOME' && (
+                    <Stack spacing={1}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Lote de estoque</InputLabel>
+                        <Select
+                          value={String(item.inventoryBatchId ?? '')}
+                          label="Lote de estoque"
+                          onChange={(event) =>
+                            updateItem(index, {
+                              inventoryBatchId: event.target.value
+                                ? Number(event.target.value)
+                                : undefined,
+                            })
+                          }
+                        >
+                          <MenuItem value="">- Selecione -</MenuItem>
+                          {sellableBatches.map((batch) => (
+                            <MenuItem key={batch.id} value={String(batch.id)}>
+                              {batch.code ?? `#${batch.id}`} - saldo{' '}
+                              {(batch.quantity ?? 0).toLocaleString('pt-BR')}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      {needsFifoSplit && (
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          justifyContent="space-between"
+                          alignItems="center"
+                        >
+                          <Typography variant="caption" color="text.secondary">
+                            A quantidade informada consome mais de um lote.
+                          </Typography>
+                          <Button
+                            size="small"
+                            onClick={() => splitSaleItemByFifo(index)}
+                          >
+                            Dividir por FIFO
+                          </Button>
+                        </Stack>
+                      )}
+                    </Stack>
+                  )}
+                  {stockError && (
+                    <Typography variant="caption" color="error.main">
+                      {stockError}
+                    </Typography>
+                  )}
                 </Stack>
-              ))}
+                );
+              })}
 
               <Typography variant="body2" fontWeight={700} align="right">
                 Total dos items:{' '}

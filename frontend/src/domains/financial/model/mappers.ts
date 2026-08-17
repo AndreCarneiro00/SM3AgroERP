@@ -84,6 +84,9 @@ export function mapFinancialTransactionItemDto(
     unitPrice: dto.unitPrice,
     amount: dto.amount,
     productId: dto.productId,
+    inventoryMovementId: dto.inventoryMovementId,
+    inventoryBatchId: dto.inventoryBatchId,
+    stockMovementType: dto.stockMovementType,
   };
 }
 
@@ -171,6 +174,8 @@ export function mapFinancialTransactionItemInputToDto(
     unitPrice: input.unitPrice,
     amount: input.amount,
     productId: input.productId,
+    inventoryBatchId: input.inventoryBatchId,
+    inventoryUnitCost: input.inventoryUnitCost,
   };
 }
 

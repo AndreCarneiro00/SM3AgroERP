@@ -11,6 +11,7 @@ import {
   Select,
   Stack,
   TextField,
+  Typography,
 } from '@mui/material';
 import type {
   ChartOfAccount,
@@ -82,6 +83,7 @@ function getInitialForm(
       amount: editing?.amount,
     }),
     productId: editing?.productId,
+    inventoryBatchId: editing?.inventoryBatchId,
   };
 }
 
@@ -106,8 +108,17 @@ export function TransactionItemDialog({
   }, [editing, financialTransactionId, open]);
 
   const resolvedAmount = resolveFinancialItemAmount(form);
+  const selectedProduct = products.find((product) => product.id === form.productId);
+  const stockBlocked =
+    !!editing?.inventoryMovementId ||
+    (selectedProduct
+      ? selectedProduct.hasStock === true ||
+        selectedProduct.hasStock === null ||
+        selectedProduct.hasStock === undefined
+      : false);
   const saveDisabled =
     saving ||
+    stockBlocked ||
     !form.financialTransactionId ||
     !form.chartOfAccountId ||
     !resolvedAmount ||
@@ -228,6 +239,20 @@ export function TransactionItemDialog({
               required
             />
           </Stack>
+
+          {editing?.inventoryMovementId && (
+            <Typography variant="caption" color="text.secondary">
+              Movimento de estoque #{editing.inventoryMovementId}
+              {editing.inventoryBatchId ? ` - lote #${editing.inventoryBatchId}` : ''}
+            </Typography>
+          )}
+
+          {stockBlocked && !editing?.inventoryMovementId && (
+            <Typography variant="caption" color="error.main">
+              Produtos com estoque devem ser lancados na criacao completa da
+              transacao.
+            </Typography>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>

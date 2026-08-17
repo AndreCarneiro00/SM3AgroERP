@@ -14,12 +14,18 @@ import type {
   FinancialTransactionFulfillmentDto,
   FinancialTransactionItemDto,
 } from '../../../domains/financial/api/dtos';
+import type {
+  InventoryBatchDto,
+  InventoryMovementDto,
+} from '../../../domains/inventory/api/dtos';
 import { cashManagementState } from '../state/cashManagement';
 import {
   validateBankTransfer,
   validateFulfillment,
   validateTransactionTypeChange,
 } from '../utils/bankBalances';
+import { inventoryFixtures } from './inventory';
+import { productFixtures } from './products';
 
 const fixtures = cashManagementState;
 
@@ -39,6 +45,59 @@ function notFound() {
 
 function transactionNotFound(id?: number) {
   return fixtures.financialTransactions.find((item) => item.id === id);
+}
+
+function getProduct(productId?: number) {
+  return productFixtures.products.find((product) => product.id === productId);
+}
+
+function stockApplies(
+  product: { hasStock?: boolean | null; stockControlStartDate?: string | null } | undefined,
+  issueDate?: string,
+) {
+  if (!product || product.hasStock !== true) {
+    return false;
+  }
+
+  return !product.stockControlStartDate || !issueDate
+    ? true
+    : issueDate >= product.stockControlStartDate;
+}
+
+function hasStockMovement(itemId?: number) {
+  return inventoryFixtures.inventoryMovements.some(
+    (movement) => movement.financialTransactionItemId === itemId,
+  );
+}
+
+function hasStockMovementInTransaction(financialTransactionId: number) {
+  return fixtures.financialTransactionItems.some(
+    (item) =>
+      item.financialTransactionId === financialTransactionId &&
+      hasStockMovement(item.id),
+  );
+}
+
+function getStandaloneItemStockError(productId?: number) {
+  if (!productId) {
+    return undefined;
+  }
+
+  const product = getProduct(productId);
+
+  if (!product) {
+    return `Product not found: ${productId}`;
+  }
+
+  if (product.hasStock === null || product.hasStock === undefined) {
+    return 'Product must be classified for stock control before use.';
+  }
+
+  if (product.hasStock === true) {
+    return 'Stock-controlled financial items can only be created in the full transaction creation flow.';
+  }
+
+  return undefined;
 }
 
 function getTotalAmount(financialTransactionId: number) {
@@ -62,6 +121,23 @@ function getPaidAmount(
 
 function roundCurrency(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+type InventorySnapshot = {
+  inventoryBatches: InventoryBatchDto[];
+  inventoryMovements: InventoryMovementDto[];
+};
+
+function createInventorySnapshot(): InventorySnapshot {
+  return {
+    inventoryBatches: structuredClone(inventoryFixtures.inventoryBatches),
+    inventoryMovements: structuredClone(inventoryFixtures.inventoryMovements),
+  };
+}
+
+function restoreInventorySnapshot(snapshot: InventorySnapshot) {
+  inventoryFixtures.inventoryBatches = snapshot.inventoryBatches;
+  inventoryFixtures.inventoryMovements = snapshot.inventoryMovements;
 }
 
 function getTransactionItems(financialTransactionId: number) {
@@ -361,7 +437,122 @@ function createAttachmentFromFile(
   };
 }
 
-function rollbackCreatedTransaction(financialTransactionId: number) {
+function createStockMovements(
+  financialTransaction: FinancialTransactionDto,
+  items: FinancialTransactionItemDto[],
+) {
+  for (const item of items) {
+    if (!item.productId) {
+      continue;
+    }
+
+    const product = getProduct(item.productId);
+
+    if (!product) {
+      return `Product not found: ${item.productId}`;
+    }
+
+    if (product.hasStock === null || product.hasStock === undefined) {
+      return 'Product must be classified for stock control before use.';
+    }
+
+    if (!stockApplies(product, financialTransaction.issueDate)) {
+      continue;
+    }
+
+    if (!item.quantity || item.quantity <= 0) {
+      return 'quantity must be greater than zero';
+    }
+
+    if (financialTransaction.type === 'EXPENSE') {
+      if (item.inventoryUnitCost === undefined || item.inventoryUnitCost === null) {
+        return 'inventoryUnitCost is required for stock-controlled purchases.';
+      }
+
+      if (item.inventoryUnitCost < 0) {
+        return 'inventoryUnitCost must be greater than or equal to zero';
+      }
+
+      const batchId = nextId(inventoryFixtures.inventoryBatches);
+      const createdBatch: InventoryBatchDto = {
+        id: batchId,
+        productId: item.productId,
+        code: `PUR-${financialTransaction.id}-ITEM-${item.id}`,
+        batchDate: financialTransaction.issueDate,
+        status: 'ACTIVE',
+        unitCost: item.inventoryUnitCost,
+        quantity: item.quantity,
+      };
+      inventoryFixtures.inventoryBatches.push(createdBatch);
+
+      const movementId = nextId(inventoryFixtures.inventoryMovements);
+      inventoryFixtures.inventoryMovements.push({
+        id: movementId,
+        batchId,
+        movementType: 'PURCHASE_IN',
+        quantity: item.quantity,
+        unitCost: item.inventoryUnitCost,
+        movementDate: financialTransaction.issueDate,
+        financialTransactionItemId: item.id,
+      });
+
+      item.inventoryBatchId = batchId;
+      item.inventoryMovementId = movementId;
+      item.stockMovementType = 'PURCHASE_IN';
+      continue;
+    }
+
+    if (!item.inventoryBatchId) {
+      return 'inventoryBatchId is required for stock-controlled sales.';
+    }
+
+    const batch = inventoryFixtures.inventoryBatches.find(
+      (candidate) => candidate.id === item.inventoryBatchId,
+    );
+
+    if (!batch) {
+      return `InventoryBatch not found: ${item.inventoryBatchId}`;
+    }
+
+    if (batch.productId !== item.productId) {
+      return 'Inventory batch does not belong to the financial item product.';
+    }
+
+    if (batch.status !== 'ACTIVE') {
+      return 'Inventory batch is not available for sale.';
+    }
+
+    if ((batch.quantity ?? 0) < item.quantity) {
+      return 'Inventory batch does not have enough stock.';
+    }
+
+    const movementId = nextId(inventoryFixtures.inventoryMovements);
+    inventoryFixtures.inventoryMovements.push({
+      id: movementId,
+      batchId: batch.id,
+      movementType: 'SALE_OUT',
+      quantity: item.quantity,
+      unitCost: batch.unitCost,
+      movementDate: financialTransaction.issueDate,
+      financialTransactionItemId: item.id,
+    });
+
+    const remainingQuantity = roundCurrency((batch.quantity ?? 0) - item.quantity);
+    batch.quantity = remainingQuantity <= 0 ? 0 : remainingQuantity;
+    batch.status = remainingQuantity <= 0 ? 'SOLD' : 'ACTIVE';
+
+    item.inventoryBatchId = batch.id;
+    item.inventoryMovementId = movementId;
+    item.stockMovementType = 'SALE_OUT';
+  }
+
+  return undefined;
+}
+
+function rollbackCreatedTransaction(
+  financialTransactionId: number,
+  inventorySnapshot?: InventorySnapshot,
+) {
   fixtures.financialTransactionAttachments =
     fixtures.financialTransactionAttachments.filter(
       (attachment) => attachment.financialTransactionId !== financialTransactionId,
@@ -376,6 +567,10 @@ function rollbackCreatedTransaction(financialTransactionId: number) {
   fixtures.financialTransactions = fixtures.financialTransactions.filter(
     (financialTransaction) => financialTransaction.id !== financialTransactionId,
   );
+
+  if (inventorySnapshot) {
+    restoreInventorySnapshot(inventorySnapshot);
+  }
 }
 
 export const financialHandlers: RequestHandler[] = [
@@ -393,6 +588,7 @@ export const financialHandlers: RequestHandler[] = [
   http.post(`/api/financial-transactions`, async ({ request }) => {
     const { payload, formData } =
       await readPayloadPart<CreateFinancialTransactionPayloadDto>(request);
+    const inventorySnapshot = createInventorySnapshot();
     const id = nextId(fixtures.financialTransactions);
     const created: FinancialTransactionDto = {
       id,
@@ -433,6 +629,13 @@ export const financialHandlers: RequestHandler[] = [
       createdItems.push(createdItem);
     });
 
+    const stockError = createStockMovements(created, createdItems);
+
+    if (stockError) {
+      rollbackCreatedTransaction(id, inventorySnapshot);
+      return HttpResponse.json({ message: stockError }, { status: 400 });
+    }
+
     for (const fulfillment of payload.fulfillments ?? []) {
       const allocations = resolveFulfillmentAllocations(
         id,
@@ -442,7 +645,7 @@ export const financialHandlers: RequestHandler[] = [
       );
 
       if (!allocations) {
-        rollbackCreatedTransaction(id);
+        rollbackCreatedTransaction(id, inventorySnapshot);
         return HttpResponse.json(
           { message: 'Invalid fulfillment allocations' },
           { status: 400 },
@@ -456,7 +659,7 @@ export const financialHandlers: RequestHandler[] = [
           amountPaid: fulfillment.amountPaid,
         });
       } catch (error) {
-        rollbackCreatedTransaction(id);
+        rollbackCreatedTransaction(id, inventorySnapshot);
         return HttpResponse.json(
           { message: error instanceof Error ? error.message : 'Invalid fulfillment' },
           { status: 400 },
@@ -494,6 +697,16 @@ export const financialHandlers: RequestHandler[] = [
 
     if (index < 0) return notFound();
 
+    if (
+      fixtures.financialTransactions[index].type !== payload.type &&
+      hasStockMovementInTransaction(id ?? 0)
+    ) {
+      return HttpResponse.json(
+        { message: 'Cannot change type of a financial transaction with inventory movements.' },
+        { status: 400 },
+      );
+    }
+
     try {
       validateTransactionTypeChange(fixtures, id ?? 0, payload.type);
     } catch (error) {
@@ -524,6 +737,13 @@ export const financialHandlers: RequestHandler[] = [
     const financialTransaction = transactionNotFound(id);
     if (!financialTransaction) return notFound();
 
+    if (hasStockMovementInTransaction(id ?? 0)) {
+      return HttpResponse.json(
+        { message: 'Cannot cancel a financial transaction with inventory movements.' },
+        { status: 400 },
+      );
+    }
+
     financialTransaction.status = 'CANCELED';
     return HttpResponse.json(buildTransactionDetail(financialTransaction));
   }),
@@ -534,6 +754,12 @@ export const financialHandlers: RequestHandler[] = [
       const financialTransactionId = parseId(String(params.id));
       if (!transactionNotFound(financialTransactionId)) return notFound();
       const payload = (await request.json()) as CreateFinancialTransactionItemDto;
+      const stockError = getStandaloneItemStockError(payload.productId);
+
+      if (stockError) {
+        return HttpResponse.json({ message: stockError }, { status: 400 });
+      }
+
       const created: FinancialTransactionItemDto = {
         id: nextId(fixtures.financialTransactionItems),
         financialTransactionId,
@@ -564,6 +790,22 @@ export const financialHandlers: RequestHandler[] = [
 
       if (index < 0) return notFound();
 
+      if (hasStockMovement(itemId)) {
+        return HttpResponse.json(
+          {
+            message:
+              'Financial transaction item cannot be changed because it has an inventory movement.',
+          },
+          { status: 400 },
+        );
+      }
+
+      const stockError = getStandaloneItemStockError(payload.productId);
+
+      if (stockError) {
+        return HttpResponse.json({ message: stockError }, { status: 400 });
+      }
+
       const nextItemAmount =
         payload.amount ?? fixtures.financialTransactionItems[index].amount ?? 0;
 
@@ -593,6 +835,16 @@ export const financialHandlers: RequestHandler[] = [
   http.delete(`/api/financial-transactions/:id/items/:itemId`, ({ params }) => {
     const financialTransactionId = parseId(String(params.id));
     const itemId = parseId(String(params.itemId));
+
+    if (hasStockMovement(itemId)) {
+      return HttpResponse.json(
+        {
+          message:
+            'Financial transaction item cannot be changed because it has an inventory movement.',
+        },
+        { status: 400 },
+      );
+    }
 
     if (getTransactionItems(financialTransactionId ?? 0).length <= 1) {
       return HttpResponse.json(

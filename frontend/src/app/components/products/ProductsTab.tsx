@@ -3,6 +3,7 @@ import {
   Box,
   Card,
   Chip,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -66,6 +67,7 @@ export function ProductsTab() {
               <TableCell>Familia</TableCell>
               <TableCell>Unidade de Medida</TableCell>
               <TableCell>Tipo</TableCell>
+              <TableCell>Estoque</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="center">Acoes</TableCell>
             </TableRow>
@@ -73,7 +75,7 @@ export function ProductsTab() {
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={6}>
+                <TableCell colSpan={7}>
                   <Typography variant="body2" color="text.secondary">
                     Carregando produtos...
                   </Typography>
@@ -90,6 +92,27 @@ export function ProductsTab() {
                 <TableCell>{product.familyName}</TableCell>
                 <TableCell>{product.unitName}</TableCell>
                 <TableCell>{labelProductType(product.productType)}</TableCell>
+                <TableCell>
+                  <Stack spacing={0.25}>
+                    <Chip
+                      label={labelStockControl(product.hasStock)}
+                      size="small"
+                      color={
+                        product.hasStock === true
+                          ? 'info'
+                          : product.hasStock === false
+                            ? 'default'
+                            : 'warning'
+                      }
+                      sx={{ height: 20, width: 'fit-content' }}
+                    />
+                    {product.hasStock && product.stockControlStartDate && (
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDate(product.stockControlStartDate)}
+                      </Typography>
+                    )}
+                  </Stack>
+                </TableCell>
                 <TableCell>
                   <Chip
                     label={product.active ? 'Ativo' : 'Inativo'}
@@ -126,6 +149,16 @@ export function ProductsTab() {
       />
     </Box>
   );
+}
+
+function labelStockControl(hasStock?: boolean | null) {
+  if (hasStock === true) return 'Controla';
+  if (hasStock === false) return 'Nao controla';
+  return 'Nao definido';
+}
+
+function formatDate(value: string) {
+  return new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR');
 }
 
 function labelProductType(type: ProductType) {

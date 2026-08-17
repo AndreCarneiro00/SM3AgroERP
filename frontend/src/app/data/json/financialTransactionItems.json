@@ -1,8 +1,8 @@
 [
-  { "id": 1, "financialTransactionId": 1, "chartOfAccountId": 3, "costCenterId": 6, "quantity": 285, "unitPrice": 100.00, "amount": 28500.00, "productId": 1 },
+  { "id": 1, "financialTransactionId": 1, "chartOfAccountId": 3, "costCenterId": 6, "quantity": 285, "unitPrice": 100.00, "amount": 28500.00, "productId": 1, "inventoryMovementId": 2, "inventoryBatchId": 1, "stockMovementType": "SALE_OUT" },
   { "id": 2, "financialTransactionId": 2, "chartOfAccountId": 3, "costCenterId": 6, "quantity": 147, "unitPrice": 100.35, "amount": 14750.00, "productId": 1 },
   { "id": 3, "financialTransactionId": 3, "chartOfAccountId": 13, "costCenterId": 2, "quantity": 10, "unitPrice": 890.00, "amount": 8900.00, "productId": 6 },
   { "id": 4, "financialTransactionId": 4, "chartOfAccountId": 19, "costCenterId": 12, "quantity": 1, "unitPrice": 2350.00, "amount": 2350.00 },
   { "id": 5, "financialTransactionId": 5, "chartOfAccountId": 11, "costCenterId": 2, "quantity": 1, "unitPrice": 6200.00, "amount": 6200.00 },
-  { "id": 6, "financialTransactionId": 6, "chartOfAccountId": 5, "costCenterId": 6, "quantity": 420, "unitPrice": 100.00, "amount": 42000.00, "productId": 3 }
+  { "id": 6, "financialTransactionId": 6, "chartOfAccountId": 5, "costCenterId": 6, "quantity": 420, "unitPrice": 100.00, "amount": 42000.00, "productId": 3, "inventoryMovementId": 5, "inventoryBatchId": 3, "stockMovementType": "SALE_OUT" }
 ]
