@@ -2,7 +2,7 @@ package com.sm3Agro.SM3AgroERP.financial.transaction.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sm3Agro.SM3AgroERP.bank.entity.BankAccount;
+import com.sm3Agro.SM3AgroERP.masterData.bankAccount.entity.BankAccount;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionAttachmentRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentRequest;
@@ -493,3 +493,4 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
         return objectMapper.readTree(result.getResponse().getContentAsString());
     }
 }
+

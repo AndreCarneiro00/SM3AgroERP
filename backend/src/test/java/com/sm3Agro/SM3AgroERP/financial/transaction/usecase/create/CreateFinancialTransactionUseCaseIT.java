@@ -6,10 +6,10 @@ import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransaction;
 import com.sm3Agro.SM3AgroERP.financial.transaction.enums.FinancialTransactionType;
 import com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create.CreateFinancialTransactionResult;
 import com.sm3Agro.SM3AgroERP.financial.transaction.support.AbstractFinancialTransactionIT;
-import com.sm3Agro.SM3AgroERP.inventory.entity.InventoryBatch;
-import com.sm3Agro.SM3AgroERP.inventory.entity.Product;
-import com.sm3Agro.SM3AgroERP.inventory.enums.InventoryBatchStatus;
-import com.sm3Agro.SM3AgroERP.inventory.enums.InventoryMovementType;
+import com.sm3Agro.SM3AgroERP.inventory.batch.entity.InventoryBatch;
+import com.sm3Agro.SM3AgroERP.inventory.batch.enums.InventoryBatchStatus;
+import com.sm3Agro.SM3AgroERP.inventory.movement.enums.InventoryMovementType;
+import com.sm3Agro.SM3AgroERP.masterData.product.entity.Product;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -69,8 +69,8 @@ class CreateFinancialTransactionUseCaseIT extends AbstractFinancialTransactionIT
         var batch = movement.getBatch();
         assertEquals(InventoryMovementType.PURCHASE_IN, movement.getMovementType());
         assertEquals(result.items().getFirst().id(), movement.getFinancialTransactionItemId());
-        assertEquals(new BigDecimal("42.50"), movement.getUnitCost());
-        assertEquals(new BigDecimal("2.00"), batch.getQuantity());
+        assertEquals(0, new BigDecimal("42.50").compareTo(movement.getUnitCost()));
+        assertEquals(0, new BigDecimal("2.00").compareTo(batch.getQuantity()));
         assertEquals(result.items().getFirst().inventoryMovementId(), movement.getId());
         assertEquals(result.items().getFirst().inventoryBatchId(), batch.getId());
     }
@@ -122,8 +122,8 @@ class CreateFinancialTransactionUseCaseIT extends AbstractFinancialTransactionIT
         var movement = inventoryMovementRepository.findAll().getFirst();
         var updatedBatch = inventoryBatchRepository.findById(batch.getId()).orElseThrow();
         assertEquals(InventoryMovementType.SALE_OUT, movement.getMovementType());
-        assertEquals(new BigDecimal("20.00"), movement.getUnitCost());
-        assertEquals(new BigDecimal("3.00"), updatedBatch.getQuantity());
+        assertEquals(0, new BigDecimal("20.00").compareTo(movement.getUnitCost()));
+        assertEquals(0, new BigDecimal("3.00").compareTo(updatedBatch.getQuantity()));
         assertEquals(InventoryBatchStatus.ACTIVE, updatedBatch.getStatus());
         assertEquals(result.items().getFirst().inventoryBatchId(), batch.getId());
     }
@@ -153,7 +153,12 @@ class CreateFinancialTransactionUseCaseIT extends AbstractFinancialTransactionIT
         assertEquals(0, financialTransactionRepository.count());
         assertEquals(0, financialTransactionItemRepository.count());
         assertEquals(0, inventoryMovementRepository.count());
-        assertEquals(new BigDecimal("1.00"), inventoryBatchRepository.findById(batch.getId()).orElseThrow().getQuantity());
+        assertEquals(
+                0,
+                new BigDecimal("1.00").compareTo(
+                        inventoryBatchRepository.findById(batch.getId()).orElseThrow().getQuantity()
+                )
+        );
     }
 
     @Test
@@ -304,3 +309,4 @@ class CreateFinancialTransactionUseCaseIT extends AbstractFinancialTransactionIT
         );
     }
 }
+

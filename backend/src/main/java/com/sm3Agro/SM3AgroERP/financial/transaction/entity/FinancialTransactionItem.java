@@ -1,8 +1,8 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.entity;
 
-import com.sm3Agro.SM3AgroERP.accounting.entity.ChartOfAccount;
-import com.sm3Agro.SM3AgroERP.accounting.entity.CostCenter;
-import com.sm3Agro.SM3AgroERP.inventory.entity.Product;
+import com.sm3Agro.SM3AgroERP.masterData.chartOfAccount.entity.ChartOfAccount;
+import com.sm3Agro.SM3AgroERP.masterData.costCenter.entity.CostCenter;
+import com.sm3Agro.SM3AgroERP.masterData.product.entity.Product;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

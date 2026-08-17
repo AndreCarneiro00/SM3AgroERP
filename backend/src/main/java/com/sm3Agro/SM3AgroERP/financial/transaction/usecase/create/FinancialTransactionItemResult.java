@@ -1,6 +1,6 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create;
 
-import com.sm3Agro.SM3AgroERP.inventory.enums.InventoryMovementType;
+import com.sm3Agro.SM3AgroERP.inventory.movement.enums.InventoryMovementType;
 
 import java.math.BigDecimal;
 

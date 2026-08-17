@@ -1,6 +1,6 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.entity;
 
-import com.sm3Agro.SM3AgroERP.counterparty.entity.Counterparty;
+import com.sm3Agro.SM3AgroERP.masterData.counterparty.entity.Counterparty;
 import com.sm3Agro.SM3AgroERP.financial.transaction.enums.FinancialTransactionStatus;
 import com.sm3Agro.SM3AgroERP.financial.transaction.enums.FinancialTransactionType;
 import jakarta.persistence.Column;

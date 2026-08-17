@@ -6,7 +6,7 @@ import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransaction
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionFulfillmentService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionItemService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionService;
-import com.sm3Agro.SM3AgroERP.inventory.service.InventoryStockService;
+import com.sm3Agro.SM3AgroERP.inventory.stock.InventoryStockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

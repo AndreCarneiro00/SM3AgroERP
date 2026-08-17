@@ -12,8 +12,8 @@ import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionA
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionFulfillment;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionItem;
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionFulfillmentAllocationRepository;
-import com.sm3Agro.SM3AgroERP.inventory.entity.InventoryMovement;
-import com.sm3Agro.SM3AgroERP.inventory.repository.InventoryMovementRepository;
+import com.sm3Agro.SM3AgroERP.inventory.movement.entity.InventoryMovement;
+import com.sm3Agro.SM3AgroERP.inventory.movement.repository.InventoryMovementRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

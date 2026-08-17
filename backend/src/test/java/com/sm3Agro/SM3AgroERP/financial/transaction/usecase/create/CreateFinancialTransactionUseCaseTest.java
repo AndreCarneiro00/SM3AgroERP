@@ -1,6 +1,6 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create;
 
-import com.sm3Agro.SM3AgroERP.counterparty.entity.Counterparty;
+import com.sm3Agro.SM3AgroERP.masterData.counterparty.entity.Counterparty;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionAttachmentRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentAllocationRequest;
@@ -13,7 +13,7 @@ import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransaction
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionFulfillmentService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionItemService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionService;
-import com.sm3Agro.SM3AgroERP.inventory.service.InventoryStockService;
+import com.sm3Agro.SM3AgroERP.inventory.stock.InventoryStockService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -202,3 +202,4 @@ class CreateFinancialTransactionUseCaseTest {
                 .build();
     }
 }
+

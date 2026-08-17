@@ -77,3 +77,4 @@ class FinancialTransactionServiceIT extends AbstractFinancialTransactionIT {
         assertEquals(FinancialTransactionStatus.PARTIAL, transaction.getStatus());
     }
 }
+
