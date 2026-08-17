@@ -274,9 +274,9 @@ export function Dashboard() {
           color="#1565C0"
         />
         <KpiCard
-          title="Lotes Ativos"
+          title="Estoque Ativo"
           value={String(activeInventoryBatches)}
-          subtitle={`${productionBatchesQuery.data?.length ?? 0} lotes de producao`}
+          subtitle={`${productionBatchesQuery.data?.length ?? 0} lotes gerados por corte`}
           icon={<AgricultureIcon />}
           color="#F9A825"
         />
@@ -416,7 +416,7 @@ export function Dashboard() {
         <Card sx={{ flex: 1 }}>
           <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
             <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-              Status dos Lotes de Estoque
+              Status do Estoque
             </Typography>
             <ResponsiveContainer width="100%" height={130}>
               <PieChart>

@@ -34,9 +34,7 @@ export const appPaths = {
   productsList: '/produtos/lista',
   productsFamilies: '/produtos/familias',
   productsUnits: '/produtos/unidades',
-  inventoryBatches: '/estoque/lotes',
   inventoryMovements: '/estoque/movimentacoes',
-  inventoryAdjustments: '/estoque/ajustes',
   bankingAccounts: '/bancos/contas',
   masterCounterparties: '/cadastros/contrapartes',
   masterCounterpartyTypes: '/cadastros/tipos-contraparte',
@@ -192,25 +190,11 @@ export const routeMetaByKey: Record<AppRouteKey, AppRouteMeta> = {
     navLabel: 'Unidades',
     icon: <ScaleIcon fontSize="small" />,
   },
-  inventoryBatches: {
-    key: 'inventoryBatches',
-    path: appPaths.inventoryBatches,
-    title: 'Lotes de Estoque',
-    navLabel: 'Lotes de Estoque',
-    icon: <InventoryIcon fontSize="small" />,
-  },
   inventoryMovements: {
     key: 'inventoryMovements',
     path: appPaths.inventoryMovements,
     title: 'Movimentacoes de Estoque',
     navLabel: 'Movimentacoes',
-    icon: <MoveToInboxIcon fontSize="small" />,
-  },
-  inventoryAdjustments: {
-    key: 'inventoryAdjustments',
-    path: appPaths.inventoryAdjustments,
-    title: 'Ajustes de Estoque',
-    navLabel: 'Ajustes',
     icon: <MoveToInboxIcon fontSize="small" />,
   },
   bankingAccounts: {
@@ -304,22 +288,10 @@ export const navSections = [
     icon: <InventoryIcon fontSize="small" />,
     children: [
       {
-        key: 'inventoryBatches',
-        label: routeMetaByKey.inventoryBatches.navLabel,
-        icon: routeMetaByKey.inventoryBatches.icon,
-        routeKey: 'inventoryBatches',
-      },
-      {
         key: 'inventoryMovements',
         label: routeMetaByKey.inventoryMovements.navLabel,
         icon: routeMetaByKey.inventoryMovements.icon,
         routeKey: 'inventoryMovements',
-      },
-      {
-        key: 'inventoryAdjustments',
-        label: routeMetaByKey.inventoryAdjustments.navLabel,
-        icon: routeMetaByKey.inventoryAdjustments.icon,
-        routeKey: 'inventoryAdjustments',
       },
     ],
   },

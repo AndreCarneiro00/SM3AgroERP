@@ -83,7 +83,7 @@ O sistema esta organizado em quatro macrodominios conectados:
 - `inventory_batch`: lote de estoque.
 - `inventory_movement`: movimentacao de entrada ou saida sobre um lote.
 - `inventory_adjustment`: justificativa formal para ajustes de estoque.
-- `production_batch`: lote produzido, rastreado a partir de um corte e de um lote de estoque.
+- `production_batch`: lote produzido, rastreado a partir de um corte, de um lote de estoque e da movimentacao de entrada correspondente.
 
 ## 5. Requisitos funcionais
 
@@ -185,6 +185,7 @@ O sistema deve permitir registrar cortes por talhao e familia de produto, inform
 
 - data do corte;
 - numero do corte;
+- status (`DONE` ou `CANCELED`);
 - observacoes;
 - dias desde o ultimo corte.
 
@@ -277,6 +278,8 @@ O sistema deve exigir o registro de causa raiz e observacao para ajustes de esto
 O sistema deve permitir vincular a producao agricola a um lote de estoque, com:
 
 - lote de estoque gerado;
+- movimentacao de entrada gerada;
+- quantidade produzida;
 - classificacao de qualidade;
 - corte de origem;
 - observacoes.
@@ -486,7 +489,7 @@ Como o schema privilegia modelagem relacional e nao traz triggers de consistenci
 **Fluxo principal:**
 
 1. Usuario informa talhao, familia de produto, data e numero do corte.
-2. Sistema grava o corte.
+2. Sistema grava o corte com status inicial `DONE`.
 3. Sistema permite relacionar operacoes e lotes de producao a esse corte.
 
 **Resultado esperado:** corte disponivel como origem produtiva e analitica.
@@ -526,9 +529,9 @@ Como o schema privilegia modelagem relacional e nao traz triggers de consistenci
 
 1. Usuario seleciona o corte de origem.
 2. Usuario informa ou confirma o lote de estoque gerado.
-3. Usuario informa classificacao de qualidade.
-4. Sistema cria `production_batch`.
-5. Sistema registra entrada de estoque como `PRODUCTION_IN`.
+3. Usuario informa quantidade produzida e classificacao de qualidade.
+4. Sistema registra entrada de estoque como `PRODUCTION_IN`.
+5. Sistema cria `production_batch` apontando para a movimentacao.
 
 **Resultado esperado:** produto final produzido com origem agricola conhecida.
 
@@ -688,4 +691,3 @@ Cada modulo deve evoluir este material em tres niveis:
 1. fluxo funcional;
 2. regras validatorias;
 3. cenarios de excecao e estorno.
-

@@ -21,15 +21,18 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type {
-  FinancialCatalog,
-  FinancialTransactionItem,
-} from '../../../domains/financial/model/entities';
+import {
+  selectCutLabelById,
+  selectFieldOperationLabelById,
+} from '../../../domains/agricultural/selectors/selectors';
+import { useAgriculturalCatalogData } from '../../../domains/agricultural/ui/hooks';
 import {
   selectFinancialTransactionItemLabelById,
 } from '../../../domains/financial/selectors/selectors';
 import { useFinancialCatalogData } from '../../../domains/financial/ui/hooks';
 import type {
+  InventoryAdjustment,
+  InventoryAdjustmentInput,
   InventoryBatch,
   InventoryMovement,
   InventoryMovementInput,
@@ -38,6 +41,10 @@ import {
   useInventoryCatalogData,
   useInventoryMutations,
 } from '../../../domains/inventory/ui/hooks';
+import {
+  selectAdjustmentRootCauseLabelById,
+} from '../../../domains/master-data/selectors/selectors';
+import { useMasterDataCatalogData } from '../../../domains/master-data/ui/hooks';
 import { useProductsCatalogData } from '../../../domains/products/ui/hooks';
 import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
@@ -75,59 +82,109 @@ const MOVE_COLOR: Record<
   TRANSFER_OUT: 'info',
 };
 
-function createInitialMovement(): InventoryMovementInput {
+const ADJUSTMENT_TYPE_LABEL: Record<InventoryAdjustment['type'], string> = {
+  POSITIVE: 'Entrada de ajuste',
+  NEGATIVE: 'Saida de ajuste',
+};
+
+interface AdjustmentForm {
+  batchId?: number;
+  type: InventoryAdjustment['type'];
+  quantity?: number;
+  unitCost?: number;
+  movementDate?: string;
+  rootCauseId?: number;
+  observation?: string;
+}
+
+interface AdjustmentEditTarget {
+  movement: InventoryMovement;
+  adjustment?: InventoryAdjustment;
+}
+
+function createInitialAdjustmentForm(): AdjustmentForm {
   return {
-    movementType: 'PRODUCTION_IN',
+    type: 'POSITIVE',
     movementDate: new Date().toISOString().split('T')[0],
   };
 }
 
-interface MovementDialogProps {
+function toAdjustmentTypeFromMovement(
+  movement?: InventoryMovement,
+): InventoryAdjustment['type'] {
+  return movement?.movementType === 'ADJUSTMENT_OUT' ? 'NEGATIVE' : 'POSITIVE';
+}
+
+function toMovementTypeFromAdjustment(
+  type: InventoryAdjustment['type'],
+): InventoryMovement['movementType'] {
+  return type === 'NEGATIVE' ? 'ADJUSTMENT_OUT' : 'ADJUSTMENT_IN';
+}
+
+function isAdjustmentMovement(movement?: InventoryMovement) {
+  return (
+    movement?.movementType === 'ADJUSTMENT_IN' ||
+    movement?.movementType === 'ADJUSTMENT_OUT'
+  );
+}
+
+interface AdjustmentDialogProps {
   open: boolean;
   onClose: () => void;
-  editing?: InventoryMovement;
+  editing?: AdjustmentEditTarget;
   inventoryBatches: InventoryBatch[];
-  financialCatalog: FinancialCatalog;
-  financialTransactionItems: FinancialTransactionItem[];
+  adjustmentRootCauses: Array<{ id: number; name: string }>;
   getProductName: (productId?: number) => string;
-  onSave: (data: InventoryMovementInput) => void | Promise<void>;
+  onSave: (data: AdjustmentForm) => void | Promise<void>;
   saving: boolean;
 }
 
-function MovementDialog({
+function AdjustmentDialog({
   open,
   onClose,
   editing,
   inventoryBatches,
-  financialCatalog,
-  financialTransactionItems,
+  adjustmentRootCauses,
   getProductName,
   onSave,
   saving,
-}: MovementDialogProps) {
-  const [form, setForm] = useState<InventoryMovementInput>(createInitialMovement());
+}: AdjustmentDialogProps) {
+  const [form, setForm] = useState<AdjustmentForm>(
+    createInitialAdjustmentForm(),
+  );
 
   useEffect(() => {
+    if (!open) return;
+
     setForm(
       editing
         ? {
-            batchId: editing.batchId,
-            movementType: editing.movementType,
-            quantity: editing.quantity,
-            unitCost: editing.unitCost,
-            movementDate: editing.movementDate,
-            financialTransactionItemId: editing.financialTransactionItemId,
+            batchId: editing.movement.batchId,
+            type:
+              editing.adjustment?.type ??
+              toAdjustmentTypeFromMovement(editing.movement),
+            quantity: editing.movement.quantity,
+            unitCost: editing.movement.unitCost,
+            movementDate: editing.movement.movementDate,
+            rootCauseId: editing.adjustment?.rootCauseId,
+            observation: editing.adjustment?.observation,
           }
-        : createInitialMovement(),
+        : createInitialAdjustmentForm(),
     );
   }, [editing, open]);
+
+  const isInvalid =
+    !form.batchId ||
+    !form.rootCauseId ||
+    !form.movementDate ||
+    !form.quantity ||
+    form.quantity <= 0 ||
+    saving;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        {editing
-          ? 'Editar Movimentacao de Estoque'
-          : 'Nova Movimentacao de Estoque'}
+        {editing ? 'Editar Ajuste de Estoque' : 'Novo Ajuste de Estoque'}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -151,26 +208,48 @@ function MovementDialog({
             </Select>
           </FormControl>
 
-          <Stack direction="row" spacing={1.5}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <FormControl fullWidth size="small">
               <InputLabel>Tipo</InputLabel>
               <Select
-                value={String(form.movementType ?? 'PRODUCTION_IN')}
+                value={form.type}
                 label="Tipo"
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
-                    movementType: event.target.value as InventoryMovement['movementType'],
+                    type: event.target.value as InventoryAdjustment['type'],
                   }))
                 }
               >
-                {Object.entries(MOVE_LABEL).map(([value, label]) => (
+                {Object.entries(ADJUSTMENT_TYPE_LABEL).map(([value, label]) => (
                   <MenuItem key={value} value={value}>
                     {label}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Causa</InputLabel>
+              <Select
+                value={String(form.rootCauseId ?? '')}
+                label="Causa"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    rootCauseId: Number(event.target.value),
+                  }))
+                }
+              >
+                {adjustmentRootCauses.map((rootCause) => (
+                  <MenuItem key={rootCause.id} value={String(rootCause.id)}>
+                    {rootCause.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
             <TextField
               label="Data"
               type="date"
@@ -184,9 +263,6 @@ function MovementDialog({
               fullWidth
               InputLabelProps={{ shrink: true }}
             />
-          </Stack>
-
-          <Stack direction="row" spacing={1.5}>
             <TextField
               label="Quantidade"
               type="number"
@@ -217,31 +293,19 @@ function MovementDialog({
             />
           </Stack>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>Item Financeiro</InputLabel>
-            <Select
-              value={String(form.financialTransactionItemId ?? '')}
-              label="Item Financeiro"
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  financialTransactionItemId: event.target.value
-                    ? Number(event.target.value)
-                    : undefined,
-                }))
-              }
-            >
-              <MenuItem value="">-- Nenhum --</MenuItem>
-              {financialTransactionItems.map((item) => (
-                <MenuItem key={item.id} value={String(item.id)}>
-                  {selectFinancialTransactionItemLabelById(
-                    financialCatalog,
-                    item.id,
-                  )}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <TextField
+            label="Observacao"
+            value={form.observation ?? ''}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                observation: event.target.value || undefined,
+              }))
+            }
+            fullWidth
+            multiline
+            rows={2}
+          />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -250,13 +314,7 @@ function MovementDialog({
         </Button>
         <Button
           variant="contained"
-          disabled={
-            !form.batchId ||
-            !form.movementType ||
-            !form.quantity ||
-            !form.movementDate ||
-            saving
-          }
+          disabled={isInvalid}
           onClick={() => {
             void onSave(form);
           }}
@@ -269,21 +327,74 @@ function MovementDialog({
 }
 
 export function InventoryMovementsTab() {
-  const { catalog: financialCatalog, financialTransactionItems } =
-    useFinancialCatalogData();
-  const { inventoryMovements, inventoryBatches, isLoading } =
-    useInventoryCatalogData();
+  const { catalog: financialCatalog } = useFinancialCatalogData();
   const {
+    catalog: agriculturalCatalog,
+    fieldOperationItems,
+    productionBatches,
+  } = useAgriculturalCatalogData();
+  const {
+    inventoryAdjustments,
+    inventoryBatches,
+    inventoryMovements,
+    isLoading,
+  } = useInventoryCatalogData();
+  const {
+    createInventoryAdjustment,
     createInventoryMovement,
-    updateInventoryMovement,
+    deleteInventoryAdjustment,
     deleteInventoryMovement,
+    updateInventoryAdjustment,
+    updateInventoryMovement,
   } = useInventoryMutations();
-  const { catalog } = useProductsCatalogData();
+  const {
+    catalog: masterDataCatalog,
+    adjustmentRootCauses,
+  } = useMasterDataCatalogData();
+  const { catalog: productsCatalog } = useProductsCatalogData();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<InventoryMovement | undefined>();
+  const [editing, setEditing] = useState<AdjustmentEditTarget | undefined>();
+
+  const batchesById = useMemo(
+    () => new Map(inventoryBatches.map((batch) => [batch.id, batch])),
+    [inventoryBatches],
+  );
+
+  const adjustmentsByMovementId = useMemo(
+    () =>
+      new Map(
+        inventoryAdjustments
+          .filter((adjustment) => adjustment.inventoryMovementId)
+          .map((adjustment) => [
+            adjustment.inventoryMovementId as number,
+            adjustment,
+          ]),
+      ),
+    [inventoryAdjustments],
+  );
+
+  const productionBatchesByMovementId = useMemo(
+    () =>
+      new Map(
+        productionBatches
+          .filter((batch) => batch.inventoryMovementId)
+          .map((batch) => [batch.inventoryMovementId as number, batch]),
+      ),
+    [productionBatches],
+  );
+
+  const fieldOperationItemsByMovementId = useMemo(
+    () =>
+      new Map(
+        fieldOperationItems
+          .filter((item) => item.inventoryMovementId)
+          .map((item) => [item.inventoryMovementId as number, item]),
+      ),
+    [fieldOperationItems],
+  );
 
   const getProductName = (productId?: number) =>
-    catalog.products.byId[productId ?? -1]?.name ?? '-';
+    productsCatalog.products.byId[productId ?? -1]?.name ?? '-';
 
   const sorted = useMemo(
     () =>
@@ -302,30 +413,127 @@ export function InventoryMovementsTab() {
     .reduce((sum, movement) => sum + (movement.quantity ?? 0), 0);
 
   const saving =
+    createInventoryAdjustment.isPending ||
     createInventoryMovement.isPending ||
-    updateInventoryMovement.isPending ||
-    deleteInventoryMovement.isPending;
+    deleteInventoryAdjustment.isPending ||
+    deleteInventoryMovement.isPending ||
+    updateInventoryAdjustment.isPending ||
+    updateInventoryMovement.isPending;
 
-  const handleSave = async (input: InventoryMovementInput) => {
+  const openCreateAdjustment = () => {
+    setEditing(undefined);
+    setDialogOpen(true);
+  };
+
+  const openEditAdjustment = (movement: InventoryMovement) => {
+    setEditing({
+      movement,
+      adjustment: adjustmentsByMovementId.get(movement.id),
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSaveAdjustment = async (form: AdjustmentForm) => {
+    const movementInput: InventoryMovementInput = {
+      batchId: form.batchId,
+      movementType: toMovementTypeFromAdjustment(form.type),
+      quantity: form.quantity,
+      unitCost: form.unitCost,
+      movementDate: form.movementDate,
+    };
+
     if (editing) {
-      await updateInventoryMovement.mutateAsync({ id: editing.id, input });
+      await updateInventoryMovement.mutateAsync({
+        id: editing.movement.id,
+        input: movementInput,
+      });
+
+      const adjustmentInput: InventoryAdjustmentInput = {
+        type: form.type,
+        rootCauseId: form.rootCauseId,
+        observation: form.observation,
+        inventoryMovementId: editing.movement.id,
+      };
+
+      if (editing.adjustment) {
+        await updateInventoryAdjustment.mutateAsync({
+          id: editing.adjustment.id,
+          input: adjustmentInput,
+        });
+      } else {
+        await createInventoryAdjustment.mutateAsync(adjustmentInput);
+      }
     } else {
-      await createInventoryMovement.mutateAsync(input);
+      const createdMovement =
+        await createInventoryMovement.mutateAsync(movementInput);
+
+      await createInventoryAdjustment.mutateAsync({
+        type: form.type,
+        rootCauseId: form.rootCauseId,
+        observation: form.observation,
+        inventoryMovementId: createdMovement.id,
+      });
     }
 
     setDialogOpen(false);
     setEditing(undefined);
   };
 
+  const handleDeleteAdjustment = async (movement: InventoryMovement) => {
+    const adjustment = adjustmentsByMovementId.get(movement.id);
+
+    if (adjustment) {
+      await deleteInventoryAdjustment.mutateAsync(adjustment.id);
+    }
+
+    await deleteInventoryMovement.mutateAsync(movement.id);
+  };
+
+  const getMovementOrigin = (movement: InventoryMovement) => {
+    const adjustment = adjustmentsByMovementId.get(movement.id);
+
+    if (adjustment) {
+      return selectAdjustmentRootCauseLabelById(
+        masterDataCatalog,
+        adjustment.rootCauseId,
+      );
+    }
+
+    const productionBatch = productionBatchesByMovementId.get(movement.id);
+
+    if (productionBatch) {
+      return `Corte ${selectCutLabelById(
+        agriculturalCatalog,
+        productionBatch.cutId,
+      )}`;
+    }
+
+    const fieldOperationItem = fieldOperationItemsByMovementId.get(movement.id);
+
+    if (fieldOperationItem) {
+      return selectFieldOperationLabelById(
+        agriculturalCatalog,
+        fieldOperationItem.fieldOperationId,
+      );
+    }
+
+    if (movement.financialTransactionItemId) {
+      return selectFinancialTransactionItemLabelById(
+        financialCatalog,
+        movement.financialTransactionItemId,
+      );
+    }
+
+    if (movement.movementType?.startsWith('TRANSFER')) {
+      return 'Transferencia';
+    }
+
+    return 'Movimentacao gerada';
+  };
+
   return (
     <Box>
-      <PageHeader
-        actionLabel="Nova Movimentacao"
-        onAction={() => {
-          setEditing(undefined);
-          setDialogOpen(true);
-        }}
-      >
+      <PageHeader actionLabel="Novo Ajuste" onAction={openCreateAdjustment}>
         <StatBox label="Entradas" value={`${totalIn.toLocaleString('pt-BR')} un`} />
         <StatBox
           label="Saidas"
@@ -349,7 +557,8 @@ export function InventoryMovementsTab() {
               <TableCell>Produto</TableCell>
               <TableCell>Tipo</TableCell>
               <TableCell>Data</TableCell>
-              <TableCell>Item Financeiro</TableCell>
+              <TableCell>Origem</TableCell>
+              <TableCell>Observacao</TableCell>
               <TableCell align="right">Quantidade</TableCell>
               <TableCell align="right">Custo Unit.</TableCell>
               <TableCell align="right">Total</TableCell>
@@ -358,10 +567,10 @@ export function InventoryMovementsTab() {
           </TableHead>
           <TableBody>
             {sorted.map((movement) => {
-              const batch = inventoryBatches.find(
-                (item) => item.id === movement.batchId,
-              );
+              const batch = batchesById.get(movement.batchId ?? -1);
+              const adjustment = adjustmentsByMovementId.get(movement.id);
               const total = (movement.quantity ?? 0) * (movement.unitCost ?? 0);
+              const canManageAdjustment = isAdjustmentMovement(movement);
 
               return (
                 <TableRow key={movement.id}>
@@ -386,12 +595,8 @@ export function InventoryMovementsTab() {
                     )}
                   </TableCell>
                   <TableCell>{fmtDate(movement.movementDate)}</TableCell>
-                  <TableCell>
-                    {selectFinancialTransactionItemLabelById(
-                      financialCatalog,
-                      movement.financialTransactionItemId,
-                    )}
-                  </TableCell>
+                  <TableCell>{getMovementOrigin(movement)}</TableCell>
+                  <TableCell>{adjustment?.observation ?? '-'}</TableCell>
                   <TableCell align="right">
                     <Typography variant="body2" fontWeight={600}>
                       {movement.quantity?.toLocaleString('pt-BR') ?? 0}
@@ -401,31 +606,32 @@ export function InventoryMovementsTab() {
                     {fmtBRL(movement.unitCost ?? 0)}
                   </TableCell>
                   <TableCell align="right">
-                    <Typography
-                      variant="body2"
-                      fontWeight={600}
-                      sx={{ color: total >= 0 ? 'success.main' : 'error.main' }}
-                    >
+                    <Typography variant="body2" fontWeight={600}>
                       {fmtBRL(total)}
                     </Typography>
                   </TableCell>
                   <TableCell align="center">
-                    <RowActions
-                      onEdit={() => {
-                        setEditing(movement);
-                        setDialogOpen(true);
-                      }}
-                      onDelete={() => {
-                        void deleteInventoryMovement.mutateAsync(movement.id);
-                      }}
-                    />
+                    {canManageAdjustment ? (
+                      <RowActions
+                        disabled={saving}
+                        deleteConfirmMessage="Excluir ajuste e movimentacao vinculada?"
+                        onEdit={() => openEditAdjustment(movement)}
+                        onDelete={() => {
+                          void handleDeleteAdjustment(movement);
+                        }}
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        -
+                      </Typography>
+                    )}
                   </TableCell>
                 </TableRow>
               );
             })}
             {sorted.length === 0 && (
               <EmptyTableRow
-                colSpan={9}
+                colSpan={10}
                 message={
                   isLoading
                     ? 'Carregando movimentacoes de estoque...'
@@ -437,7 +643,7 @@ export function InventoryMovementsTab() {
         </Table>
       </Card>
 
-      <MovementDialog
+      <AdjustmentDialog
         open={dialogOpen}
         onClose={() => {
           setDialogOpen(false);
@@ -445,10 +651,9 @@ export function InventoryMovementsTab() {
         }}
         editing={editing}
         inventoryBatches={inventoryBatches}
-        financialCatalog={financialCatalog}
-        financialTransactionItems={financialTransactionItems}
+        adjustmentRootCauses={adjustmentRootCauses}
         getProductName={getProductName}
-        onSave={handleSave}
+        onSave={handleSaveAdjustment}
         saving={saving}
       />
     </Box>
