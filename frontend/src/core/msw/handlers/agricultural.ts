@@ -1,7 +1,6 @@
 import { HttpResponse, http } from 'msw';
 import type { RequestHandler } from 'msw';
 import type {
-  CreateCutDto,
   CreateFieldDto,
   CreateFieldOperationDto,
   CreateFieldOperationItemDto,
@@ -13,6 +12,7 @@ import type {
   FieldOperationDto,
   FieldOperationItemDto,
   FieldOperationMachineDto,
+  LaunchCutDto,
   MachineDto,
   ProductionBatchDto,
 } from '../../../domains/agricultural/api/dtos';
@@ -117,7 +117,7 @@ export const agriculturalHandlers: RequestHandler[] = [
       observation: payload.observation,
     }),
   }),
-  ...createCrudHandlers<CutDto, CreateCutDto>('/api/cuts', {
+  ...createCrudHandlers<CutDto, LaunchCutDto>('/api/cuts', {
     getItems: () => fixtures.cuts,
     setItems: (items) => {
       fixtures.cuts = items;
@@ -125,21 +125,47 @@ export const agriculturalHandlers: RequestHandler[] = [
     createItem: (payload, id) => ({
       id,
       fieldId: payload.fieldId,
-      productFamilyId: payload.productFamilyId,
+      productId: payload.productId,
+      productFamilyId: undefined,
+      inventoryBatchId: id,
+      inventoryMovementId: id,
+      productionBatchId: id,
+      batchCode: `PRD${payload.productId ?? 'X'}-${(payload.cutDate ?? '').replace(/-/g, '')}-CUT${id}`,
       cutDate: payload.cutDate,
-      cutNumber: payload.cutNumber,
+      cutNumber:
+        fixtures.cuts.filter((cut) => cut.fieldId === payload.fieldId).length + 1,
+      status: 'DONE',
+      quantity: payload.quantity,
+      unitCost: payload.unitCost,
+      qualityGrade: payload.qualityGrade,
       observation: payload.observation,
-      daysSinceLastCut: payload.daysSinceLastCut,
+      daysSinceLastCut: undefined,
     }),
     updateItem: (current, payload) => ({
       ...current,
       fieldId: payload.fieldId,
-      productFamilyId: payload.productFamilyId,
+      productId: payload.productId,
       cutDate: payload.cutDate,
-      cutNumber: payload.cutNumber,
+      quantity: payload.quantity,
+      unitCost: payload.unitCost,
+      qualityGrade: payload.qualityGrade,
       observation: payload.observation,
-      daysSinceLastCut: payload.daysSinceLastCut,
     }),
+  }),
+  http.post('/api/cuts/:id/cancel', ({ params }) => {
+    const id = parseId(String(params.id));
+    const items = [...fixtures.cuts];
+    const index = items.findIndex((item) => item.id === id);
+
+    if (index < 0) return notFound();
+
+    items[index] = {
+      ...items[index],
+      status: 'CANCELED',
+    };
+    fixtures.cuts = items;
+
+    return HttpResponse.json(items[index]);
   }),
   ...createCrudHandlers<FieldOperationDto, CreateFieldOperationDto>(
     '/api/field-operations',
@@ -230,6 +256,8 @@ export const agriculturalHandlers: RequestHandler[] = [
       createItem: (payload, id) => ({
         id,
         inventoryBatchId: payload.inventoryBatchId,
+        inventoryMovementId: payload.inventoryMovementId,
+        quantity: payload.quantity,
         qualityGrade: payload.qualityGrade,
         cutId: payload.cutId,
         observation: payload.observation,
@@ -237,6 +265,8 @@ export const agriculturalHandlers: RequestHandler[] = [
       updateItem: (current, payload) => ({
         ...current,
         inventoryBatchId: payload.inventoryBatchId,
+        inventoryMovementId: payload.inventoryMovementId,
+        quantity: payload.quantity,
         qualityGrade: payload.qualityGrade,
         cutId: payload.cutId,
         observation: payload.observation,

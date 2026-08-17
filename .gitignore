@@ -62,3 +62,5 @@ agro.db-shm
 
 *.db*
 .agents
+
+/uploads

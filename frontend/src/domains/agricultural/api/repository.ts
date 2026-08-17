@@ -4,7 +4,6 @@ import {
   resolveResourcePath,
 } from '../../../core/http/resourcePath';
 import type {
-  CreateCutDto,
   CreateFieldDto,
   CreateFieldOperationDto,
   CreateFieldOperationItemDto,
@@ -16,9 +15,9 @@ import type {
   FieldOperationDto,
   FieldOperationItemDto,
   FieldOperationMachineDto,
+  LaunchCutDto,
   MachineDto,
   ProductionBatchDto,
-  UpdateCutDto,
   UpdateFieldDto,
   UpdateFieldOperationDto,
   UpdateFieldOperationItemDto,
@@ -92,19 +91,14 @@ export const agriculturalRepository = {
     }),
 
   listCuts: () => httpListRequest<CutDto>(resolveResourcePath(CUTS_API_BASE)),
-  createCut: (payload: CreateCutDto) =>
+  createCut: (payload: LaunchCutDto) =>
     httpRequest<CutDto>(resolveResourcePath(CUTS_API_BASE), {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  updateCut: (id: number, payload: UpdateCutDto) =>
-    httpRequest<CutDto>(resolveResourceItemPath(CUTS_API_BASE, id), {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    }),
-  deleteCut: (id: number) =>
-    httpRequest<void>(resolveResourceItemPath(CUTS_API_BASE, id), {
-      method: 'DELETE',
+  cancelCut: (id: number) =>
+    httpRequest<CutDto>(`${resolveResourceItemPath(CUTS_API_BASE, id)}/cancel`, {
+      method: 'POST',
     }),
 
   listFieldOperations: () =>

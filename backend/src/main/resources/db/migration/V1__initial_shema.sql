@@ -193,6 +193,9 @@ CREATE TABLE cut (
                      product_family_id INTEGER NOT NULL,
                      cut_date DATE NOT NULL,
                      cut_number INTEGER NOT NULL,
+                     status TEXT NOT NULL DEFAULT 'DONE' CHECK (
+                         status IN ('DONE', 'CANCELED')
+                         ),
                      observation TEXT,
                      days_since_last_cut INTEGER,
 
@@ -402,11 +405,14 @@ CREATE TABLE inventory_adjustment (
 CREATE TABLE production_batch (
                                   id INTEGER PRIMARY KEY AUTOINCREMENT,
                                   inventory_batch_id INTEGER NOT NULL,
+                                  inventory_movement_id INTEGER NOT NULL UNIQUE,
+                                  quantity REAL NOT NULL,
                                   quality_grade TEXT,
                                   cut_id INTEGER NOT NULL,
                                   observation TEXT,
 
                                   FOREIGN KEY (inventory_batch_id) REFERENCES inventory_batch(id),
+                                  FOREIGN KEY (inventory_movement_id) REFERENCES inventory_movement(id),
                                   FOREIGN KEY (cut_id) REFERENCES cut(id)
 );
 
@@ -424,3 +430,123 @@ CREATE TABLE field_operation_items (
                                        FOREIGN KEY (product_id) REFERENCES product(id),
                                        FOREIGN KEY (inventory_movement_id) REFERENCES inventory_movement(id)
 );
+
+
+-- ============================================================================
+-- 8. INITIAL SEED DATA FOR FINANCIAL LAUNCH
+-- ============================================================================
+
+INSERT INTO document_type (id, name) VALUES
+                                         (1, 'NFe'),
+                                         (2, 'Boleto Bancario'),
+                                         (3, 'Contrato'),
+                                         (4, 'Comprovante PIX'),
+                                         (5, 'Recibo');
+
+INSERT INTO counterparty_type (id, name, description, active) VALUES
+                                                                  (1, 'Cliente', 'Contraparte de receita', 1),
+                                                                  (2, 'Fornecedor', 'Contraparte de compra de insumos e materiais', 1),
+                                                                  (3, 'Prestador de Servico', 'Contraparte de servicos tomados', 1);
+
+INSERT INTO segment (id, name) VALUES
+                                   (1, 'Insumos Agricolas'),
+                                   (2, 'Comercializacao'),
+                                   (3, 'Logistica e Servicos');
+
+INSERT INTO base_unit (id, name) VALUES
+                                     (1, 'Quilograma'),
+                                     (2, 'Litro'),
+                                     (3, 'Unidade'),
+                                     (4, 'Fardo');
+
+INSERT INTO product_family (id, name) VALUES
+                                          (1, 'Fertilizantes'),
+                                          (2, 'Defensivos'),
+                                          (3, 'Feno'),
+                                          (4, 'Servicos');
+
+INSERT INTO unit_of_measure (id, name, base_unit_id, conversion_factor) VALUES
+                                                                            (1, 'kg', 1, 1),
+                                                                            (2, 'l', 2, 1),
+                                                                            (3, 'un', 3, 1),
+                                                                            (4, 'fardo', 4, 1);
+
+INSERT INTO product (id, name, unit_id, product_family_id, product_type, active) VALUES
+                                                                                     (1, 'Fertilizante NPK 20-05-20', 1, 1, 'RAW_MATERIAL', 1),
+                                                                                     (2, 'Herbicida Glifosato', 2, 2, 'CONSUMABLE', 1),
+                                                                                     (3, 'Feno Tifton Premium', 4, 3, 'FINISHED_GOOD', 1),
+                                                                                     (4, 'Frete Terceirizado', 3, 4, 'SERVICE', 1);
+
+INSERT INTO bank_account (
+    id,
+    account_type,
+    account_group,
+    name,
+    active,
+    initial_balance,
+    initial_balance_date,
+    financial_institution,
+    agency,
+    account_number
+) VALUES
+      (1, 'CHECKING', 'OPERATING', 'Banco do Brasil - Conta Operacional', 1, 150000.00, 1783220400000, 'Banco do Brasil', '0001', '12345-6'),
+      (2, 'CHECKING', 'RECEIVABLES', 'Sicredi - Conta Recebimentos', 1, 80000.00, 1783220400000, 'Sicredi', '0102', '98765-4'),
+      (3, 'CASH', 'PETTY_CASH', 'Caixa Interno', 1, 5000.00, 1783220400000, 'Caixa Interno', NULL, NULL);
+
+INSERT INTO counterparty (
+    id,
+    counterparty_type_id,
+    legal_name,
+    trade_name,
+    city,
+    state,
+    phone_number,
+    email,
+    document,
+    document_type,
+    segment_id,
+    active
+) VALUES
+      (1, 1, 'Cooperativa Agro Serra Ltda', 'Cooperativa Agro Serra', 'Unai', 'MG', '(38) 3333-1000', 'financeiro@agroserra.com.br', '12.345.678/0001-10', 'CNPJ', 2, 1),
+      (2, 2, 'Agro Insumos Norte Ltda', 'Agro Insumos Norte', 'Rio Verde', 'GO', '(64) 3333-2000', 'vendas@insumosnorte.com.br', '23.456.789/0001-20', 'CNPJ', 1, 1),
+      (3, 3, 'Transportes Vale Verde Ltda', 'Transportes Vale Verde', 'Patos de Minas', 'MG', '(34) 3333-3000', 'operacao@valeverde.com.br', '34.567.890/0001-30', 'CNPJ', 3, 1);
+
+INSERT INTO chart_of_account (
+    id,
+    name,
+    parent_id,
+    type,
+    accepts_transaction,
+    active,
+    code
+) VALUES
+      (1, 'Receitas', NULL, 'INCOME', 0, 1, '3.00'),
+      (2, 'Venda de Feno', 1, 'INCOME', 1, 1, '3.01.001'),
+      (3, 'Prestacao de Servicos', 1, 'INCOME', 1, 1, '3.01.002'),
+      (4, 'Despesas Operacionais', NULL, 'EXPENSE', 0, 1, '4.00'),
+      (5, 'Compra de Insumos', 4, 'EXPENSE', 1, 1, '4.01.001'),
+      (6, 'Frete e Logistica', 4, 'EXPENSE', 1, 1, '4.01.002'),
+      (7, 'Servicos de Terceiros', 4, 'EXPENSE', 1, 1, '4.01.003'),
+      (8, 'Despesas Administrativas', 4, 'EXPENSE', 1, 1, '4.02.001');
+
+INSERT INTO activity_group values
+    (1, 'teste');
+
+INSERT INTO adjustment_root_causes (id, name) VALUES
+                                                  (1, 'Cancelamento de Corte');
+
+INSERT INTO cost_center (
+    id,
+    name,
+    description,
+    type,
+    accepts_transaction,
+    active,
+    parent_id,
+    code,
+    activity_group_id
+) VALUES
+      (1, 'Administrativo', 'Centro de custo administrativo geral', 'OPEX', 1, 1, NULL, 'CC-ADM', 1),
+      (2, 'Fazenda Sede', 'Operacao principal da fazenda', 'OPEX', 1, 1, NULL, 'CC-FSZ', 1),
+      (3, 'Comercial', 'Receitas e despesas comerciais', 'OPEX', 1, 1, NULL, 'CC-COM', 1),
+      (4, 'Investimentos em Maquinas', 'Aquisicoes e melhorias de maquinas', 'CAPEX', 1, 1, NULL, 'CC-MAQ', 1);

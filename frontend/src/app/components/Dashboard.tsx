@@ -245,6 +245,9 @@ export function Dashboard() {
     },
   ].filter((entry) => entry.value > 0);
 
+  const resolveDisplayedBalance = (balance?: number, fallback?: number) =>
+    balance ?? fallback ?? 0;
+
   return (
     <Box>
       <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mb: 2.5 }}>
@@ -378,7 +381,12 @@ export function Dashboard() {
                       variant="body2"
                       sx={{ fontWeight: 700, color: 'primary.main' }}
                     >
-                      {fmtBRL(account.initialBalance ?? 0)}
+                      {fmtBRL(
+                        resolveDisplayedBalance(
+                          account.currentBalance,
+                          account.initialBalance,
+                        ),
+                      )}
                     </Typography>
                   </Stack>
                   <LinearProgress
@@ -386,7 +394,11 @@ export function Dashboard() {
                     value={
                       totalActiveBalance > 0
                         ? Math.min(
-                            ((account.initialBalance ?? 0) / totalActiveBalance) *
+                            (resolveDisplayedBalance(
+                              account.currentBalance,
+                              account.initialBalance,
+                            ) /
+                              totalActiveBalance) *
                               100,
                             100,
                           )

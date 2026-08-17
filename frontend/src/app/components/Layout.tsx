@@ -27,30 +27,38 @@ import { useUiStore } from '../store/ui/useUiStore';
 import {
   getRouteMetaByPathname,
   navSections,
+  type NavItem,
   routeMetaByKey,
   type AppRouteKey,
 } from '../router/routeMeta';
 
 const DRAWER_WIDTH = 240;
 
+function hasActiveChild(item: NavItem, currentPathname: string): boolean {
+  if ('routeKey' in item) {
+    return routeMetaByKey[item.routeKey].path === currentPathname;
+  }
+
+  return item.children.some((child) => hasActiveChild(child, currentPathname));
+}
+
 function NavSection({
   item,
   currentPathname,
   collapsed,
   onNavigate,
+  depth = 0,
 }: {
-  item: (typeof navSections)[number];
+  item: NavItem;
   currentPathname: string;
   collapsed: boolean;
   onNavigate: (routeKey: AppRouteKey) => void;
+  depth?: number;
 }) {
   const hasChildren = 'children' in item;
-  const isChildActive = hasChildren
-    ? item.children.some(
-        (routeKey) => routeMetaByKey[routeKey].path === currentPathname,
-      )
-    : routeMetaByKey[item.routeKey].path === currentPathname;
+  const isChildActive = hasActiveChild(item, currentPathname);
   const [open, setOpen] = useState(isChildActive);
+  const itemPadding = depth === 0 ? 1.5 : 4 + depth * 2;
 
   useEffect(() => {
     if (isChildActive) {
@@ -66,7 +74,7 @@ function NavSection({
         <ListItemButton
           selected={currentPathname === routeMeta.path}
           onClick={() => onNavigate(item.routeKey)}
-          sx={{ pl: 1.5 }}
+          sx={{ pl: itemPadding }}
         >
           <ListItemIcon sx={{ minWidth: 32, color: 'inherit', opacity: 0.8 }}>
             {item.icon}
@@ -87,7 +95,7 @@ function NavSection({
       <Tooltip title={collapsed ? item.label : ''} placement="right">
         <ListItemButton
           onClick={() => !collapsed && setOpen((current) => !current)}
-          sx={{ pl: 1.5 }}
+          sx={{ pl: itemPadding }}
         >
           <ListItemIcon
             sx={{ minWidth: 32, color: 'inherit', opacity: isChildActive ? 1 : 0.7 }}
@@ -116,28 +124,16 @@ function NavSection({
       {!collapsed && (
         <Collapse in={open} timeout="auto">
           <List disablePadding>
-            {item.children.map((routeKey) => {
-              const routeMeta = routeMetaByKey[routeKey];
-
-              return (
-                <ListItemButton
-                  key={routeKey}
-                  selected={currentPathname === routeMeta.path}
-                  onClick={() => onNavigate(routeKey)}
-                  sx={{ pl: 4 }}
-                >
-                  <ListItemIcon
-                    sx={{ minWidth: 28, color: 'inherit', opacity: 0.7 }}
-                  >
-                    {routeMeta.icon}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={routeMeta.navLabel}
-                    primaryTypographyProps={{ fontSize: '0.78rem' }}
-                  />
-                </ListItemButton>
-              );
-            })}
+            {item.children.map((child) => (
+              <NavSection
+                key={child.key}
+                item={child}
+                currentPathname={currentPathname}
+                onNavigate={onNavigate}
+                collapsed={collapsed}
+                depth={depth + 1}
+              />
+            ))}
           </List>
         </Collapse>
       )}

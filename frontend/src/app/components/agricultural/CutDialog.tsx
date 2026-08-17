@@ -12,135 +12,117 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { FormTextField } from '../../forms/FormTextField';
 import {
-  optionalIdFromInput,
   optionalNumberFromInput,
   optionalTextFromInput,
-  toInputValue,
+  requiredIdFromInput,
+  requiredNumberFromInput,
 } from '../../forms/valueParsers';
 import { zodResolver } from '../../forms/zodResolver';
 import type {
-  Cut,
   CutInput,
   Field,
 } from '../../../domains/agricultural/model/entities';
-import type { ProductFamily } from '../../../domains/products/model/entities';
+import type { Product } from '../../../domains/products/model/entities';
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  editing?: Cut;
   fields: Field[];
-  productFamilies: ProductFamily[];
+  products: Product[];
   onSave: (data: CutInput) => void | Promise<void>;
   saving?: boolean;
 }
 
 const cutSchema = z.object({
   fieldId: z.string().min(1, 'Selecione o campo.'),
-  productFamilyId: z.string().min(1, 'Selecione a familia do produto.'),
-  cutDate: z.string(),
-  cutNumber: z
+  productId: z.string().min(1, 'Selecione o produto.'),
+  cutDate: z.string().min(1, 'Informe a data do corte.'),
+  quantity: z
+    .string()
+    .trim()
+    .min(1, 'Informe a quantidade produzida.')
+    .refine(
+      (value) => !Number.isNaN(Number(value)) && Number(value) > 0,
+      'Informe uma quantidade valida.',
+    ),
+  unitCost: z
     .string()
     .trim()
     .refine(
-      (value) => !value || !Number.isNaN(Number(value)),
-      'Informe um numero de corte valido.',
+      (value) => !value || (!Number.isNaN(Number(value)) && Number(value) >= 0),
+      'Informe um custo unitario valido.',
     ),
-  days: z
-    .string()
-    .trim()
-    .refine(
-      (value) => !value || !Number.isNaN(Number(value)),
-      'Informe a quantidade de dias valida.',
-    ),
+  qualityGrade: z.string(),
   observation: z.string(),
 });
 
 type CutFormValues = z.infer<typeof cutSchema>;
 
-function getDefaultValues(editing?: Cut): CutFormValues {
+function getDefaultValues(): CutFormValues {
   return {
-    fieldId: toInputValue(editing?.fieldId),
-    productFamilyId: toInputValue(editing?.productFamilyId),
-    cutDate: editing?.cutDate ?? '',
-    cutNumber: toInputValue(editing?.cutNumber),
-    days: toInputValue(editing?.daysSinceLastCut),
-    observation: editing?.observation ?? '',
+    fieldId: '',
+    productId: '',
+    cutDate: new Date().toISOString().split('T')[0],
+    quantity: '',
+    unitCost: '',
+    qualityGrade: '',
+    observation: '',
   };
 }
 
 export function CutDialog({
   open,
   onClose,
-  editing,
   fields,
-  productFamilies,
+  products,
   onSave,
   saving = false,
 }: Props) {
   const { control, formState, handleSubmit, reset } = useForm<CutFormValues>({
-    defaultValues: getDefaultValues(editing),
+    defaultValues: getDefaultValues(),
     resolver: zodResolver(cutSchema),
   });
 
   useEffect(() => {
-    reset(getDefaultValues(editing));
-  }, [editing, open, reset]);
+    if (open) {
+      reset(getDefaultValues());
+    }
+  }, [open, reset]);
 
   const disabled = saving || formState.isSubmitting;
 
   const handleFormSubmit = handleSubmit(async (values) => {
     await onSave({
-      fieldId: optionalIdFromInput(values.fieldId),
-      productFamilyId: optionalIdFromInput(values.productFamilyId),
-      cutDate: optionalTextFromInput(values.cutDate),
-      cutNumber: optionalNumberFromInput(values.cutNumber),
+      fieldId: requiredIdFromInput(values.fieldId),
+      productId: requiredIdFromInput(values.productId),
+      cutDate: values.cutDate,
+      quantity: requiredNumberFromInput(values.quantity),
+      unitCost: optionalNumberFromInput(values.unitCost),
+      qualityGrade: optionalTextFromInput(values.qualityGrade),
       observation: optionalTextFromInput(values.observation),
-      daysSinceLastCut: optionalNumberFromInput(values.days),
     });
   });
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{editing ? 'Editar Corte' : 'Novo Corte'}</DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Novo Corte</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <FormTextField
-            control={control}
-            name="fieldId"
-            label="Campo"
-            select
-            fullWidth
-            size="small"
-          >
-            {fields.map((field) => (
-              <MenuItem key={field.id} value={String(field.id)}>
-                {field.name}
-              </MenuItem>
-            ))}
-          </FormTextField>
-          <FormTextField
-            control={control}
-            name="productFamilyId"
-            label="Familia de Produto"
-            select
-            fullWidth
-            size="small"
-          >
-            {productFamilies.map((productFamily) => (
-              <MenuItem key={productFamily.id} value={String(productFamily.id)}>
-                {productFamily.name}
-              </MenuItem>
-            ))}
-          </FormTextField>
           <Stack direction="row" spacing={1.5}>
             <FormTextField
               control={control}
-              name="cutNumber"
-              label="Numero do Corte"
-              type="number"
+              name="fieldId"
+              label="Campo"
+              select
               fullWidth
-            />
+              size="small"
+            >
+              {fields.map((field) => (
+                <MenuItem key={field.id} value={String(field.id)}>
+                  {field.name}
+                </MenuItem>
+              ))}
+            </FormTextField>
             <FormTextField
               control={control}
               name="cutDate"
@@ -152,9 +134,38 @@ export function CutDialog({
           </Stack>
           <FormTextField
             control={control}
-            name="days"
-            label="Dias desde ultimo corte"
-            type="number"
+            name="productId"
+            label="Produto Gerado"
+            select
+            fullWidth
+            size="small"
+          >
+            {products.map((product) => (
+              <MenuItem key={product.id} value={String(product.id)}>
+                {product.name}
+              </MenuItem>
+            ))}
+          </FormTextField>
+          <Stack direction="row" spacing={1.5}>
+            <FormTextField
+              control={control}
+              name="quantity"
+              label="Quantidade Produzida"
+              type="number"
+              fullWidth
+            />
+            <FormTextField
+              control={control}
+              name="unitCost"
+              label="Custo Unitario"
+              type="number"
+              fullWidth
+            />
+          </Stack>
+          <FormTextField
+            control={control}
+            name="qualityGrade"
+            label="Qualidade"
             fullWidth
           />
           <FormTextField

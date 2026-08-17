@@ -19,8 +19,16 @@ export function optionalNumberFromInput(value: string) {
   return Number(value);
 }
 
+export function requiredNumberFromInput(value: string) {
+  return Number(value);
+}
+
 export function optionalIdFromInput(value: string) {
   return value ? Number(value) : undefined;
+}
+
+export function requiredIdFromInput(value: string) {
+  return Number(value);
 }
 
 export function todayIsoDate() {

@@ -56,6 +56,22 @@ export interface AppRouteMeta {
   icon: ReactNode;
 }
 
+export interface NavLeafItem {
+  key: string;
+  label: string;
+  icon: ReactNode;
+  routeKey: AppRouteKey;
+}
+
+export interface NavGroupItem {
+  key: string;
+  label: string;
+  icon: ReactNode;
+  children: NavItem[];
+}
+
+export type NavItem = NavLeafItem | NavGroupItem;
+
 export const routeMetaByKey: Record<AppRouteKey, AppRouteMeta> = {
   dashboard: {
     key: 'dashboard',
@@ -250,26 +266,6 @@ export const routeMetaByKey: Record<AppRouteKey, AppRouteMeta> = {
 
 export const appRouteMeta = Object.values(routeMetaByKey) as AppRouteMeta[];
 
-type NavSectionDefinition =
-  | {
-      key: string;
-      label: string;
-      icon: ReactNode;
-      routeKey: AppRouteKey;
-      children?: never;
-    }
-  | {
-      key: string;
-      label: string;
-      icon: ReactNode;
-      children: AppRouteKey[];
-      routeKey?: never;
-    };
-
-function childRoutes(...routes: AppRouteKey[]) {
-  return routes;
-}
-
 export const navSections = [
   {
     key: 'dashboard',
@@ -278,72 +274,194 @@ export const navSections = [
     routeKey: 'dashboard',
   },
   {
-    key: 'financeiro',
-    label: 'Financeiro',
+    key: 'lancamentos',
+    label: 'Lancamentos',
     icon: <ReceiptLongIcon fontSize="small" />,
-    children: childRoutes(
-      'financialTransactions',
-      'financialBankTransfers',
-    ),
+    children: [
+      {
+        key: 'financialTransactions',
+        label: routeMetaByKey.financialTransactions.navLabel,
+        icon: routeMetaByKey.financialTransactions.icon,
+        routeKey: 'financialTransactions',
+      },
+      {
+        key: 'financialBankTransfers',
+        label: routeMetaByKey.financialBankTransfers.navLabel,
+        icon: routeMetaByKey.financialBankTransfers.icon,
+        routeKey: 'financialBankTransfers',
+      },
+      {
+        key: 'agriculturalCuts',
+        label: routeMetaByKey.agriculturalCuts.navLabel,
+        icon: routeMetaByKey.agriculturalCuts.icon,
+        routeKey: 'agriculturalCuts',
+      },
+    ],
   },
   {
-    key: 'contabilidade',
-    label: 'Contabilidade',
-    icon: <AccountTreeIcon fontSize="small" />,
-    children: childRoutes(
-      'accountingChart',
-      'accountingCostCenters',
-      'accountingDre',
-      'accountingDreRelationships',
-    ),
-  },
-  {
-    key: 'agricola',
-    label: 'Agricola',
-    icon: <AgricultureIcon fontSize="small" />,
-    children: childRoutes(
-      'agriculturalFields',
-      'agriculturalMachines',
-      'agriculturalCuts',
-      'agriculturalOperations',
-      'agriculturalOperationMachines',
-      'agriculturalOperationItems',
-      'agriculturalProductionBatches',
-    ),
-  },
-  {
-    key: 'produtos-estoque',
-    label: 'Produtos & Estoque',
+    key: 'estoque',
+    label: 'Estoque',
     icon: <InventoryIcon fontSize="small" />,
-    children: childRoutes(
-      'productsList',
-      'productsFamilies',
-      'productsUnits',
-      'inventoryBatches',
-      'inventoryMovements',
-      'inventoryAdjustments',
-    ),
-  },
-  {
-    key: 'bancos',
-    label: 'Bancos',
-    icon: <AccountBalanceIcon fontSize="small" />,
-    children: childRoutes('bankingAccounts'),
+    children: [
+      {
+        key: 'inventoryBatches',
+        label: routeMetaByKey.inventoryBatches.navLabel,
+        icon: routeMetaByKey.inventoryBatches.icon,
+        routeKey: 'inventoryBatches',
+      },
+      {
+        key: 'inventoryMovements',
+        label: routeMetaByKey.inventoryMovements.navLabel,
+        icon: routeMetaByKey.inventoryMovements.icon,
+        routeKey: 'inventoryMovements',
+      },
+      {
+        key: 'inventoryAdjustments',
+        label: routeMetaByKey.inventoryAdjustments.navLabel,
+        icon: routeMetaByKey.inventoryAdjustments.icon,
+        routeKey: 'inventoryAdjustments',
+      },
+    ],
   },
   {
     key: 'cadastros',
     label: 'Cadastros',
     icon: <PeopleIcon fontSize="small" />,
-    children: childRoutes(
-      'masterCounterparties',
-      'masterCounterpartyTypes',
-      'masterSegments',
-      'masterActivityGroups',
-      'masterDocumentTypes',
-      'masterAdjustmentRootCauses',
-    ),
+    children: [
+      {
+        key: 'cadastros-gerais',
+        label: 'Gerais',
+        icon: <PeopleIcon fontSize="small" />,
+        children: [
+          {
+            key: 'masterCounterparties',
+            label: routeMetaByKey.masterCounterparties.navLabel,
+            icon: routeMetaByKey.masterCounterparties.icon,
+            routeKey: 'masterCounterparties',
+          },
+          {
+            key: 'masterCounterpartyTypes',
+            label: routeMetaByKey.masterCounterpartyTypes.navLabel,
+            icon: routeMetaByKey.masterCounterpartyTypes.icon,
+            routeKey: 'masterCounterpartyTypes',
+          },
+          {
+            key: 'masterSegments',
+            label: routeMetaByKey.masterSegments.navLabel,
+            icon: routeMetaByKey.masterSegments.icon,
+            routeKey: 'masterSegments',
+          },
+          {
+            key: 'masterActivityGroups',
+            label: routeMetaByKey.masterActivityGroups.navLabel,
+            icon: routeMetaByKey.masterActivityGroups.icon,
+            routeKey: 'masterActivityGroups',
+          },
+          {
+            key: 'masterDocumentTypes',
+            label: routeMetaByKey.masterDocumentTypes.navLabel,
+            icon: routeMetaByKey.masterDocumentTypes.icon,
+            routeKey: 'masterDocumentTypes',
+          },
+          {
+            key: 'masterAdjustmentRootCauses',
+            label: routeMetaByKey.masterAdjustmentRootCauses.navLabel,
+            icon: routeMetaByKey.masterAdjustmentRootCauses.icon,
+            routeKey: 'masterAdjustmentRootCauses',
+          },
+        ],
+      },
+      {
+        key: 'cadastros-agricola',
+        label: 'Agricola',
+        icon: <AgricultureIcon fontSize="small" />,
+        children: [
+          {
+            key: 'agriculturalFields',
+            label: routeMetaByKey.agriculturalFields.navLabel,
+            icon: routeMetaByKey.agriculturalFields.icon,
+            routeKey: 'agriculturalFields',
+          },
+          {
+            key: 'agriculturalMachines',
+            label: routeMetaByKey.agriculturalMachines.navLabel,
+            icon: routeMetaByKey.agriculturalMachines.icon,
+            routeKey: 'agriculturalMachines',
+          },
+        ],
+      },
+      {
+        key: 'cadastros-bancos',
+        label: 'Bancos',
+        icon: <AccountBalanceIcon fontSize="small" />,
+        children: [
+          {
+            key: 'bankingAccounts',
+            label: routeMetaByKey.bankingAccounts.navLabel,
+            icon: routeMetaByKey.bankingAccounts.icon,
+            routeKey: 'bankingAccounts',
+          },
+        ],
+      },
+      {
+        key: 'cadastros-produtos',
+        label: 'Produtos',
+        icon: <CategoryIcon fontSize="small" />,
+        children: [
+          {
+            key: 'productsList',
+            label: routeMetaByKey.productsList.navLabel,
+            icon: routeMetaByKey.productsList.icon,
+            routeKey: 'productsList',
+          },
+          {
+            key: 'productsFamilies',
+            label: routeMetaByKey.productsFamilies.navLabel,
+            icon: routeMetaByKey.productsFamilies.icon,
+            routeKey: 'productsFamilies',
+          },
+          {
+            key: 'productsUnits',
+            label: routeMetaByKey.productsUnits.navLabel,
+            icon: routeMetaByKey.productsUnits.icon,
+            routeKey: 'productsUnits',
+          },
+        ],
+      },
+      {
+        key: 'cadastros-contabilidade',
+        label: 'Contabilidade',
+        icon: <AccountTreeIcon fontSize="small" />,
+        children: [
+          {
+            key: 'accountingChart',
+            label: routeMetaByKey.accountingChart.navLabel,
+            icon: routeMetaByKey.accountingChart.icon,
+            routeKey: 'accountingChart',
+          },
+          {
+            key: 'accountingCostCenters',
+            label: routeMetaByKey.accountingCostCenters.navLabel,
+            icon: routeMetaByKey.accountingCostCenters.icon,
+            routeKey: 'accountingCostCenters',
+          },
+          {
+            key: 'accountingDre',
+            label: routeMetaByKey.accountingDre.navLabel,
+            icon: routeMetaByKey.accountingDre.icon,
+            routeKey: 'accountingDre',
+          },
+          {
+            key: 'accountingDreRelationships',
+            label: routeMetaByKey.accountingDreRelationships.navLabel,
+            icon: routeMetaByKey.accountingDreRelationships.icon,
+            routeKey: 'accountingDreRelationships',
+          },
+        ],
+      },
+    ],
   },
-] satisfies NavSectionDefinition[];
+] satisfies NavItem[];
 
 export function getRouteMetaByPathname(pathname: string) {
   return appRouteMeta.find((route) => route.path === pathname);

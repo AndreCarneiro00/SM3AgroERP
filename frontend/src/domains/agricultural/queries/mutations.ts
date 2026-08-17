@@ -23,6 +23,7 @@ import type {
   ProductionBatchInput,
 } from '../model/entities';
 import { agriculturalKeys } from './keys';
+import { inventoryKeys } from '../../inventory/queries/keys';
 
 function useAgriculturalInvalidation() {
   const queryClient = useQueryClient();
@@ -111,30 +112,29 @@ export function useCreateCutMutation() {
     mutationFn: (input: CutInput) =>
       agriculturalRepository.createCut(mapCutInputToDto(input)),
     onSuccess: async () => {
-      await invalidate(agriculturalKeys.cuts());
+      await invalidate(
+        agriculturalKeys.cuts(),
+        agriculturalKeys.productionBatches(),
+        inventoryKeys.inventoryBatches(),
+        inventoryKeys.inventoryMovements(),
+      );
     },
   });
 }
 
-export function useUpdateCutMutation() {
+export function useCancelCutMutation() {
   const invalidate = useAgriculturalInvalidation();
 
   return useMutation({
-    mutationFn: ({ id, input }: { id: number; input: CutInput }) =>
-      agriculturalRepository.updateCut(id, mapCutInputToDto(input)),
+    mutationFn: (id: number) => agriculturalRepository.cancelCut(id),
     onSuccess: async () => {
-      await invalidate(agriculturalKeys.cuts());
-    },
-  });
-}
-
-export function useDeleteCutMutation() {
-  const invalidate = useAgriculturalInvalidation();
-
-  return useMutation({
-    mutationFn: (id: number) => agriculturalRepository.deleteCut(id),
-    onSuccess: async () => {
-      await invalidate(agriculturalKeys.cuts());
+      await invalidate(
+        agriculturalKeys.cuts(),
+        agriculturalKeys.productionBatches(),
+        inventoryKeys.inventoryBatches(),
+        inventoryKeys.inventoryMovements(),
+        inventoryKeys.inventoryAdjustments(),
+      );
     },
   });
 }

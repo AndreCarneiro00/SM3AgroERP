@@ -1,6 +1,5 @@
 import { normalizeById } from '../../../core/collections/normalize';
 import type {
-  CreateCutDto,
   CreateFieldDto,
   CreateFieldOperationDto,
   CreateFieldOperationItemDto,
@@ -12,6 +11,7 @@ import type {
   FieldOperationDto,
   FieldOperationItemDto,
   FieldOperationMachineDto,
+  LaunchCutDto,
   MachineDto,
   ProductionBatchDto,
 } from '../api/dtos';
@@ -58,9 +58,18 @@ export function mapCutDto(dto: CutDto): Cut {
   return {
     id: dto.id,
     fieldId: dto.fieldId,
+    productId: dto.productId,
     productFamilyId: dto.productFamilyId,
+    inventoryBatchId: dto.inventoryBatchId,
+    inventoryMovementId: dto.inventoryMovementId,
+    productionBatchId: dto.productionBatchId,
+    batchCode: dto.batchCode,
     cutDate: dto.cutDate,
     cutNumber: dto.cutNumber,
+    status: dto.status,
+    quantity: dto.quantity,
+    unitCost: dto.unitCost,
+    qualityGrade: dto.qualityGrade,
     observation: dto.observation,
     daysSinceLastCut: dto.daysSinceLastCut,
   };
@@ -109,6 +118,8 @@ export function mapProductionBatchDto(dto: ProductionBatchDto): ProductionBatch 
   return {
     id: dto.id,
     inventoryBatchId: dto.inventoryBatchId,
+    inventoryMovementId: dto.inventoryMovementId,
+    quantity: dto.quantity,
     qualityGrade: dto.qualityGrade,
     cutId: dto.cutId,
     observation: dto.observation,
@@ -134,14 +145,15 @@ export function mapMachineInputToDto(input: MachineInput): CreateMachineDto {
   };
 }
 
-export function mapCutInputToDto(input: CutInput): CreateCutDto {
+export function mapCutInputToDto(input: CutInput): LaunchCutDto {
   return {
     fieldId: input.fieldId,
-    productFamilyId: input.productFamilyId,
+    productId: input.productId,
     cutDate: input.cutDate,
-    cutNumber: input.cutNumber,
+    quantity: input.quantity,
+    unitCost: input.unitCost,
+    qualityGrade: input.qualityGrade,
     observation: input.observation,
-    daysSinceLastCut: input.daysSinceLastCut,
   };
 }
 
@@ -188,6 +200,8 @@ export function mapProductionBatchInputToDto(
 ): CreateProductionBatchDto {
   return {
     inventoryBatchId: input.inventoryBatchId,
+    inventoryMovementId: input.inventoryMovementId,
+    quantity: input.quantity,
     qualityGrade: input.qualityGrade,
     cutId: input.cutId,
     observation: input.observation,

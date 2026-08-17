@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Box,
   Card,
   Chip,
+  IconButton,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import BlockIcon from '@mui/icons-material/Block';
 import {
   useAgriculturalCatalogData,
   useAgriculturalMutations,
@@ -19,36 +22,63 @@ import type {
   CutInput,
 } from '../../../domains/agricultural/model/entities';
 import { useProductsCatalogData } from '../../../domains/products/ui/hooks';
+import { extractApiErrorMessage } from '../../../core/http/client';
 import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
-import { RowActions } from '../shared/RowActions';
 import { CutDialog } from './CutDialog';
 
 const fmtDate = (value?: string) =>
   value ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR') : '-';
 
-export function CutsTab() {
-  const { cuts, fields } = useAgriculturalCatalogData();
-  const { createCut, updateCut, deleteCut } = useAgriculturalMutations();
-  const { catalog, productFamilies } = useProductsCatalogData();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Cut | undefined>();
+const fmtBRL = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  const sorted = [...cuts].sort((left, right) =>
-    (right.cutDate ?? '').localeCompare(left.cutDate ?? ''),
+const fmtQuantity = (value?: number) =>
+  value === undefined ? '-' : value.toLocaleString('pt-BR');
+
+export function CutsTab() {
+  const { cuts, fields, isLoading } = useAgriculturalCatalogData();
+  const { createCut, cancelCut } = useAgriculturalMutations();
+  const { catalog, products } = useProductsCatalogData();
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const sorted = useMemo(
+    () =>
+      [...cuts].sort((left, right) =>
+        (right.cutDate ?? '').localeCompare(left.cutDate ?? ''),
+      ),
+    [cuts],
   );
 
-  const getProductFamilyName = (productFamilyId?: number) =>
-    catalog.productFamilies.byId[productFamilyId ?? -1]?.name ?? '-';
+  const getProductName = (productId?: number) =>
+    catalog.products.byId[productId ?? -1]?.name ?? '-';
+
+  const getFieldName = (fieldId?: number) =>
+    fields.find((item) => item.id === fieldId)?.name ?? '-';
 
   const handleSave = async (input: CutInput) => {
-    if (editing) {
-      await updateCut.mutateAsync({ id: editing.id, input });
-    } else {
+    try {
       await createCut.mutateAsync(input);
+      setDialogOpen(false);
+    } catch (error) {
+      window.alert(
+        extractApiErrorMessage(error) ?? 'Nao foi possivel lancar o corte.',
+      );
+    }
+  };
+
+  const handleCancel = async (cut: Cut) => {
+    if (!window.confirm('Cancelar este corte e gerar ajuste compensatorio?')) {
+      return;
     }
 
-    setDialogOpen(false);
+    try {
+      await cancelCut.mutateAsync(cut.id);
+    } catch (error) {
+      window.alert(
+        extractApiErrorMessage(error) ?? 'Nao foi possivel cancelar o corte.',
+      );
+    }
   };
 
   return (
@@ -56,7 +86,6 @@ export function CutsTab() {
       <PageHeader
         actionLabel="Novo Corte"
         onAction={() => {
-          setEditing(undefined);
           setDialogOpen(true);
         }}
       />
@@ -66,27 +95,36 @@ export function CutsTab() {
           <TableHead>
             <TableRow>
               <TableCell>Campo</TableCell>
-              <TableCell>Familia</TableCell>
-              <TableCell>Numero do Corte</TableCell>
+              <TableCell>Produto</TableCell>
+              <TableCell>Lote</TableCell>
+              <TableCell>Corte</TableCell>
               <TableCell>Data</TableCell>
-              <TableCell>Dias desde ultimo</TableCell>
-              <TableCell>Observacao</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell align="right">Quantidade</TableCell>
+              <TableCell align="right">Custo Unit.</TableCell>
               <TableCell align="center">Acoes</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {sorted.map((cut) => {
-              const field = fields.find((item) => item.id === cut.fieldId);
+              const isCanceled = cut.status === 'CANCELED';
 
               return (
                 <TableRow key={cut.id}>
                   <TableCell>
                     <Typography variant="body2" fontWeight={500}>
-                      {field?.name ?? '-'}
+                      {getFieldName(cut.fieldId)}
                     </Typography>
                   </TableCell>
+                  <TableCell>{getProductName(cut.productId)}</TableCell>
                   <TableCell>
-                    {getProductFamilyName(cut.productFamilyId)}
+                    <Typography
+                      variant="body2"
+                      fontWeight={600}
+                      sx={{ fontFamily: 'monospace' }}
+                    >
+                      {cut.batchCode ?? '-'}
+                    </Typography>
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -97,37 +135,45 @@ export function CutsTab() {
                     />
                   </TableCell>
                   <TableCell>{fmtDate(cut.cutDate)}</TableCell>
-                  <TableCell sx={{ color: 'text.secondary' }}>
-                    {cut.daysSinceLastCut
-                      ? `${cut.daysSinceLastCut} dias`
-                      : '-'}
+                  <TableCell>
+                    <Chip
+                      label={isCanceled ? 'Cancelado' : 'Concluido'}
+                      size="small"
+                      color={isCanceled ? 'default' : 'success'}
+                      sx={{ height: 20 }}
+                    />
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      maxWidth: 200,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      color: 'text.secondary',
-                    }}
-                  >
-                    {cut.observation ?? '-'}
+                  <TableCell align="right">{fmtQuantity(cut.quantity)}</TableCell>
+                  <TableCell align="right">
+                    {cut.unitCost === undefined ? '-' : fmtBRL(cut.unitCost)}
                   </TableCell>
                   <TableCell align="center">
-                    <RowActions
-                      onEdit={() => {
-                        setEditing(cut);
-                        setDialogOpen(true);
-                      }}
-                      onDelete={() => {
-                        void deleteCut.mutateAsync(cut.id);
-                      }}
-                    />
+                    <Tooltip title="Cancelar corte">
+                      <span>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          disabled={isCanceled || cancelCut.isPending}
+                          onClick={() => {
+                            void handleCancel(cut);
+                          }}
+                        >
+                          <BlockIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               );
             })}
-            {sorted.length === 0 && <EmptyTableRow colSpan={7} />}
+            {sorted.length === 0 && (
+              <EmptyTableRow
+                colSpan={9}
+                message={
+                  isLoading ? 'Carregando cortes...' : 'Nenhum corte lancado.'
+                }
+              />
+            )}
           </TableBody>
         </Table>
       </Card>
@@ -135,10 +181,9 @@ export function CutsTab() {
       <CutDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        editing={editing}
         fields={fields}
-        productFamilies={productFamilies}
-        saving={createCut.isPending || updateCut.isPending}
+        products={products}
+        saving={createCut.isPending}
         onSave={(input) => {
           void handleSave(input);
         }}

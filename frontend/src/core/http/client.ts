@@ -12,6 +12,29 @@ export class ApiError extends Error {
   }
 }
 
+function resolvePayloadMessage(payload: unknown) {
+  if (!payload || typeof payload !== 'object' || !('message' in payload)) {
+    return undefined;
+  }
+
+  const { message } = payload as { message?: unknown };
+  return typeof message === 'string' && message.trim().length > 0
+    ? message
+    : undefined;
+}
+
+export function extractApiErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    return resolvePayloadMessage(error.payload) ?? error.message;
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return undefined;
+}
+
 function resolveUrl(path: string) {
   if (/^https?:\/\//.test(path)) return path;
   if (appEnv.enableMsw && path.startsWith('/api/')) {

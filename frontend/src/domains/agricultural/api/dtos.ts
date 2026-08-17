@@ -21,6 +21,8 @@ export type FieldOperationType =
 
 export type FieldOperationStatus = 'PLANNED' | 'DONE' | 'CANCELED';
 
+export type CutStatus = 'DONE' | 'CANCELED';
+
 export interface FieldDto {
   id: number;
   name: string;
@@ -41,9 +43,18 @@ export interface MachineDto {
 export interface CutDto {
   id: number;
   fieldId?: number;
+  productId?: number;
   productFamilyId?: number;
+  inventoryBatchId?: number;
+  inventoryMovementId?: number;
+  productionBatchId?: number;
+  batchCode?: string;
   cutDate?: string;
   cutNumber?: number;
+  status?: CutStatus;
+  quantity?: number;
+  unitCost?: number;
+  qualityGrade?: string;
   observation?: string;
   daysSinceLastCut?: number;
 }
@@ -80,6 +91,8 @@ export interface FieldOperationItemDto {
 export interface ProductionBatchDto {
   id: number;
   inventoryBatchId?: number;
+  inventoryMovementId?: number;
+  quantity?: number;
   qualityGrade?: string;
   cutId?: number;
   observation?: string;
@@ -91,8 +104,15 @@ export type UpdateFieldDto = CreateFieldDto;
 export type CreateMachineDto = Omit<MachineDto, 'id'>;
 export type UpdateMachineDto = CreateMachineDto;
 
-export type CreateCutDto = Omit<CutDto, 'id'>;
-export type UpdateCutDto = CreateCutDto;
+export interface LaunchCutDto {
+  fieldId?: number;
+  productId?: number;
+  cutDate?: string;
+  quantity?: number;
+  unitCost?: number;
+  qualityGrade?: string;
+  observation?: string;
+}
 
 export type CreateFieldOperationDto = Omit<FieldOperationDto, 'id'>;
 export type UpdateFieldOperationDto = CreateFieldOperationDto;

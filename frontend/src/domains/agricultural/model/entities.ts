@@ -2,6 +2,7 @@ import type { EntityCollection } from '../../../core/collections/types';
 import type {
   FieldOperationStatus,
   FieldOperationType,
+  CutStatus,
   MachineType,
 } from '../api/dtos';
 
@@ -25,9 +26,18 @@ export interface Machine {
 export interface Cut {
   id: number;
   fieldId?: number;
+  productId?: number;
   productFamilyId?: number;
+  inventoryBatchId?: number;
+  inventoryMovementId?: number;
+  productionBatchId?: number;
+  batchCode?: string;
   cutDate?: string;
   cutNumber?: number;
+  status?: CutStatus;
+  quantity?: number;
+  unitCost?: number;
+  qualityGrade?: string;
   observation?: string;
   daysSinceLastCut?: number;
 }
@@ -64,6 +74,8 @@ export interface FieldOperationItem {
 export interface ProductionBatch {
   id: number;
   inventoryBatchId?: number;
+  inventoryMovementId?: number;
+  quantity?: number;
   qualityGrade?: string;
   cutId?: number;
   observation?: string;
@@ -96,11 +108,12 @@ export interface MachineInput {
 
 export interface CutInput {
   fieldId?: number;
-  productFamilyId?: number;
+  productId?: number;
   cutDate?: string;
-  cutNumber?: number;
+  quantity?: number;
+  unitCost?: number;
+  qualityGrade?: string;
   observation?: string;
-  daysSinceLastCut?: number;
 }
 
 export interface FieldOperationInput {
@@ -131,6 +144,8 @@ export interface FieldOperationItemInput {
 
 export interface ProductionBatchInput {
   inventoryBatchId?: number;
+  inventoryMovementId?: number;
+  quantity?: number;
   qualityGrade?: string;
   cutId?: number;
   observation?: string;
