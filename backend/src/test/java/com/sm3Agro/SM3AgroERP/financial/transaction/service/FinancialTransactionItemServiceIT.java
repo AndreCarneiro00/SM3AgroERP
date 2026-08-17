@@ -60,3 +60,4 @@ class FinancialTransactionItemServiceIT extends AbstractFinancialTransactionIT {
         )));
     }
 }
+

@@ -1,6 +1,6 @@
 package com.sm3Agro.SM3AgroERP.financial.bankTransfer.entity;
 
-import com.sm3Agro.SM3AgroERP.bank.entity.BankAccount;
+import com.sm3Agro.SM3AgroERP.masterData.bankAccount.entity.BankAccount;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

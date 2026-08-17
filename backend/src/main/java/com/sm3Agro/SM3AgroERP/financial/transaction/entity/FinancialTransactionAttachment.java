@@ -1,6 +1,6 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.entity;
 
-import com.sm3Agro.SM3AgroERP.financial.masterData.entity.DocumentType;
+import com.sm3Agro.SM3AgroERP.masterData.documentType.entity.DocumentType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

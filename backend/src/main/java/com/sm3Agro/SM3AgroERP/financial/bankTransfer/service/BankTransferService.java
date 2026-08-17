@@ -1,8 +1,8 @@
 package com.sm3Agro.SM3AgroERP.financial.bankTransfer.service;
 
-import com.sm3Agro.SM3AgroERP.bank.entity.BankAccount;
-import com.sm3Agro.SM3AgroERP.bank.repository.BankAccountRepository;
-import com.sm3Agro.SM3AgroERP.bank.service.BankBalanceService;
+import com.sm3Agro.SM3AgroERP.financial.balance.BankBalanceService;
+import com.sm3Agro.SM3AgroERP.masterData.bankAccount.entity.BankAccount;
+import com.sm3Agro.SM3AgroERP.masterData.bankAccount.repository.BankAccountRepository;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.dto.bankTransfer.CreateBankTransferRequest;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.dto.bankTransfer.UpdateBankTransferRequest;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.entity.BankTransfer;

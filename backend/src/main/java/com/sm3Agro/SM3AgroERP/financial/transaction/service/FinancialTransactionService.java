@@ -1,8 +1,6 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.service;
 
-import com.sm3Agro.SM3AgroERP.counterparty.entity.Counterparty;
-import com.sm3Agro.SM3AgroERP.counterparty.repository.CounterpartyRepository;
-import com.sm3Agro.SM3AgroERP.bank.service.BankBalanceService;
+import com.sm3Agro.SM3AgroERP.financial.balance.BankBalanceService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.domain.FinancialTransactionRules;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentRequest;
@@ -13,7 +11,9 @@ import com.sm3Agro.SM3AgroERP.financial.transaction.enums.FinancialTransactionSt
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionFulfillmentRepository;
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionItemRepository;
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionRepository;
-import com.sm3Agro.SM3AgroERP.inventory.repository.InventoryMovementRepository;
+import com.sm3Agro.SM3AgroERP.inventory.movement.repository.InventoryMovementRepository;
+import com.sm3Agro.SM3AgroERP.masterData.counterparty.entity.Counterparty;
+import com.sm3Agro.SM3AgroERP.masterData.counterparty.repository.CounterpartyRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;

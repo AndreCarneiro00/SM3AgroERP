@@ -74,3 +74,4 @@ class FinancialTransactionAttachmentServiceIT extends AbstractFinancialTransacti
         ), createAttachmentFiles()));
     }
 }
+

@@ -1,9 +1,11 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.service;
 
-import com.sm3Agro.SM3AgroERP.accounting.entity.ChartOfAccount;
-import com.sm3Agro.SM3AgroERP.accounting.entity.CostCenter;
-import com.sm3Agro.SM3AgroERP.accounting.repository.ChartOfAccountRepository;
-import com.sm3Agro.SM3AgroERP.accounting.repository.CostCenterRepository;
+import com.sm3Agro.SM3AgroERP.masterData.chartOfAccount.entity.ChartOfAccount;
+import com.sm3Agro.SM3AgroERP.masterData.chartOfAccount.repository.ChartOfAccountRepository;
+import com.sm3Agro.SM3AgroERP.masterData.costCenter.entity.CostCenter;
+import com.sm3Agro.SM3AgroERP.masterData.costCenter.repository.CostCenterRepository;
+import com.sm3Agro.SM3AgroERP.masterData.product.entity.Product;
+import com.sm3Agro.SM3AgroERP.masterData.product.repository.ProductRepository;
 import com.sm3Agro.SM3AgroERP.financial.transaction.domain.FinancialTransactionRules;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionItemRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.UpdateFinancialTransactionItemRequest;
@@ -12,9 +14,7 @@ import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionI
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionFulfillmentAllocationRepository;
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionItemRepository;
 import com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create.FinancialTransactionItemResult;
-import com.sm3Agro.SM3AgroERP.inventory.entity.Product;
-import com.sm3Agro.SM3AgroERP.inventory.repository.InventoryMovementRepository;
-import com.sm3Agro.SM3AgroERP.inventory.repository.ProductRepository;
+import com.sm3Agro.SM3AgroERP.inventory.movement.repository.InventoryMovementRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
