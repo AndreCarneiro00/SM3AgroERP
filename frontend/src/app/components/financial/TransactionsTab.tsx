@@ -47,6 +47,7 @@ import {
   useFinancialCatalogData,
   useFinancialMutations,
 } from '../../../domains/financial/ui/hooks';
+import { useInventoryCatalogData } from '../../../domains/inventory/ui/hooks';
 import {
   selectCounterpartyLabelById,
   selectDocumentTypeLabelById,
@@ -87,6 +88,15 @@ const STATUS_LABEL: Record<string, string> = {
   PARTIAL: 'Parcial',
 };
 
+function labelStockMovement(type?: string) {
+  const labels: Record<string, string> = {
+    PURCHASE_IN: 'Compra',
+    SALE_OUT: 'Venda',
+  };
+
+  return type ? labels[type] ?? type : '-';
+}
+
 function toFinancialTransactionInput(
   form: TransactionFormData,
 ): FinancialTransactionInput {
@@ -114,6 +124,8 @@ function toCreateFinancialTransactionInput(
       unitPrice: item.unitPrice,
       amount: item.amount,
       productId: item.productId,
+      inventoryBatchId: item.inventoryBatchId,
+      inventoryUnitCost: item.inventoryUnitCost,
     })),
     fulfillments: form.fulfillments.map((fulfillment) => ({
       bankAccountId: fulfillment.bankAccountId ?? 0,
@@ -233,6 +245,7 @@ export function TransactionsTab() {
     documentTypes,
   } = useMasterDataCatalogData();
   const { catalog: productsCatalog, products } = useProductsCatalogData();
+  const { inventoryBatches } = useInventoryCatalogData();
 
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'INCOME' | 'EXPENSE'>(
     'ALL',
@@ -769,6 +782,7 @@ export function TransactionsTab() {
                                     <TableCell>Conta</TableCell>
                                     <TableCell>Centro</TableCell>
                                     <TableCell>Produto</TableCell>
+                                    <TableCell>Estoque</TableCell>
                                     <TableCell align="right">Qtd</TableCell>
                                     <TableCell align="right">Valor</TableCell>
                                     <TableCell align="center">Acoes</TableCell>
@@ -795,6 +809,27 @@ export function TransactionsTab() {
                                           item.productId,
                                         )}
                                       </TableCell>
+                                      <TableCell>
+                                        {item.inventoryMovementId ? (
+                                          <Stack spacing={0.25}>
+                                            <Chip
+                                              size="small"
+                                              label={labelStockMovement(
+                                                item.stockMovementType,
+                                              )}
+                                              sx={{ height: 20, width: 'fit-content' }}
+                                            />
+                                            <Typography
+                                              variant="caption"
+                                              color="text.secondary"
+                                            >
+                                              Lote #{item.inventoryBatchId}
+                                            </Typography>
+                                          </Stack>
+                                        ) : (
+                                          '-'
+                                        )}
+                                      </TableCell>
                                       <TableCell align="right">
                                         {item.quantity?.toLocaleString('pt-BR') ??
                                           '-'}
@@ -804,7 +839,10 @@ export function TransactionsTab() {
                                       </TableCell>
                                       <TableCell align="center">
                                         <RowActions
-                                          disabled={isCanceled}
+                                          disabled={
+                                            isCanceled ||
+                                            !!item.inventoryMovementId
+                                          }
                                           onEdit={() => {
                                             setItemTarget(financialTransaction);
                                             setEditingItem(item);
@@ -824,7 +862,7 @@ export function TransactionsTab() {
                                   ))}
                                   {transactionItems.length === 0 && (
                                     <EmptyTableRow
-                                      colSpan={6}
+                                      colSpan={7}
                                       message="Nenhum item."
                                     />
                                   )}
@@ -1040,6 +1078,7 @@ export function TransactionsTab() {
         chartOfAccounts={postableChartOfAccounts}
         costCenters={postableCostCenters}
         products={products}
+        inventoryBatches={inventoryBatches}
         activeBankAccounts={activeBankAccounts}
         documentTypes={documentTypes}
         saving={

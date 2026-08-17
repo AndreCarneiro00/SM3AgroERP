@@ -33,6 +33,9 @@ import com.sm3Agro.SM3AgroERP.inventory.entity.Product;
 import com.sm3Agro.SM3AgroERP.inventory.entity.UnitOfMeasure;
 import com.sm3Agro.SM3AgroERP.inventory.enums.ProductType;
 import com.sm3Agro.SM3AgroERP.inventory.repository.BaseUnitRepository;
+import com.sm3Agro.SM3AgroERP.inventory.repository.InventoryAdjustmentRepository;
+import com.sm3Agro.SM3AgroERP.inventory.repository.InventoryBatchRepository;
+import com.sm3Agro.SM3AgroERP.inventory.repository.InventoryMovementRepository;
 import com.sm3Agro.SM3AgroERP.inventory.repository.ProductRepository;
 import com.sm3Agro.SM3AgroERP.inventory.repository.UnitOfMeasureRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,6 +82,12 @@ public abstract class AbstractFinancialTransactionIT {
     @Autowired
     protected ProductRepository productRepository;
     @Autowired
+    protected InventoryBatchRepository inventoryBatchRepository;
+    @Autowired
+    protected InventoryMovementRepository inventoryMovementRepository;
+    @Autowired
+    protected InventoryAdjustmentRepository inventoryAdjustmentRepository;
+    @Autowired
     protected UnitOfMeasureRepository unitOfMeasureRepository;
     @Autowired
     protected BaseUnitRepository baseUnitRepository;
@@ -92,6 +101,9 @@ public abstract class AbstractFinancialTransactionIT {
         financialTransactionFulfillmentAllocationRepository.deleteAll();
         financialTransactionFulfillmentRepository.deleteAll();
         financialTransactionAttachmentRepository.deleteAll();
+        inventoryAdjustmentRepository.deleteAll();
+        inventoryMovementRepository.deleteAll();
+        inventoryBatchRepository.deleteAll();
         financialTransactionItemRepository.deleteAll();
         financialTransactionRepository.deleteAll();
         documentTypeRepository.deleteAll();
@@ -187,6 +199,34 @@ public abstract class AbstractFinancialTransactionIT {
                         .unit(unit)
                         .productType(ProductType.RAW_MATERIAL)
                         .active(true)
+                        .hasStock(false)
+                        .build()
+        );
+    }
+
+    protected Product createStockControlledProduct(LocalDate stockControlStartDate) {
+        BaseUnit baseUnit = baseUnitRepository.save(
+                BaseUnit.builder()
+                        .name("Stock kilogram")
+                        .build()
+        );
+
+        UnitOfMeasure unit = unitOfMeasureRepository.save(
+                UnitOfMeasure.builder()
+                        .name("Stock Kg")
+                        .baseUnit(baseUnit)
+                        .conversionFactor(BigDecimal.ONE)
+                        .build()
+        );
+
+        return productRepository.save(
+                Product.builder()
+                        .name("Stock Fertilizer")
+                        .unit(unit)
+                        .productType(ProductType.RAW_MATERIAL)
+                        .active(true)
+                        .hasStock(true)
+                        .stockControlStartDate(stockControlStartDate)
                         .build()
         );
     }

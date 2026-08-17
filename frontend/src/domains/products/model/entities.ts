@@ -31,6 +31,8 @@ export interface Product {
   productFamilyId?: number;
   productType: ProductType;
   active: boolean;
+  hasStock?: boolean | null;
+  stockControlStartDate?: string | null;
 }
 
 export interface ProductsCatalog {
@@ -60,6 +62,8 @@ export interface ProductInput {
   productFamilyId?: number;
   productType: ProductType;
   active: boolean;
+  hasStock?: boolean | null;
+  stockControlStartDate?: string | null;
 }
 
 export interface ProductRow extends Product {

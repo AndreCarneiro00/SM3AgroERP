@@ -29,6 +29,8 @@ export interface ProductDto {
   productFamilyId?: number;
   productType?: ProductTypeDto;
   active: boolean;
+  hasStock?: boolean | null;
+  stockControlStartDate?: string | null;
 }
 
 export type CreateBaseUnitDto = Omit<BaseUnitDto, 'id'>;

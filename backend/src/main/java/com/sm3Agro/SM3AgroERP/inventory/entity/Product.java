@@ -17,6 +17,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 @Entity
 @Getter
 @Setter
@@ -48,4 +50,10 @@ public class Product {
     @Builder.Default
     @Column(columnDefinition = "BOOLEAN DEFAULT 1")
     private Boolean active = true;
+
+    @Column(name = "has_stock")
+    private Boolean hasStock;
+
+    @Column(name = "stock_control_start_date")
+    private LocalDate stockControlStartDate;
 }

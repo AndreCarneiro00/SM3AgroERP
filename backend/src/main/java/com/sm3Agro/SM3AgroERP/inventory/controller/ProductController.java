@@ -64,7 +64,9 @@ public class ProductController {
                 product.getProductFamily() != null ? product.getProductFamily().getId() : null,
                 product.getProductFamily() != null ? product.getProductFamily().getName() : null,
                 product.getProductType(),
-                product.getActive()
+                product.getActive(),
+                product.getHasStock(),
+                product.getStockControlStartDate()
         );
     }
 
@@ -77,7 +79,9 @@ public class ProductController {
                 product.getProductFamily() != null ? product.getProductFamily().getId() : null,
                 product.getProductFamily() != null ? product.getProductFamily().getName() : null,
                 product.getProductType(),
-                product.getActive()
+                product.getActive(),
+                product.getHasStock(),
+                product.getStockControlStartDate()
         );
     }
 
@@ -90,7 +94,9 @@ public class ProductController {
                 product.getProductFamily() != null ? product.getProductFamily().getId() : null,
                 product.getProductFamily() != null ? product.getProductFamily().getName() : null,
                 product.getProductType(),
-                product.getActive()
+                product.getActive(),
+                product.getHasStock(),
+                product.getStockControlStartDate()
         );
     }
 }

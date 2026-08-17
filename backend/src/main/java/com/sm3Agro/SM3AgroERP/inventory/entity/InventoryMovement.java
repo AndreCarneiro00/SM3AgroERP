@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 
 @Entity
@@ -52,4 +53,19 @@ public class InventoryMovement {
 
     @Column(name = "financial_transaction_item_id")
     private Long financialTransactionItemId;
+
+    public BigDecimal getQuantity() {
+        return normalizeMinimumScale(quantity);
+    }
+
+    public BigDecimal getUnitCost() {
+        return normalizeMinimumScale(unitCost);
+    }
+
+    private BigDecimal normalizeMinimumScale(BigDecimal value) {
+        if (value == null || value.scale() >= 2) {
+            return value;
+        }
+        return value.setScale(2, RoundingMode.HALF_UP);
+    }
 }

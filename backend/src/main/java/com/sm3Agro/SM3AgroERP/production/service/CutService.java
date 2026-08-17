@@ -1,18 +1,10 @@
 package com.sm3Agro.SM3AgroERP.production.service;
 
-import com.sm3Agro.SM3AgroERP.inventory.entity.AdjustmentRootCause;
-import com.sm3Agro.SM3AgroERP.inventory.entity.InventoryAdjustment;
 import com.sm3Agro.SM3AgroERP.inventory.entity.InventoryBatch;
 import com.sm3Agro.SM3AgroERP.inventory.entity.InventoryMovement;
 import com.sm3Agro.SM3AgroERP.inventory.entity.Product;
-import com.sm3Agro.SM3AgroERP.inventory.enums.InventoryAdjustmentType;
-import com.sm3Agro.SM3AgroERP.inventory.enums.InventoryBatchStatus;
-import com.sm3Agro.SM3AgroERP.inventory.enums.InventoryMovementType;
-import com.sm3Agro.SM3AgroERP.inventory.repository.AdjustmentRootCauseRepository;
-import com.sm3Agro.SM3AgroERP.inventory.repository.InventoryAdjustmentRepository;
-import com.sm3Agro.SM3AgroERP.inventory.repository.InventoryBatchRepository;
-import com.sm3Agro.SM3AgroERP.inventory.repository.InventoryMovementRepository;
 import com.sm3Agro.SM3AgroERP.inventory.repository.ProductRepository;
+import com.sm3Agro.SM3AgroERP.inventory.service.InventoryStockService;
 import com.sm3Agro.SM3AgroERP.production.dto.cut.CutResponse;
 import com.sm3Agro.SM3AgroERP.production.dto.cut.LaunchCutRequest;
 import com.sm3Agro.SM3AgroERP.production.entity.Cut;
@@ -41,11 +33,8 @@ public class CutService {
     private final CutRepository cutRepository;
     private final FieldRepository fieldRepository;
     private final ProductRepository productRepository;
-    private final InventoryBatchRepository inventoryBatchRepository;
-    private final InventoryMovementRepository inventoryMovementRepository;
-    private final InventoryAdjustmentRepository inventoryAdjustmentRepository;
-    private final AdjustmentRootCauseRepository adjustmentRootCauseRepository;
     private final ProductionBatchRepository productionBatchRepository;
+    private final InventoryStockService inventoryStockService;
 
     public List<CutResponse> findAll() {
         return cutRepository.findAllByOrderByCutDateDescIdDesc()
@@ -66,6 +55,7 @@ public class CutService {
         if (product.getProductFamily() == null) {
             throw new IllegalArgumentException("Product must have a product family to launch a cut");
         }
+        inventoryStockService.requireProductControlsStockForProduction(product, request.cutDate());
 
         Integer cutNumber = Math.toIntExact(
                 cutRepository.countByFieldIdAndStatus(field.getId(), CutStatus.DONE) + 1
@@ -83,26 +73,17 @@ public class CutService {
                 .build());
 
         String batchCode = buildBatchCode(product, request.cutDate(), cut.getId());
-        InventoryBatch inventoryBatch = inventoryBatchRepository.save(InventoryBatch.builder()
-                .product(product)
-                .code(batchCode)
-                .batchDate(request.cutDate())
-                .status(InventoryBatchStatus.ACTIVE)
-                .unitCost(request.unitCost())
-                .quantity(request.quantity())
-                .build());
-
-        InventoryMovement inventoryMovement = inventoryMovementRepository.save(InventoryMovement.builder()
-                .batch(inventoryBatch)
-                .movementType(InventoryMovementType.PRODUCTION_IN)
-                .quantity(request.quantity())
-                .unitCost(request.unitCost())
-                .movementDate(request.cutDate())
-                .build());
+        InventoryStockService.StockMovementResult stockMovement = inventoryStockService.createProductionIn(
+                product,
+                batchCode,
+                request.cutDate(),
+                request.quantity(),
+                request.unitCost()
+        );
 
         productionBatchRepository.save(ProductionBatch.builder()
-                .inventoryBatch(inventoryBatch)
-                .inventoryMovement(inventoryMovement)
+                .inventoryBatch(stockMovement.batch())
+                .inventoryMovement(stockMovement.movement())
                 .quantity(request.quantity())
                 .qualityGrade(request.qualityGrade())
                 .cut(cut)
@@ -126,30 +107,16 @@ public class CutService {
         InventoryBatch inventoryBatch = productionBatch.getInventoryBatch();
         InventoryMovement productionMovement = productionBatch.getInventoryMovement();
 
-        if (inventoryMovementRepository.existsByBatchIdAndIdNot(inventoryBatch.getId(), productionMovement.getId())) {
-            throw new IllegalArgumentException("Cut cannot be canceled because the generated batch has later movements");
-        }
-
-        InventoryMovement compensationMovement = inventoryMovementRepository.save(InventoryMovement.builder()
-                .batch(inventoryBatch)
-                .movementType(InventoryMovementType.ADJUSTMENT_OUT)
-                .quantity(productionBatch.getQuantity())
-                .unitCost(productionMovement.getUnitCost())
-                .movementDate(LocalDate.now())
-                .build());
-
-        inventoryAdjustmentRepository.save(InventoryAdjustment.builder()
-                .type(InventoryAdjustmentType.NEGATIVE)
-                .rootCause(resolveCancellationRootCause())
-                .observation("Cancelamento do corte #" + cut.getId())
-                .inventoryMovement(compensationMovement)
-                .build());
-
-        inventoryBatch.setQuantity(BigDecimal.ZERO);
-        inventoryBatch.setStatus(InventoryBatchStatus.CANCELED);
+        inventoryStockService.cancelProductionStock(
+                inventoryBatch,
+                productionMovement,
+                productionBatch.getQuantity(),
+                LocalDate.now(),
+                CUT_CANCELLATION_ROOT_CAUSE,
+                "Cancelamento do corte #" + cut.getId()
+        );
         cut.setStatus(CutStatus.CANCELED);
 
-        inventoryBatchRepository.save(inventoryBatch);
         cutRepository.save(cut);
 
         return toResponse(cut);
@@ -186,13 +153,6 @@ public class CutService {
 
     private String buildBatchCode(Product product, LocalDate cutDate, Long cutId) {
         return "PRD" + product.getId() + "-" + cutDate.toString().replace("-", "") + "-CUT" + cutId;
-    }
-
-    private AdjustmentRootCause resolveCancellationRootCause() {
-        return adjustmentRootCauseRepository.findByName(CUT_CANCELLATION_ROOT_CAUSE)
-                .orElseGet(() -> adjustmentRootCauseRepository.save(AdjustmentRootCause.builder()
-                        .name(CUT_CANCELLATION_ROOT_CAUSE)
-                        .build()));
     }
 
     private CutResponse toResponse(Cut cut) {

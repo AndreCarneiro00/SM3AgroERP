@@ -4,6 +4,7 @@ import type {
   FinancialTransactionStatus,
   FinancialTransactionType,
 } from '../api/dtos';
+import type { InventoryMovementType } from '../../inventory/api/dtos';
 
 export interface FinancialTransaction {
   id: number;
@@ -51,6 +52,9 @@ export interface FinancialTransactionItem {
   unitPrice?: number;
   amount?: number;
   productId?: number;
+  inventoryMovementId?: number;
+  inventoryBatchId?: number;
+  stockMovementType?: InventoryMovementType;
 }
 
 export interface FinancialTransactionFulfillment {
@@ -114,6 +118,8 @@ export interface FinancialTransactionItemInput {
   unitPrice?: number;
   amount?: number;
   productId?: number;
+  inventoryBatchId?: number;
+  inventoryUnitCost?: number;
 }
 
 export interface FinancialTransactionFulfillmentInput {

@@ -44,6 +44,7 @@ const productTypeValues = [
 ] as const;
 
 const productStatusValues = ['active', 'inactive'] as const;
+const stockControlValues = ['not_defined', 'yes', 'no'] as const;
 
 const productTypeOptions: Array<{ value: ProductType; label: string }> = [
   { value: 'RAW_MATERIAL', label: 'Materia-prima' },
@@ -59,6 +60,24 @@ const productSchema = z.object({
   unitId: z.string(),
   productType: z.enum(productTypeValues),
   active: z.enum(productStatusValues),
+  stockControl: z.enum(stockControlValues),
+  stockControlStartDate: z.string(),
+}).superRefine((values, context) => {
+  if (values.stockControl === 'not_defined') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Classifique o controle de estoque.',
+      path: ['stockControl'],
+    });
+  }
+
+  if (values.stockControl === 'yes' && !values.stockControlStartDate) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Informe o inicio do controle.',
+      path: ['stockControlStartDate'],
+    });
+  }
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -70,6 +89,13 @@ function getDefaultValues(editing?: Product): ProductFormValues {
     unitId: toInputValue(editing?.unitId),
     productType: editing?.productType ?? 'FINISHED_GOOD',
     active: editing?.active === false ? 'inactive' : 'active',
+    stockControl:
+      editing?.hasStock === undefined || editing?.hasStock === null
+        ? 'not_defined'
+        : editing.hasStock
+          ? 'yes'
+          : 'no',
+    stockControlStartDate: editing?.stockControlStartDate ?? '',
   };
 }
 
@@ -82,7 +108,7 @@ export function ProductDialog({
   onSave,
   saving = false,
 }: Props) {
-  const { control, formState, handleSubmit, reset } =
+  const { control, formState, handleSubmit, reset, watch } =
     useForm<ProductFormValues>({
       defaultValues: getDefaultValues(editing),
       resolver: zodResolver(productSchema),
@@ -93,6 +119,7 @@ export function ProductDialog({
   }, [editing, open, reset]);
 
   const disabled = saving || formState.isSubmitting;
+  const stockControl = watch('stockControl');
 
   const handleFormSubmit = handleSubmit(async (values) => {
     await onSave({
@@ -101,6 +128,9 @@ export function ProductDialog({
       unitId: optionalIdFromInput(values.unitId),
       productType: values.productType,
       active: values.active === 'active',
+      hasStock: values.stockControl === 'yes',
+      stockControlStartDate:
+        values.stockControl === 'yes' ? values.stockControlStartDate : null,
     });
   });
 
@@ -171,6 +201,30 @@ export function ProductDialog({
               <MenuItem value="active">Ativo</MenuItem>
               <MenuItem value="inactive">Inativo</MenuItem>
             </FormTextField>
+          </Stack>
+          <Stack direction="row" spacing={1.5}>
+            <FormTextField
+              control={control}
+              name="stockControl"
+              label="Controla estoque"
+              select
+              fullWidth
+              size="small"
+            >
+              <MenuItem value="not_defined">Nao definido</MenuItem>
+              <MenuItem value="yes">Sim</MenuItem>
+              <MenuItem value="no">Nao</MenuItem>
+            </FormTextField>
+            <FormTextField
+              control={control}
+              name="stockControlStartDate"
+              label="Inicio do controle"
+              type="date"
+              fullWidth
+              size="small"
+              disabled={stockControl !== 'yes'}
+              InputLabelProps={{ shrink: true }}
+            />
           </Stack>
         </Stack>
       </DialogContent>

@@ -21,6 +21,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -77,7 +78,9 @@ class ProductControllerIT {
                 unit.getId(),
                 family.getId(),
                 ProductType.FINISHED_GOOD,
-                true
+                true,
+                true,
+                LocalDate.of(2026, 6, 1)
         );
 
         mockMvc.perform(post("/product")
@@ -91,6 +94,8 @@ class ProductControllerIT {
                 .andExpect(jsonPath("$.productFamilyId").value(family.getId()))
                 .andExpect(jsonPath("$.productFamilyName").value("Feno"))
                 .andExpect(jsonPath("$.productType").value("FINISHED_GOOD"))
+                .andExpect(jsonPath("$.hasStock").value(true))
+                .andExpect(jsonPath("$.stockControlStartDate").value("2026-06-01"))
                 .andExpect(jsonPath("$.active").value(true));
     }
 
@@ -108,13 +113,15 @@ class ProductControllerIT {
                 .unit(unit)
                 .productType(ProductType.CONSUMABLE)
                 .active(true)
+                .hasStock(false)
                 .build());
 
         mockMvc.perform(get("/product"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].name").value("Adubo"))
-                .andExpect(jsonPath("$[0].unitName").value("Kg"));
+                .andExpect(jsonPath("$[0].unitName").value("Kg"))
+                .andExpect(jsonPath("$[0].hasStock").value(false));
     }
 
     @Test
@@ -137,6 +144,7 @@ class ProductControllerIT {
                 .unit(oldUnit)
                 .productType(ProductType.RAW_MATERIAL)
                 .active(true)
+                .hasStock(false)
                 .build());
 
         UpdateProductRequest request = new UpdateProductRequest(
@@ -144,7 +152,9 @@ class ProductControllerIT {
                 newUnit.getId(),
                 family.getId(),
                 ProductType.FINISHED_GOOD,
-                false
+                false,
+                false,
+                null
         );
 
         mockMvc.perform(put("/product/{id}", product.getId())
@@ -156,6 +166,8 @@ class ProductControllerIT {
                 .andExpect(jsonPath("$.unitName").value("Ton"))
                 .andExpect(jsonPath("$.productFamilyName").value("Feno"))
                 .andExpect(jsonPath("$.productType").value("FINISHED_GOOD"))
+                .andExpect(jsonPath("$.hasStock").value(false))
+                .andExpect(jsonPath("$.stockControlStartDate").doesNotExist())
                 .andExpect(jsonPath("$.active").value(false));
     }
 
@@ -173,6 +185,7 @@ class ProductControllerIT {
                 .unit(unit)
                 .productType(ProductType.CONSUMABLE)
                 .active(true)
+                .hasStock(false)
                 .build());
 
         mockMvc.perform(delete("/product/{id}", product.getId()))

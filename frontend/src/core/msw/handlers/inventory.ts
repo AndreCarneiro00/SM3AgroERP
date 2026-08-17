@@ -10,7 +10,7 @@ import type {
 } from '../../../domains/inventory/api/dtos';
 import { createInventoryFixtures } from '../fixtures/inventory';
 
-const fixtures = createInventoryFixtures();
+export const inventoryFixtures = createInventoryFixtures();
 
 function nextId(items: Array<{ id: number }>) {
   return items.length > 0 ? Math.max(...items.map((item) => item.id)) + 1 : 1;
@@ -28,12 +28,12 @@ function notFound() {
 
 export const inventoryHandlers: RequestHandler[] = [
   http.get(`/api/inventory-batches`, () => {
-    return HttpResponse.json(fixtures.inventoryBatches);
+    return HttpResponse.json(inventoryFixtures.inventoryBatches);
   }),
   http.post(`/api/inventory-batches`, async ({ request }) => {
     const payload = (await request.json()) as CreateInventoryBatchDto;
     const created: InventoryBatchDto = {
-      id: nextId(fixtures.inventoryBatches),
+      id: nextId(inventoryFixtures.inventoryBatches),
       productId: payload.productId,
       code: payload.code,
       batchDate: payload.batchDate,
@@ -41,7 +41,7 @@ export const inventoryHandlers: RequestHandler[] = [
       unitCost: payload.unitCost,
       quantity: payload.quantity,
     };
-    fixtures.inventoryBatches.push(created);
+    inventoryFixtures.inventoryBatches.push(created);
     return HttpResponse.json(created, { status: 201 });
   }),
   http.put(
@@ -49,12 +49,12 @@ export const inventoryHandlers: RequestHandler[] = [
     async ({ params, request }) => {
       const id = parseId(String(params.id));
       const payload = (await request.json()) as CreateInventoryBatchDto;
-      const index = fixtures.inventoryBatches.findIndex((item) => item.id === id);
+      const index = inventoryFixtures.inventoryBatches.findIndex((item) => item.id === id);
 
       if (index < 0) return notFound();
 
-      fixtures.inventoryBatches[index] = {
-        ...fixtures.inventoryBatches[index],
+      inventoryFixtures.inventoryBatches[index] = {
+        ...inventoryFixtures.inventoryBatches[index],
         productId: payload.productId,
         code: payload.code,
         batchDate: payload.batchDate,
@@ -63,24 +63,24 @@ export const inventoryHandlers: RequestHandler[] = [
         quantity: payload.quantity,
       };
 
-      return HttpResponse.json(fixtures.inventoryBatches[index]);
+      return HttpResponse.json(inventoryFixtures.inventoryBatches[index]);
     },
   ),
   http.delete(`/api/inventory-batches/:id`, ({ params }) => {
     const id = parseId(String(params.id));
-    fixtures.inventoryBatches = fixtures.inventoryBatches.filter(
+    inventoryFixtures.inventoryBatches = inventoryFixtures.inventoryBatches.filter(
       (item) => item.id !== id,
     );
     return new HttpResponse(null, { status: 204 });
   }),
 
   http.get(`/api/inventory-movements`, () => {
-    return HttpResponse.json(fixtures.inventoryMovements);
+    return HttpResponse.json(inventoryFixtures.inventoryMovements);
   }),
   http.post(`/api/inventory-movements`, async ({ request }) => {
     const payload = (await request.json()) as CreateInventoryMovementDto;
     const created: InventoryMovementDto = {
-      id: nextId(fixtures.inventoryMovements),
+      id: nextId(inventoryFixtures.inventoryMovements),
       batchId: payload.batchId,
       movementType: payload.movementType,
       quantity: payload.quantity,
@@ -88,7 +88,7 @@ export const inventoryHandlers: RequestHandler[] = [
       movementDate: payload.movementDate,
       financialTransactionItemId: payload.financialTransactionItemId,
     };
-    fixtures.inventoryMovements.push(created);
+    inventoryFixtures.inventoryMovements.push(created);
     return HttpResponse.json(created, { status: 201 });
   }),
   http.put(
@@ -96,14 +96,14 @@ export const inventoryHandlers: RequestHandler[] = [
     async ({ params, request }) => {
       const id = parseId(String(params.id));
       const payload = (await request.json()) as CreateInventoryMovementDto;
-      const index = fixtures.inventoryMovements.findIndex(
+      const index = inventoryFixtures.inventoryMovements.findIndex(
         (item) => item.id === id,
       );
 
       if (index < 0) return notFound();
 
-      fixtures.inventoryMovements[index] = {
-        ...fixtures.inventoryMovements[index],
+      inventoryFixtures.inventoryMovements[index] = {
+        ...inventoryFixtures.inventoryMovements[index],
         batchId: payload.batchId,
         movementType: payload.movementType,
         quantity: payload.quantity,
@@ -112,32 +112,32 @@ export const inventoryHandlers: RequestHandler[] = [
         financialTransactionItemId: payload.financialTransactionItemId,
       };
 
-      return HttpResponse.json(fixtures.inventoryMovements[index]);
+      return HttpResponse.json(inventoryFixtures.inventoryMovements[index]);
     },
   ),
   http.delete(`/api/inventory-movements/:id`, ({ params }) => {
     const id = parseId(String(params.id));
-    fixtures.inventoryMovements = fixtures.inventoryMovements.filter(
+    inventoryFixtures.inventoryMovements = inventoryFixtures.inventoryMovements.filter(
       (item) => item.id !== id,
     );
     return new HttpResponse(null, { status: 204 });
   }),
 
   http.get(`/api/inventory-adjustments`, () => {
-    return HttpResponse.json(fixtures.inventoryAdjustments);
+    return HttpResponse.json(inventoryFixtures.inventoryAdjustments);
   }),
   http.post(
     `/api/inventory-adjustments`,
     async ({ request }) => {
       const payload = (await request.json()) as CreateInventoryAdjustmentDto;
       const created: InventoryAdjustmentDto = {
-        id: nextId(fixtures.inventoryAdjustments),
+        id: nextId(inventoryFixtures.inventoryAdjustments),
         type: payload.type,
         rootCauseId: payload.rootCauseId,
         observation: payload.observation,
         inventoryMovementId: payload.inventoryMovementId,
       };
-      fixtures.inventoryAdjustments.push(created);
+      inventoryFixtures.inventoryAdjustments.push(created);
       return HttpResponse.json(created, { status: 201 });
     },
   ),
@@ -146,28 +146,28 @@ export const inventoryHandlers: RequestHandler[] = [
     async ({ params, request }) => {
       const id = parseId(String(params.id));
       const payload = (await request.json()) as CreateInventoryAdjustmentDto;
-      const index = fixtures.inventoryAdjustments.findIndex(
+      const index = inventoryFixtures.inventoryAdjustments.findIndex(
         (item) => item.id === id,
       );
 
       if (index < 0) return notFound();
 
-      fixtures.inventoryAdjustments[index] = {
-        ...fixtures.inventoryAdjustments[index],
+      inventoryFixtures.inventoryAdjustments[index] = {
+        ...inventoryFixtures.inventoryAdjustments[index],
         type: payload.type,
         rootCauseId: payload.rootCauseId,
         observation: payload.observation,
         inventoryMovementId: payload.inventoryMovementId,
       };
 
-      return HttpResponse.json(fixtures.inventoryAdjustments[index]);
+      return HttpResponse.json(inventoryFixtures.inventoryAdjustments[index]);
     },
   ),
   http.delete(
     `/api/inventory-adjustments/:id`,
     ({ params }) => {
       const id = parseId(String(params.id));
-      fixtures.inventoryAdjustments = fixtures.inventoryAdjustments.filter(
+      inventoryFixtures.inventoryAdjustments = inventoryFixtures.inventoryAdjustments.filter(
         (item) => item.id !== id,
       );
       return new HttpResponse(null, { status: 204 });

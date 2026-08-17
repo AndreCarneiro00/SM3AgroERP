@@ -12,6 +12,19 @@ public record FinancialTransactionItemRequest(
         BigDecimal unitPrice,
         @NotNull
         BigDecimal amount,
-        Long productId
+        Long productId,
+        Long inventoryBatchId,
+        BigDecimal inventoryUnitCost
 ) {
+
+    public FinancialTransactionItemRequest(
+            Long chartOfAccountId,
+            Long costCenterId,
+            BigDecimal quantity,
+            BigDecimal unitPrice,
+            BigDecimal amount,
+            Long productId
+    ) {
+        this(chartOfAccountId, costCenterId, quantity, unitPrice, amount, productId, null, null);
+    }
 }

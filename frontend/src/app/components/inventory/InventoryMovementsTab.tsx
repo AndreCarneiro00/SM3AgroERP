@@ -518,10 +518,10 @@ export function InventoryMovementsTab() {
     }
 
     if (movement.financialTransactionItemId) {
-      return selectFinancialTransactionItemLabelById(
+      return `Lancamento financeiro ${selectFinancialTransactionItemLabelById(
         financialCatalog,
         movement.financialTransactionItemId,
-      );
+      )}`;
     }
 
     if (movement.movementType?.startsWith('TRANSFER')) {

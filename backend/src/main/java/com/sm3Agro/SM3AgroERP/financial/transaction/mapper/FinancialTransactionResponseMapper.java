@@ -12,11 +12,14 @@ import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionA
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionFulfillment;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionItem;
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionFulfillmentAllocationRepository;
+import com.sm3Agro.SM3AgroERP.inventory.entity.InventoryMovement;
+import com.sm3Agro.SM3AgroERP.inventory.repository.InventoryMovementRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -24,6 +27,7 @@ public class FinancialTransactionResponseMapper {
 
     private final FinancialTransactionRules rules;
     private final FinancialTransactionFulfillmentAllocationRepository allocationRepository;
+    private final InventoryMovementRepository inventoryMovementRepository;
 
     public FinancialTransactionSummaryResponse toSummary(
             FinancialTransaction transaction,
@@ -84,6 +88,9 @@ public class FinancialTransactionResponseMapper {
     }
 
     public FinancialTransactionItemResponse toItemResponse(FinancialTransactionItem item) {
+        Optional<InventoryMovement> stockMovement =
+                inventoryMovementRepository.findByFinancialTransactionItemId(item.getId());
+
         return new FinancialTransactionItemResponse(
                 item.getId(),
                 item.getChartOfAccount().getId(),
@@ -91,7 +98,10 @@ public class FinancialTransactionResponseMapper {
                 item.getQuantity(),
                 item.getUnitPrice(),
                 item.getAmount(),
-                item.getProduct() != null ? item.getProduct().getId() : null
+                item.getProduct() != null ? item.getProduct().getId() : null,
+                stockMovement.map(InventoryMovement::getId).orElse(null),
+                stockMovement.map(movement -> movement.getBatch().getId()).orElse(null),
+                stockMovement.map(InventoryMovement::getMovementType).orElse(null)
         );
     }
 

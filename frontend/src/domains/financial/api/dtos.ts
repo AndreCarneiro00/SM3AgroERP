@@ -1,3 +1,5 @@
+import type { InventoryMovementType } from '../../inventory/api/dtos';
+
 export type FinancialTransactionStatus =
   | 'PENDING'
   | 'PAID'
@@ -57,6 +59,10 @@ export interface FinancialTransactionItemDto {
   unitPrice?: number;
   amount?: number;
   productId?: number;
+  inventoryMovementId?: number;
+  inventoryBatchId?: number;
+  stockMovementType?: InventoryMovementType;
+  inventoryUnitCost?: number;
 }
 
 export interface FinancialTransactionFulfillmentDto {

@@ -52,6 +52,8 @@ export function mapProductDto(dto: ProductDto): Product {
     productFamilyId: dto.productFamilyId,
     productType: dto.productType ?? 'FINISHED_GOOD',
     active: dto.active,
+    hasStock: dto.hasStock,
+    stockControlStartDate: dto.stockControlStartDate,
   };
 }
 
@@ -86,6 +88,8 @@ export function mapProductInputToDto(input: ProductInput): CreateProductDto {
     productFamilyId: input.productFamilyId,
     productType: input.productType,
     active: input.active,
+    hasStock: input.hasStock,
+    stockControlStartDate: input.stockControlStartDate,
   };
 }
 
