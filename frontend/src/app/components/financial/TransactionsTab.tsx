@@ -46,9 +46,6 @@ import {
   useFinancialCatalogData,
   useFinancialMutations,
 } from '../../../domains/financial/ui/hooks';
-import {
-  selectInventoryBatchLabelById,
-} from '../../../domains/inventory/selectors/selectors';
 import { useInventoryCatalogData } from '../../../domains/inventory/ui/hooks';
 import {
   selectCounterpartyLabelById,
@@ -248,7 +245,7 @@ export function TransactionsTab() {
     documentTypes,
   } = useMasterDataCatalogData();
   const { catalog: productsCatalog, products } = useProductsCatalogData();
-  const { catalog: inventoryCatalog, inventoryBatches } = useInventoryCatalogData();
+  const { inventoryBatches } = useInventoryCatalogData();
 
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'INCOME' | 'EXPENSE'>(
     'ALL',
@@ -315,6 +312,14 @@ export function TransactionsTab() {
     }),
     [filtered],
   );
+  const inventoryBatchesById = useMemo(
+    () => new Map(inventoryBatches.map((batch) => [batch.id, batch])),
+    [inventoryBatches],
+  );
+
+  const getInventoryBatchCode = (inventoryBatchId?: number) =>
+    inventoryBatchesById.get(inventoryBatchId ?? -1)?.code?.trim() ||
+    'Lote nao localizado';
 
   const handleSave = async (form: TransactionFormData) => {
     try {
@@ -826,8 +831,7 @@ export function TransactionsTab() {
                                               color="text.secondary"
                                             >
                                               Lote{' '}
-                                              {selectInventoryBatchLabelById(
-                                                inventoryCatalog,
+                                              {getInventoryBatchCode(
                                                 item.inventoryBatchId,
                                               )}
                                             </Typography>
