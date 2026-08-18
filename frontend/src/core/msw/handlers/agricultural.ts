@@ -194,9 +194,6 @@ export const agriculturalHandlers: RequestHandler[] = [
       (item) => item.id === payload.productId,
     );
     if (!product) return notFound();
-    if (!product.productFamilyId) {
-      return badRequest('Product must have a product family to launch a cut');
-    }
     if (product.hasStock !== true) {
       return badRequest('Product must control stock to launch a cut.');
     }
@@ -218,7 +215,6 @@ export const agriculturalHandlers: RequestHandler[] = [
       id,
       fieldId: payload.fieldId,
       productId: payload.productId,
-      productFamilyId: product.productFamilyId,
       inventoryBatchId: batchId,
       inventoryMovementId: movementId,
       productionBatchId,

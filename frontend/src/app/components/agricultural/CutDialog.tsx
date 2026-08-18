@@ -75,9 +75,6 @@ function getProductCutRestriction(product: Product, cutDate: string) {
   if (!product.active) {
     return 'Produto inativo.';
   }
-  if (!product.productFamilyId) {
-    return 'Produto sem familia.';
-  }
   if (product.hasStock !== true) {
     return 'Produto nao controla estoque.';
   }
@@ -180,7 +177,7 @@ export function CutDialog({
           {!hasEligibleProducts && (
             <Alert severity="warning">
               Nenhum produto disponivel para corte na data informada. Cadastre
-              ou ajuste um produto ativo com familia e controle de estoque.
+              ou ajuste um produto ativo com controle de estoque.
             </Alert>
           )}
           <FormTextField
@@ -190,7 +187,7 @@ export function CutDialog({
             select
             fullWidth
             size="small"
-            helperText="Somente produtos ativos, com familia e controle de estoque iniciado ate a data do corte."
+            helperText="Somente produtos ativos com controle de estoque iniciado ate a data do corte."
           >
             {products.map((product) => {
               const restriction = getProductCutRestriction(product, cutDate);

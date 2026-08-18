@@ -81,7 +81,6 @@ class CutControllerIT extends AbstractInventoryIT {
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.fieldId").value(field.getId()))
                 .andExpect(jsonPath("$.productId").value(product.getId()))
-                .andExpect(jsonPath("$.productFamilyId").value(family.getId()))
                 .andExpect(jsonPath("$.inventoryBatchId").exists())
                 .andExpect(jsonPath("$.inventoryMovementId").exists())
                 .andExpect(jsonPath("$.productionBatchId").exists())
@@ -103,6 +102,7 @@ class CutControllerIT extends AbstractInventoryIT {
         InventoryBatch batch = inventoryBatchRepository.findAll().getFirst();
         InventoryMovement movement = inventoryMovementRepository.findAll().getFirst();
         ProductionBatch productionBatch = productionBatchRepository.findAll().getFirst();
+        assertEquals(product.getId(), cut.getProduct().getId());
         assertEquals(product.getId(), batch.getProduct().getId());
         assertEquals(InventoryBatchStatus.ACTIVE, batch.getStatus());
         assertEquals(0, new BigDecimal("80.00").compareTo(batch.getQuantity()));
@@ -155,7 +155,7 @@ class CutControllerIT extends AbstractInventoryIT {
         jdbcTemplate.update("""
                 INSERT INTO cut (
                     field_id,
-                    product_family_id,
+                    product_id,
                     cut_date,
                     cut_number,
                     status,
@@ -164,7 +164,7 @@ class CutControllerIT extends AbstractInventoryIT {
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 field.getId(),
-                family.getId(),
+                product.getId(),
                 "2026-06-01 00:00:00.000",
                 1,
                 "DONE",
@@ -264,7 +264,7 @@ class CutControllerIT extends AbstractInventoryIT {
     }
 
     @Test
-    void shouldRejectLaunchCutWhenProductHasNoFamily() throws Exception {
+    void shouldLaunchCutWhenProductHasNoFamily() throws Exception {
         Field field = createField("Piquete 1");
         Product product = createProduct(
                 "Feno sem familia",
@@ -286,13 +286,14 @@ class CutControllerIT extends AbstractInventoryIT {
         mockMvc.perform(post("/cuts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsBytes(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Product must have a product family to launch a cut"));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.productId").value(product.getId()));
 
-        assertEquals(0, cutRepository.count());
-        assertEquals(0, inventoryBatchRepository.count());
-        assertEquals(0, inventoryMovementRepository.count());
-        assertEquals(0, productionBatchRepository.count());
+        assertEquals(1, cutRepository.count());
+        assertEquals(1, inventoryBatchRepository.count());
+        assertEquals(1, inventoryMovementRepository.count());
+        assertEquals(1, productionBatchRepository.count());
+        assertEquals(product.getId(), cutRepository.findAll().getFirst().getProduct().getId());
     }
 
     @ParameterizedTest

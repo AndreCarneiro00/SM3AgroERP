@@ -48,7 +48,6 @@ class ProductionBatchControllerIT extends AbstractInventoryIT {
         );
         ProductionBatch first = createProductionBatch(
                 field,
-                family,
                 product,
                 "PRD-001",
                 LocalDate.of(2026, 6, 1),
@@ -57,7 +56,6 @@ class ProductionBatchControllerIT extends AbstractInventoryIT {
         );
         ProductionBatch second = createProductionBatch(
                 field,
-                family,
                 product,
                 "PRD-002",
                 LocalDate.of(2026, 6, 10),
@@ -80,7 +78,6 @@ class ProductionBatchControllerIT extends AbstractInventoryIT {
 
     private ProductionBatch createProductionBatch(
             Field field,
-            ProductFamily family,
             Product product,
             String batchCode,
             LocalDate cutDate,
@@ -89,7 +86,7 @@ class ProductionBatchControllerIT extends AbstractInventoryIT {
     ) {
         Cut cut = cutRepository.save(Cut.builder()
                 .field(field)
-                .productFamily(family)
+                .product(product)
                 .cutDate(cutDate)
                 .cutNumber(1)
                 .status(CutStatus.DONE)

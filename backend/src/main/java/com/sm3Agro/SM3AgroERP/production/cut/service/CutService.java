@@ -65,9 +65,6 @@ public class CutService {
         Product product = productRepository.findById(request.productId())
                 .orElseThrow(() -> new EntityNotFoundException("Product not found: " + request.productId()));
 
-        if (product.getProductFamily() == null) {
-            throw new IllegalArgumentException("Product must have a product family to launch a cut");
-        }
         inventoryStockService.requireProductControlsStockForProduction(product, request.cutDate());
 
         Integer cutNumber = Math.toIntExact(
@@ -77,7 +74,7 @@ public class CutService {
 
         Cut cut = cutRepository.save(Cut.builder()
                 .field(field)
-                .productFamily(product.getProductFamily())
+                .product(product)
                 .cutDate(request.cutDate())
                 .cutNumber(cutNumber)
                 .status(CutStatus.DONE)
@@ -203,8 +200,7 @@ public class CutService {
                 .map(productionBatch -> new CutResponse(
                         cut.getId(),
                         cut.getField().getId(),
-                        productionBatch.getInventoryBatch().getProduct().getId(),
-                        cut.getProductFamily().getId(),
+                        cut.getProduct().getId(),
                         productionBatch.getInventoryBatch().getId(),
                         productionBatch.getInventoryMovement().getId(),
                         productionBatch.getId(),
@@ -221,8 +217,7 @@ public class CutService {
                 .orElseGet(() -> new CutResponse(
                         cut.getId(),
                         cut.getField().getId(),
-                        null,
-                        cut.getProductFamily().getId(),
+                        cut.getProduct().getId(),
                         null,
                         null,
                         null,

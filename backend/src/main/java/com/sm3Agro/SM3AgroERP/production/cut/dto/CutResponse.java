@@ -9,7 +9,6 @@ public record CutResponse(
         Long id,
         Long fieldId,
         Long productId,
-        Long productFamilyId,
         Long inventoryBatchId,
         Long inventoryMovementId,
         Long productionBatchId,

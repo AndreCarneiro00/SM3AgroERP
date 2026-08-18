@@ -27,7 +27,6 @@ export interface Cut {
   id: number;
   fieldId?: number;
   productId?: number;
-  productFamilyId?: number;
   inventoryBatchId?: number;
   inventoryMovementId?: number;
   productionBatchId?: number;

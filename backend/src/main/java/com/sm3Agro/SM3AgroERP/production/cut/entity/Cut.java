@@ -1,7 +1,7 @@
 package com.sm3Agro.SM3AgroERP.production.cut.entity;
 
 import com.sm3Agro.SM3AgroERP.masterData.field.entity.Field;
-import com.sm3Agro.SM3AgroERP.masterData.productFamily.entity.ProductFamily;
+import com.sm3Agro.SM3AgroERP.masterData.product.entity.Product;
 import com.sm3Agro.SM3AgroERP.production.cut.enums.CutStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -39,8 +39,8 @@ public class Cut {
     private Field field;
 
     @ManyToOne(optional = false)
-    @JoinColumn(name = "product_family_id", nullable = false)
-    private ProductFamily productFamily;
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
     @Column(name = "cut_date", nullable = false)
     private LocalDate cutDate;

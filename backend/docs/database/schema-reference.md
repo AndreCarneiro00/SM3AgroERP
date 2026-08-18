@@ -3,6 +3,8 @@
 Source migrations:
 
 - `backend/src/main/resources/db/migration/V1__initial_shema.sql`
+- `backend/src/main/resources/db/migration/V2__normalize_local_date_storage.sql`
+- `backend/src/main/resources/db/migration/V3__point_cut_to_product.sql`
 
 This document is an agent-facing map of the initial database. Use it when changing
 backend entities, DTOs, services, Flyway migrations, frontend API models, or tests
@@ -54,7 +56,7 @@ every table already has a complete controller/service/repository stack.
 
 ```text
 base_unit <- unit_of_measure <- product -> product_family
-product_family <- cut -> field
+product <- cut -> field
 field <- field_operation -> cut
 field_operation <- field_operation_machine -> machine
 field_operation <- field_operation_items -> product
@@ -109,7 +111,7 @@ inventory_movement <- field_operation_items
 | Column | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `id` | `INTEGER` | yes | Primary key, autoincrement. |
-| `name` | `TEXT` | yes | Product grouping. Also classifies `cut` records. |
+| `name` | `TEXT` | yes | Product grouping for reporting. |
 
 `document_type`
 
@@ -166,7 +168,7 @@ inventory_movement <- field_operation_items
 | `id` | `INTEGER` | yes | Primary key, autoincrement. |
 | `name` | `TEXT` | yes | Product/service name. |
 | `unit_id` | `INTEGER` | yes | FK to `unit_of_measure.id`. |
-| `product_family_id` | `INTEGER` | no | FK to `product_family.id`. |
+| `product_family_id` | `INTEGER` | no | FK to `product_family.id`. Reporting classification only; production cuts point to `product.id`. |
 | `product_type` | `TEXT` | yes | `RAW_MATERIAL`, `FINISHED_GOOD`, `CONSUMABLE`, `SPARE_PART`, `SERVICE`. |
 | `active` | `BOOLEAN` | yes | Defaults to `1`. |
 | `has_stock` | `BOOLEAN` | no | Stock control toggle. Seeded stock items start with `1`; service items can stay `0`. |
@@ -273,7 +275,7 @@ inventory_movement <- field_operation_items
 | --- | --- | --- | --- |
 | `id` | `INTEGER` | yes | Primary key, autoincrement. |
 | `field_id` | `INTEGER` | yes | FK to `field.id`. |
-| `product_family_id` | `INTEGER` | yes | FK to `product_family.id`. |
+| `product_id` | `INTEGER` | yes | FK to `product.id`. Product produced by this cut. |
 | `cut_date` | `DATE` | yes | Date of the cut. |
 | `cut_number` | `INTEGER` | yes | Sequential number expected by domain logic; not unique in V1. |
 | `status` | `TEXT` | yes | Defaults to `DONE`; allowed `DONE`, `CANCELED`. |
@@ -506,7 +508,7 @@ Field operation with input consumption:
 
 Hay or agricultural production:
 
-1. Create or identify a `cut` for a field and product family.
+1. Create or identify a `cut` for a field and produced product.
 2. Create an `inventory_batch` for the finished product.
 3. Create an `inventory_movement` with `PRODUCTION_IN`.
 4. Create a `production_batch` linking the cut, inventory batch, and movement. V1

@@ -59,7 +59,6 @@ export function mapCutDto(dto: CutDto): Cut {
     id: dto.id,
     fieldId: dto.fieldId,
     productId: dto.productId,
-    productFamilyId: dto.productFamilyId,
     inventoryBatchId: dto.inventoryBatchId,
     inventoryMovementId: dto.inventoryMovementId,
     productionBatchId: dto.productionBatchId,
