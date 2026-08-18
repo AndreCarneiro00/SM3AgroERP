@@ -202,7 +202,7 @@ export function UnitsTab() {
             + Nova
           </Button>
         </Stack>
-        <ResponsiveTableFrame minWidth={720}>
+        <ResponsiveTableFrame minWidth={640}>
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
@@ -272,7 +272,7 @@ export function UnitsTab() {
             + Nova
           </Button>
         </Stack>
-        <ResponsiveTableFrame minWidth={360}>
+        <ResponsiveTableFrame minWidth={320}>
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>

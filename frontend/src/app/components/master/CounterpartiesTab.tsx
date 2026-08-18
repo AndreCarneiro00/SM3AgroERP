@@ -127,7 +127,7 @@ export function CounterpartiesTab() {
         </FormControl>
       </PageHeader>
 
-      <ResponsiveTableFrame minWidth={1200}>
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
         <TableHead>
           <TableRow>
             <TableCell>Nome / Razao Social</TableCell>

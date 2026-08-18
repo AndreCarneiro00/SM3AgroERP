@@ -123,7 +123,7 @@ export function CrudTable<T extends { id: number }>({
         columns={columns}
         getRowId={(item) => item.id}
         emptyMessage={emptyMessage}
-        minWidth={tableMinWidth ?? Math.max(640, columns.length * 160 + 120)}
+        minWidth={tableMinWidth ?? Math.max(560, columns.length * 128 + 96)}
         maxHeight={tableMaxHeight}
         stickyHeader={stickyHeader}
         actionsSticky={actionsSticky}

@@ -497,7 +497,7 @@ export function Dashboard() {
               Ver todas {'>'}
             </Typography>
           </Stack>
-          <ResponsiveTableFrame minWidth={860} withCard={false}>
+          <ResponsiveTableFrame minWidth={760} withCard={false}>
             <TableHead>
               <TableRow>
                 <TableCell>Descricao</TableCell>

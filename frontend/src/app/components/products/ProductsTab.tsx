@@ -58,7 +58,7 @@ export function ProductsTab() {
         }}
       />
 
-      <ResponsiveTableFrame minWidth={1000}>
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
         <TableHead>
           <TableRow>
             <TableCell>Nome</TableCell>

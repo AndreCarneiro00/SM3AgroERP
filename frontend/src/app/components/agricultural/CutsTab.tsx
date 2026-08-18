@@ -89,7 +89,7 @@ export function CutsTab() {
         }}
       />
 
-      <ResponsiveTableFrame minWidth={1150}>
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
         <TableHead>
           <TableRow>
             <TableCell>Campo</TableCell>

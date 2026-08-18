@@ -66,7 +66,7 @@ export function FamiliesTab() {
     <Box>
       <PageHeader actionLabel="Nova Familia" onAction={openCreate} />
 
-      <ResponsiveTableFrame minWidth={640}>
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
         <TableHead>
           <TableRow>
             <TableCell>Nome da Familia</TableCell>

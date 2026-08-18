@@ -3,12 +3,14 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import type { ReactNode } from 'react';
 
 type TableSize = 'small' | 'medium';
+type FluidBreakpoint = false | 'sm' | 'md' | 'lg' | 'xl';
 
 interface ResponsiveTableFrameProps {
   children: ReactNode;
   minWidth?: number | string;
   maxHeight?: number | string;
   stickyHeader?: boolean;
+  fluidBreakpoint?: FluidBreakpoint;
   size?: TableSize;
   ariaLabel?: string;
   withCard?: boolean;
@@ -23,11 +25,24 @@ function sxArray(sx?: SxProps<Theme>) {
   return Array.isArray(sx) ? sx : [sx];
 }
 
+function getResponsiveMinWidth(
+  minWidth: number | string,
+  fluidBreakpoint: FluidBreakpoint,
+) {
+  if (!fluidBreakpoint) return minWidth;
+
+  return {
+    xs: minWidth,
+    [fluidBreakpoint]: '100%',
+  };
+}
+
 export function ResponsiveTableFrame({
   children,
   minWidth = 640,
   maxHeight,
   stickyHeader = Boolean(maxHeight),
+  fluidBreakpoint = 'lg',
   size = 'small',
   ariaLabel,
   withCard = true,
@@ -40,10 +55,11 @@ export function ResponsiveTableFrame({
       sx={[
         {
           width: '100%',
+          minWidth: 0,
           maxWidth: '100%',
           maxHeight,
           overflowX: 'auto',
-          overflowY: maxHeight ? 'auto' : 'hidden',
+          overflowY: maxHeight ? 'auto' : 'visible',
           WebkitOverflowScrolling: 'touch',
         },
         ...sxArray(containerSx),
@@ -55,7 +71,9 @@ export function ResponsiveTableFrame({
         aria-label={ariaLabel}
         sx={[
           {
-            minWidth,
+            width: '100%',
+            tableLayout: 'auto',
+            minWidth: getResponsiveMinWidth(minWidth, fluidBreakpoint),
           },
           ...sxArray(tableSx),
         ]}
@@ -74,6 +92,7 @@ export function ResponsiveTableFrame({
       sx={[
         {
           width: '100%',
+          minWidth: 0,
           maxWidth: '100%',
           overflow: 'hidden',
         },

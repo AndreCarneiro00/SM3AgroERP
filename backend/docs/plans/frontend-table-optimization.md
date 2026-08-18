@@ -377,3 +377,15 @@ O resultado esperado e:
 - `npm run build` passou apos a migracao.
 - Ainda falta QA visual manual nas larguras pequenas listadas na secao de
   validacao.
+- A primeira versao usou `minWidth` alto demais em varias telas e piorou a
+  experiencia em desktop/zoom.
+- `ResponsiveTableFrame` foi ajustado para usar largura fluida em `lg+`,
+  mantendo largura minima e scroll horizontal apenas abaixo desse breakpoint.
+- `ResponsiveTableFrame` tambem deixou de usar `overflowY: hidden` quando nao
+  ha `maxHeight`, evitando clipping quando o zoom aumenta a altura do conteudo.
+- Os `minWidth` manuais das telas foram reduzidos para valores mais compactos.
+- As tabelas full-width de pagina foram padronizadas com
+  `minWidth={1180}` e `maxHeight="calc(115vh - 260px)"`.
+- As excecoes mantidas foram frames aninhados/sem card e tabelas laterais de
+  `UnitsTab`, porque aplicar `1180px` nesses containers estreitos criaria
+  scroll horizontal desnecessario.

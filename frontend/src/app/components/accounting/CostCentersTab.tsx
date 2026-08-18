@@ -85,7 +85,7 @@ export function CostCentersTab() {
     <Box>
       <PageHeader actionLabel="Novo Centro Raiz" onAction={openCreate} />
 
-      <ResponsiveTableFrame minWidth={900}>
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
         <TableHead>
           <TableRow>
             <TableCell>Centro de Custo</TableCell>

@@ -55,7 +55,7 @@ export function FieldsTab() {
         <StatBox label="Area Total" value={`${totalArea.toFixed(1)} ha`} />
       </PageHeader>
 
-      <ResponsiveTableFrame minWidth={640}>
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
         <TableHead>
           <TableRow>
             <TableCell>Nome</TableCell>

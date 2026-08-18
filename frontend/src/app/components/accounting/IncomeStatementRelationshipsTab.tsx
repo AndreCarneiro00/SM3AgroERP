@@ -97,7 +97,7 @@ export function IncomeStatementRelationshipsTab() {
         onAction={openCreate}
       />
 
-      <ResponsiveTableFrame minWidth={760}>
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
         <TableHead>
           <TableRow>
             <TableCell>Conta Contabil</TableCell>

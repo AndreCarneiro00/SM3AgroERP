@@ -530,7 +530,7 @@ export function TransactionsTab() {
         </Paper>
       </Stack>
 
-      <ResponsiveTableFrame minWidth={1400} maxHeight="calc(100vh - 300px)">
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
           <TableHead>
             <TableRow>
               <TableCell />
@@ -775,7 +775,7 @@ export function TransactionsTab() {
                                   Items
                                 </Typography>
                               </Box>
-                              <ResponsiveTableFrame minWidth={900} withCard={false}>
+                              <ResponsiveTableFrame minWidth={760} withCard={false}>
                                 <TableHead>
                                   <TableRow>
                                     <TableCell>Conta</TableCell>
@@ -875,7 +875,7 @@ export function TransactionsTab() {
                                   Pagamentos
                                 </Typography>
                               </Box>
-                              <ResponsiveTableFrame minWidth={760} withCard={false}>
+                              <ResponsiveTableFrame minWidth={680} withCard={false}>
                                 <TableHead>
                                   <TableRow>
                                     <TableCell>Conta</TableCell>
@@ -986,7 +986,7 @@ export function TransactionsTab() {
                                   Anexos
                                 </Typography>
                               </Box>
-                              <ResponsiveTableFrame minWidth={640} withCard={false}>
+                              <ResponsiveTableFrame minWidth={560} withCard={false}>
                                 <TableHead>
                                   <TableRow>
                                     <TableCell>Arquivo</TableCell>

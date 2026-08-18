@@ -101,7 +101,7 @@ export function ChartOfAccountsTab() {
     <Box>
       <PageHeader actionLabel="Nova Conta Raiz" onAction={openCreate} />
 
-      <ResponsiveTableFrame minWidth={820}>
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
         <TableHead>
           <TableRow>
             <TableCell>Conta</TableCell>

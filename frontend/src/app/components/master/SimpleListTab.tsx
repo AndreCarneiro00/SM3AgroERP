@@ -118,7 +118,7 @@ export function SimpleListTab<T extends SimpleItem>({
         isLoading={isLoading}
         loadingMessage={`Carregando ${entityLabel.toLowerCase()}...`}
         emptyMessage={emptyMessage}
-        minWidth={Math.max(640, columns.length * 180 + 120)}
+        minWidth={Math.max(560, columns.length * 128 + 96)}
         renderActions={(item) => (
           <RowActions
             onEdit={() => openEdit(item)}

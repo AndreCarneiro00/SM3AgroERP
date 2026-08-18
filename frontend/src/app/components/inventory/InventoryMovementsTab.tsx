@@ -548,7 +548,7 @@ export function InventoryMovementsTab() {
         />
       </PageHeader>
 
-      <ResponsiveTableFrame minWidth={1400} maxHeight="calc(100vh - 260px)">
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
         <TableHead>
           <TableRow>
             <TableCell>Lote</TableCell>

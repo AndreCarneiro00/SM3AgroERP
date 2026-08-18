@@ -75,7 +75,7 @@ export function BankTransfersTab() {
         }}
       />
 
-      <ResponsiveTableFrame minWidth={900}>
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
         <TableHead>
           <TableRow>
             <TableCell>Conta Origem</TableCell>
