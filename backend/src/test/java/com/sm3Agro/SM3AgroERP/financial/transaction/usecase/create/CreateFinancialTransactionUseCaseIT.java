@@ -57,7 +57,7 @@ class CreateFinancialTransactionUseCaseIT extends AbstractFinancialTransactionIT
                 FinancialTransactionType.EXPENSE,
                 product.getId(),
                 null,
-                new BigDecimal("42.50"),
+                null,
                 new BigDecimal("2.00")
         );
 
@@ -69,7 +69,7 @@ class CreateFinancialTransactionUseCaseIT extends AbstractFinancialTransactionIT
         var batch = movement.getBatch();
         assertEquals(InventoryMovementType.PURCHASE_IN, movement.getMovementType());
         assertEquals(result.items().getFirst().id(), movement.getFinancialTransactionItemId());
-        assertEquals(0, new BigDecimal("42.50").compareTo(movement.getUnitCost()));
+        assertEquals(0, new BigDecimal("50.00").compareTo(movement.getUnitCost()));
         assertEquals(0, new BigDecimal("2.00").compareTo(batch.getQuantity()));
         assertEquals(result.items().getFirst().inventoryMovementId(), movement.getId());
         assertEquals(result.items().getFirst().inventoryBatchId(), batch.getId());

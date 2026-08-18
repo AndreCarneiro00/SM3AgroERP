@@ -490,12 +490,14 @@ function createStockMovements(
     }
 
     if (financialTransaction.type === 'EXPENSE') {
-      if (item.inventoryUnitCost === undefined || item.inventoryUnitCost === null) {
-        return 'inventoryUnitCost is required for stock-controlled purchases.';
+      const inventoryUnitCost = item.inventoryUnitCost ?? item.unitPrice;
+
+      if (inventoryUnitCost === undefined || inventoryUnitCost === null) {
+        return 'unitPrice is required for stock-controlled purchases.';
       }
 
-      if (item.inventoryUnitCost < 0) {
-        return 'inventoryUnitCost must be greater than or equal to zero';
+      if (inventoryUnitCost < 0) {
+        return 'unitPrice must be greater than or equal to zero';
       }
 
       const batchId = nextId(inventoryFixtures.inventoryBatches);
@@ -505,7 +507,7 @@ function createStockMovements(
         code: `PUR-${financialTransaction.id}-ITEM-${item.id}`,
         batchDate: financialTransaction.issueDate,
         status: 'ACTIVE',
-        unitCost: item.inventoryUnitCost,
+        unitCost: inventoryUnitCost,
         quantity: item.quantity,
       };
       inventoryFixtures.inventoryBatches.push(createdBatch);
@@ -516,7 +518,7 @@ function createStockMovements(
         batchId,
         movementType: 'PURCHASE_IN',
         quantity: item.quantity,
-        unitCost: item.inventoryUnitCost,
+        unitCost: inventoryUnitCost,
         movementDate: financialTransaction.issueDate,
         financialTransactionItemId: item.id,
       });

@@ -1,6 +1,7 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.service;
 
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionItemRequest;
+import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.UpdateFinancialTransactionItemRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransaction;
 import com.sm3Agro.SM3AgroERP.financial.transaction.support.AbstractFinancialTransactionIT;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,47 @@ class FinancialTransactionItemServiceIT extends AbstractFinancialTransactionIT {
         assertEquals(1, result.size());
         assertEquals(1, financialTransactionItemRepository.count());
         assertEquals(chart.getId(), result.getFirst().chartOfAccountId());
+    }
+
+    @Test
+    void shouldRejectProductItemWithoutPositiveQuantityWhenCreating() {
+        FinancialTransaction transaction = createPersistedTransaction();
+        var chart = createChartOfAccount();
+        var product = createProduct();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> itemService.createAll(transaction, List.of(
+                new FinancialTransactionItemRequest(
+                        chart.getId(),
+                        null,
+                        BigDecimal.ZERO,
+                        new BigDecimal("50.00"),
+                        new BigDecimal("100.00"),
+                        product.getId()
+                )
+        )));
+
+        assertEquals("Product financial transaction item quantity must be greater than zero.", exception.getMessage());
+    }
+
+    @Test
+    void shouldRejectProductItemWithoutPositiveQuantityWhenUpdating() {
+        FinancialTransaction transaction = createPersistedTransaction();
+        var item = createPersistedTransactionItem(transaction);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> itemService.update(
+                transaction.getId(),
+                item.getId(),
+                new UpdateFinancialTransactionItemRequest(
+                        item.getChartOfAccount().getId(),
+                        item.getCostCenter().getId(),
+                        BigDecimal.ZERO,
+                        new BigDecimal("50.00"),
+                        new BigDecimal("100.00"),
+                        item.getProduct().getId()
+                )
+        ));
+
+        assertEquals("Product financial transaction item quantity must be greater than zero.", exception.getMessage());
     }
 
     @Test

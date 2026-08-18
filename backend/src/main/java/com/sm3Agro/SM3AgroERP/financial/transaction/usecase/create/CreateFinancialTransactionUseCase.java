@@ -1,7 +1,9 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create;
 
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
+import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionItemRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransaction;
+import com.sm3Agro.SM3AgroERP.financial.transaction.enums.FinancialTransactionType;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionAttachmentService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionFulfillmentService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionItemService;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -82,7 +85,7 @@ public class CreateFinancialTransactionUseCase {
                             item.id(),
                             item.productId(),
                             item.quantity(),
-                            itemRequest.inventoryUnitCost(),
+                            resolveInventoryUnitCost(transaction, item, itemRequest),
                             itemRequest.inventoryBatchId()
                     )
                     .map(stockMovement -> item.withStockMovement(
@@ -94,6 +97,18 @@ public class CreateFinancialTransactionUseCase {
         }
 
         return result;
+    }
+
+    private BigDecimal resolveInventoryUnitCost(
+            FinancialTransaction transaction,
+            FinancialTransactionItemResult item,
+            FinancialTransactionItemRequest itemRequest
+    ) {
+        if (transaction.getType() == FinancialTransactionType.EXPENSE && itemRequest.inventoryUnitCost() == null) {
+            return item.unitPrice();
+        }
+
+        return itemRequest.inventoryUnitCost();
     }
 
 }

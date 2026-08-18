@@ -4,6 +4,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { bankingKeys } from '../../banking/queries/keys';
+import { inventoryKeys } from '../../inventory/queries/keys';
 import { financialRepository } from '../api/repository';
 import {
   mapBankTransferInputToDto,
@@ -64,13 +65,22 @@ function useFinancialCashGraphInvalidation() {
 
 export function useCreateFinancialTransactionMutation() {
   const invalidateGraph = useFinancialCashGraphInvalidation();
+  const invalidate = useFinancialInvalidation();
 
   return useMutation({
     mutationFn: (input: CreateFinancialTransactionInput) =>
       financialRepository.createFinancialTransaction(
         mapCreateFinancialTransactionInputToMultipartDto(input),
       ),
-    onSuccess: invalidateGraph,
+    onSuccess: async () => {
+      await Promise.all([
+        invalidateGraph(),
+        invalidate(
+          inventoryKeys.inventoryBatches(),
+          inventoryKeys.inventoryMovements(),
+        ),
+      ]);
+    },
   });
 }
 

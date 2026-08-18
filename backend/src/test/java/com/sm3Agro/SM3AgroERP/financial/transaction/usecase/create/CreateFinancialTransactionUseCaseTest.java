@@ -90,7 +90,7 @@ class CreateFinancialTransactionUseCaseTest {
                 items.getFirst().id(),
                 items.getFirst().productId(),
                 items.getFirst().quantity(),
-                request.items().getFirst().inventoryUnitCost(),
+                request.items().getFirst().unitPrice(),
                 request.items().getFirst().inventoryBatchId()
         )).thenReturn(Optional.empty());
         when(fulfillmentService.createAll(transaction, request.fulfillments())).thenReturn(fulfillments);
@@ -120,7 +120,7 @@ class CreateFinancialTransactionUseCaseTest {
                 items.getFirst().id(),
                 items.getFirst().productId(),
                 items.getFirst().quantity(),
-                request.items().getFirst().inventoryUnitCost(),
+                request.items().getFirst().unitPrice(),
                 request.items().getFirst().inventoryBatchId()
         );
         orderedFlow.verify(fulfillmentService).createAll(transaction, request.fulfillments());
@@ -170,7 +170,7 @@ class CreateFinancialTransactionUseCaseTest {
                 item.id(),
                 item.productId(),
                 item.quantity(),
-                request.items().getFirst().inventoryUnitCost(),
+                request.items().getFirst().unitPrice(),
                 request.items().getFirst().inventoryBatchId()
         )).thenReturn(Optional.of(new InventoryStockService.StockMovementResult(batch, movement)));
         when(fulfillmentService.createAll(transaction, request.fulfillments())).thenReturn(List.of());

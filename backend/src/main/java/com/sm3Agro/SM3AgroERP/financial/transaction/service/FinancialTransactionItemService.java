@@ -82,6 +82,7 @@ public class FinancialTransactionItemService {
         item.setUnitPrice(request.unitPrice());
         item.setAmount(resolvedAmount);
         Product product = resolveProduct(request.productId());
+        requirePositiveQuantityForProduct(product, request.quantity());
         requireProductAllowedOutsideFullCreation(product);
         item.setProduct(product);
 
@@ -120,6 +121,9 @@ public class FinancialTransactionItemService {
             FinancialTransaction financialTransaction,
             FinancialTransactionItemRequest itemRequest
     ) {
+        Product product = resolveProduct(itemRequest.productId());
+        requirePositiveQuantityForProduct(product, itemRequest.quantity());
+
         return FinancialTransactionItem.builder()
                 .financialTransaction(financialTransaction)
                 .chartOfAccount(resolveChartOfAccount(itemRequest.chartOfAccountId()))
@@ -131,7 +135,7 @@ public class FinancialTransactionItemService {
                         itemRequest.unitPrice(),
                         itemRequest.amount()
                 ))
-                .product(resolveProduct(itemRequest.productId()))
+                .product(product)
                 .build();
     }
 
@@ -170,6 +174,12 @@ public class FinancialTransactionItemService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Product not found: " + productId
                 ));
+    }
+
+    private void requirePositiveQuantityForProduct(Product product, BigDecimal quantity) {
+        if (product != null && (quantity == null || quantity.signum() <= 0)) {
+            throw new IllegalArgumentException("Product financial transaction item quantity must be greater than zero.");
+        }
     }
 
     private void requireProductAllowedOutsideFullCreation(Product product) {

@@ -158,10 +158,25 @@ function stockApplies(product: Product | undefined, issueDate: string) {
   return !product.stockControlStartDate || issueDate >= product.stockControlStartDate;
 }
 
+type SellableBatchOption = InventoryBatch & {
+  availableQuantity: number;
+};
+
+interface BatchUsageSummary {
+  productId: number;
+  productName: string;
+  soldQuantity: number;
+  totalQuantity: number;
+}
+
 function getSellableBatches(
   inventoryBatches: InventoryBatch[],
   productId?: number,
 ) {
+  if (!productId) {
+    return [];
+  }
+
   return inventoryBatches
     .filter(
       (batch) =>
@@ -177,15 +192,158 @@ function getSellableBatches(
     });
 }
 
-function getTotalSellableQuantity(inventoryBatches: InventoryBatch[]) {
-  return inventoryBatches.reduce(
-    (sum, batch) => sum + (batch.quantity ?? 0),
+function getReservedQuantityForBatch(params: {
+  items: TransactionItemFormData[];
+  itemIndex: number;
+  transactionType: FinancialTransactionType;
+  issueDate: string;
+  products: Product[];
+  batchId: number;
+  batchProductId?: number;
+}) {
+  if (params.transactionType !== 'INCOME') {
+    return 0;
+  }
+
+  return params.items.reduce((sum, item, index) => {
+    if (
+      index === params.itemIndex ||
+      item.inventoryBatchId !== params.batchId ||
+      item.productId !== params.batchProductId ||
+      !item.quantity ||
+      item.quantity <= 0
+    ) {
+      return sum;
+    }
+
+    const product = getProduct(params.products, item.productId);
+
+    if (!stockApplies(product, params.issueDate)) {
+      return sum;
+    }
+
+    return sum + item.quantity;
+  }, 0);
+}
+
+function getAvailableQuantityForBatch(
+  batch: InventoryBatch,
+  params: {
+    items: TransactionItemFormData[];
+    itemIndex: number;
+    transactionType: FinancialTransactionType;
+    issueDate: string;
+    products: Product[];
+  },
+) {
+  const reservedQuantity = getReservedQuantityForBatch({
+    ...params,
+    batchId: batch.id,
+    batchProductId: batch.productId,
+  });
+
+  return Math.max(0, (batch.quantity ?? 0) - reservedQuantity);
+}
+
+function getSellableBatchOptions(params: {
+  inventoryBatches: InventoryBatch[];
+  productId?: number;
+  selectedInventoryBatchId?: number;
+  items: TransactionItemFormData[];
+  itemIndex: number;
+  transactionType: FinancialTransactionType;
+  issueDate: string;
+  products: Product[];
+}): SellableBatchOption[] {
+  return getSellableBatches(params.inventoryBatches, params.productId)
+    .map((batch) => ({
+      ...batch,
+      availableQuantity: getAvailableQuantityForBatch(batch, params),
+    }))
+    .filter(
+      (batch) =>
+        batch.availableQuantity > 0 ||
+        batch.id === params.selectedInventoryBatchId,
+    );
+}
+
+function getTotalAvailableQuantity(sellableBatches: SellableBatchOption[]) {
+  return sellableBatches.reduce(
+    (sum, batch) => sum + batch.availableQuantity,
     0,
   );
 }
 
+function getBatchUsageSummaries(params: {
+  items: TransactionItemFormData[];
+  transactionType: FinancialTransactionType;
+  issueDate: string;
+  products: Product[];
+  inventoryBatches: InventoryBatch[];
+}): BatchUsageSummary[] {
+  if (params.transactionType !== 'INCOME') {
+    return [];
+  }
+
+  const batchesById = new Map(
+    params.inventoryBatches.map((batch) => [batch.id, batch]),
+  );
+  const summariesByProductId = new Map<
+    number,
+    {
+      productName: string;
+      soldQuantity: number;
+      batchIds: Set<number>;
+    }
+  >();
+
+  params.items.forEach((item) => {
+    if (
+      !item.productId ||
+      !item.inventoryBatchId ||
+      !item.quantity ||
+      item.quantity <= 0
+    ) {
+      return;
+    }
+
+    const product = getProduct(params.products, item.productId);
+    const batch = batchesById.get(item.inventoryBatchId);
+
+    if (
+      !product ||
+      !stockApplies(product, params.issueDate) ||
+      !batch ||
+      batch.productId !== item.productId
+    ) {
+      return;
+    }
+
+    const summary = summariesByProductId.get(item.productId) ?? {
+      productName: product.name,
+      soldQuantity: 0,
+      batchIds: new Set<number>(),
+    };
+    summary.soldQuantity += item.quantity;
+    summary.batchIds.add(batch.id);
+    summariesByProductId.set(item.productId, summary);
+  });
+
+  return [...summariesByProductId.entries()].map(([productId, summary]) => ({
+    productId,
+    productName: summary.productName,
+    soldQuantity: summary.soldQuantity,
+    totalQuantity: [...summary.batchIds].reduce(
+      (sum, batchId) => sum + (batchesById.get(batchId)?.quantity ?? 0),
+      0,
+    ),
+  }));
+}
+
 function getItemStockError(params: {
   item: TransactionItemFormData;
+  items: TransactionItemFormData[];
+  itemIndex: number;
   transactionType: FinancialTransactionType;
   issueDate: string;
   products: Product[];
@@ -197,6 +355,10 @@ function getItemStockError(params: {
     return undefined;
   }
 
+  if (!params.item.quantity || params.item.quantity <= 0) {
+    return 'Produto exige quantidade maior que zero.';
+  }
+
   if (product.hasStock === null || product.hasStock === undefined) {
     return 'Classifique o produto no cadastro antes de usar em lancamentos.';
   }
@@ -205,17 +367,10 @@ function getItemStockError(params: {
     return undefined;
   }
 
-  if (!params.item.quantity || params.item.quantity <= 0) {
-    return 'Produto com estoque exige quantidade maior que zero.';
-  }
-
   if (params.transactionType === 'EXPENSE') {
-    const inventoryUnitCost =
-      params.item.inventoryUnitCost ?? params.item.unitPrice;
-
-    return inventoryUnitCost === undefined ||
-      inventoryUnitCost < 0
-      ? 'Compra com estoque exige custo unitario de estoque.'
+    return params.item.unitPrice === undefined ||
+      params.item.unitPrice < 0
+      ? 'Compra com estoque exige preco unitario.'
       : undefined;
   }
 
@@ -231,8 +386,24 @@ function getItemStockError(params: {
     return 'Lote de estoque nao encontrado.';
   }
 
-  if ((batch.quantity ?? 0) < params.item.quantity) {
-    return 'Quantidade vendida excede o saldo do lote.';
+  if (batch.productId !== params.item.productId) {
+    return 'Lote selecionado pertence a outro produto.';
+  }
+
+  if (batch.status !== 'ACTIVE' || (batch.quantity ?? 0) <= 0) {
+    return 'Lote selecionado nao esta disponivel para venda.';
+  }
+
+  const availableQuantity = getAvailableQuantityForBatch(batch, {
+    items: params.items,
+    itemIndex: params.itemIndex,
+    transactionType: params.transactionType,
+    issueDate: params.issueDate,
+    products: params.products,
+  });
+
+  if (params.item.quantity - availableQuantity > 0.000001) {
+    return 'Quantidade vendida excede o saldo disponivel do lote.';
   }
 
   return undefined;
@@ -281,6 +452,10 @@ function allocateFulfillmentsByItemIndex(
 
 function getEntityLabel(entity: { code?: string; name: string }) {
   return entity.code ? `${entity.code} - ${entity.name}` : entity.name;
+}
+
+function fmtQuantity(value: number) {
+  return value.toLocaleString('pt-BR');
 }
 
 function mergeItemWithResolvedAmount(
@@ -369,15 +544,28 @@ export function TransactionDialog({
   );
   const itemStockErrors = useMemo(
     () =>
-      items.map((item) =>
+      items.map((item, index) =>
         getItemStockError({
           item,
+          items,
+          itemIndex: index,
           transactionType,
           issueDate,
           products,
           inventoryBatches,
         }),
       ),
+    [inventoryBatches, issueDate, items, products, transactionType],
+  );
+  const batchUsageSummaries = useMemo(
+    () =>
+      getBatchUsageSummaries({
+        items,
+        transactionType,
+        issueDate,
+        products,
+        inventoryBatches,
+      }),
     [inventoryBatches, issueDate, items, products, transactionType],
   );
   const hasValidItem = items.some(
@@ -434,6 +622,13 @@ export function TransactionDialog({
     const currentItem = items[index];
     const selectedProduct = getProduct(products, currentItem.productId);
 
+    if (items.length !== 1) {
+      window.alert(
+        'A divisao por FIFO so pode ser feita quando ha um unico item.',
+      );
+      return;
+    }
+
     if (
       transactionType !== 'INCOME' ||
       !stockApplies(selectedProduct, issueDate) ||
@@ -443,11 +638,17 @@ export function TransactionDialog({
       return;
     }
 
-    const sellableBatches = getSellableBatches(
+    const sellableBatches = getSellableBatchOptions({
       inventoryBatches,
-      currentItem.productId,
-    );
-    const totalSellableQuantity = getTotalSellableQuantity(sellableBatches);
+      productId: currentItem.productId,
+      selectedInventoryBatchId: currentItem.inventoryBatchId,
+      items,
+      itemIndex: index,
+      transactionType,
+      issueDate,
+      products,
+    }).filter((batch) => batch.availableQuantity > 0);
+    const totalSellableQuantity = getTotalAvailableQuantity(sellableBatches);
 
     if (
       sellableBatches.length < 2 ||
@@ -467,7 +668,7 @@ export function TransactionDialog({
         break;
       }
 
-      const availableQuantity = batch.quantity ?? 0;
+      const availableQuantity = batch.availableQuantity;
 
       if (availableQuantity <= 0) {
         continue;
@@ -491,9 +692,8 @@ export function TransactionDialog({
     }
 
     setItems((current) => [
-      ...current.slice(0, index),
+      ...current.filter((_, itemIndex) => itemIndex !== index),
       ...splitItems,
-      ...current.slice(index + 1),
     ]);
   };
 
@@ -525,8 +725,10 @@ export function TransactionDialog({
     const normalizedItems = items.flatMap((item) => {
       const amount = resolveFinancialItemAmount(item);
       const product = getProduct(products, item.productId);
-      const shouldSendInventoryUnitCost =
-        values.type === 'EXPENSE' && stockApplies(product, values.issueDate);
+      const shouldUseUnitPriceAsInventoryCost =
+        values.type === 'EXPENSE' &&
+        stockApplies(product, values.issueDate) &&
+        item.unitPrice !== undefined;
 
       if (!item.chartOfAccountId || !amount || amount <= 0) {
         return [];
@@ -540,9 +742,9 @@ export function TransactionDialog({
         amount,
         productId: item.productId,
         inventoryBatchId: item.inventoryBatchId,
-        inventoryUnitCost: shouldSendInventoryUnitCost
-          ? item.inventoryUnitCost ?? item.unitPrice
-          : item.inventoryUnitCost,
+        inventoryUnitCost: shouldUseUnitPriceAsInventoryCost
+          ? item.unitPrice
+          : undefined,
       }];
     });
     const normalizedTotalAmount = normalizedItems.reduce(
@@ -734,19 +936,42 @@ export function TransactionDialog({
                   selectedProduct,
                   issueDate,
                 );
-                const sellableBatches = getSellableBatches(
+                const sellableBatches = getSellableBatchOptions({
                   inventoryBatches,
-                  item.productId,
+                  productId: item.productId,
+                  selectedInventoryBatchId: item.inventoryBatchId,
+                  items,
+                  itemIndex: index,
+                  transactionType,
+                  issueDate,
+                  products,
+                });
+                const batchesWithAvailableStock = sellableBatches.filter(
+                  (batch) => batch.availableQuantity > 0,
                 );
-                const totalSellableQuantity = getTotalSellableQuantity(
-                  sellableBatches,
+                const totalSellableQuantity = getTotalAvailableQuantity(
+                  batchesWithAvailableStock,
                 );
+                const selectedBatchCanBeDisplayed = sellableBatches.some(
+                  (batch) => batch.id === item.inventoryBatchId,
+                );
+                const batchSelectValue = selectedBatchCanBeDisplayed
+                  ? String(item.inventoryBatchId ?? '')
+                  : '';
+                const firstAvailableBatchQuantity =
+                  batchesWithAvailableStock[0]?.availableQuantity ?? 0;
+                const selectedBatchQuantity =
+                  sellableBatches.find(
+                    (batch) => batch.id === item.inventoryBatchId,
+                  )?.availableQuantity ?? firstAvailableBatchQuantity;
+                const availableBatchCount = batchesWithAvailableStock.length;
                 const needsFifoSplit =
+                  items.length === 1 &&
                   itemStockApplies &&
                   transactionType === 'INCOME' &&
-                  (item.quantity ?? 0) > (sellableBatches[0]?.quantity ?? 0) &&
+                  (item.quantity ?? 0) > selectedBatchQuantity &&
                   (item.quantity ?? 0) <= totalSellableQuantity &&
-                  sellableBatches.length > 1;
+                  availableBatchCount > 1;
                 const stockError = itemStockErrors[index];
 
                 return (
@@ -819,10 +1044,15 @@ export function TransactionDialog({
                             nextProduct,
                             issueDate,
                           );
-                          const nextSellableBatch = getSellableBatches(
+                          const nextSellableBatch = getSellableBatchOptions({
                             inventoryBatches,
                             productId,
-                          )[0];
+                            items,
+                            itemIndex: index,
+                            transactionType,
+                            issueDate,
+                            products,
+                          }).find((batch) => batch.availableQuantity > 0);
 
                           updateItem(index, {
                             productId,
@@ -830,10 +1060,7 @@ export function TransactionDialog({
                               transactionType === 'INCOME' && nextStockApplies
                                 ? nextSellableBatch?.id
                                 : undefined,
-                            inventoryUnitCost:
-                              transactionType === 'EXPENSE' && nextStockApplies
-                                ? item.inventoryUnitCost ?? item.unitPrice
-                                : undefined,
+                            inventoryUnitCost: undefined,
                           });
                         }}
                       >
@@ -862,18 +1089,12 @@ export function TransactionDialog({
                       type="number"
                       size="small"
                       value={toInputValue(item.unitPrice)}
-                      onChange={(event) => {
-                        const unitPrice = parseOptionalNumber(event.target.value);
+                      onChange={(event) =>
                         updateItem(index, {
-                          unitPrice,
-                          inventoryUnitCost:
-                            transactionType === 'EXPENSE' &&
-                            itemStockApplies &&
-                            item.inventoryUnitCost === undefined
-                              ? unitPrice
-                              : item.inventoryUnitCost,
-                        });
-                      }}
+                          unitPrice: parseOptionalNumber(event.target.value),
+                          inventoryUnitCost: undefined,
+                        })
+                      }
                       fullWidth
                     />
                     <TextField
@@ -886,30 +1107,12 @@ export function TransactionDialog({
                       required
                     />
                   </Stack>
-                  {itemStockApplies && transactionType === 'EXPENSE' && (
-                    <TextField
-                      label="Custo Unit. Estoque"
-                      type="number"
-                      size="small"
-                      value={toInputValue(
-                        item.inventoryUnitCost ?? item.unitPrice,
-                      )}
-                      onChange={(event) =>
-                        updateItem(index, {
-                          inventoryUnitCost: parseOptionalNumber(
-                            event.target.value,
-                          ),
-                        })
-                      }
-                      fullWidth
-                    />
-                  )}
                   {itemStockApplies && transactionType === 'INCOME' && (
                     <Stack spacing={1}>
                       <FormControl fullWidth size="small">
                         <InputLabel>Lote de estoque</InputLabel>
                         <Select
-                          value={String(item.inventoryBatchId ?? '')}
+                          value={batchSelectValue}
                           label="Lote de estoque"
                           onChange={(event) =>
                             updateItem(index, {
@@ -921,9 +1124,13 @@ export function TransactionDialog({
                         >
                           <MenuItem value="">- Selecione -</MenuItem>
                           {sellableBatches.map((batch) => (
-                            <MenuItem key={batch.id} value={String(batch.id)}>
+                            <MenuItem
+                              key={batch.id}
+                              value={String(batch.id)}
+                              disabled={batch.availableQuantity <= 0}
+                            >
                               {batch.code ?? `#${batch.id}`} - saldo{' '}
-                              {(batch.quantity ?? 0).toLocaleString('pt-BR')}
+                              {batch.availableQuantity.toLocaleString('pt-BR')}
                             </MenuItem>
                           ))}
                         </Select>
@@ -957,13 +1164,35 @@ export function TransactionDialog({
                 );
               })}
 
-              <Typography variant="body2" fontWeight={700} align="right">
-                Total dos items:{' '}
-                {totalAmount.toLocaleString('pt-BR', {
-                  style: 'currency',
-                  currency: 'BRL',
-                })}
-              </Typography>
+              <Stack spacing={0.5} alignItems="flex-end">
+                {batchUsageSummaries.length > 0 && (
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    flexWrap="wrap"
+                    justifyContent="flex-end"
+                  >
+                    {batchUsageSummaries.map((summary) => (
+                      <Typography
+                        key={summary.productId}
+                        variant="caption"
+                        color="text.secondary"
+                      >
+                        {summary.productName}:{' '}
+                        {fmtQuantity(summary.soldQuantity)}/
+                        {fmtQuantity(summary.totalQuantity)}
+                      </Typography>
+                    ))}
+                  </Stack>
+                )}
+                <Typography variant="body2" fontWeight={700} align="right">
+                  Total dos items:{' '}
+                  {totalAmount.toLocaleString('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                  })}
+                </Typography>
+              </Stack>
 
               <Divider />
               <FormControl fullWidth size="small">
