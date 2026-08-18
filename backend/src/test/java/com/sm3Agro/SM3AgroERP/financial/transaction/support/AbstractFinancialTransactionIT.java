@@ -38,6 +38,7 @@ import com.sm3Agro.SM3AgroERP.inventory.batch.repository.InventoryBatchRepositor
 import com.sm3Agro.SM3AgroERP.inventory.movement.repository.InventoryMovementRepository;
 import com.sm3Agro.SM3AgroERP.masterData.product.repository.ProductRepository;
 import com.sm3Agro.SM3AgroERP.masterData.unitOfMeasure.repository.UnitOfMeasureRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
@@ -95,6 +96,7 @@ public abstract class AbstractFinancialTransactionIT {
     protected AttachmentStorageProperties attachmentStorageProperties;
 
     @BeforeEach
+    @AfterEach
     void cleanupFinancialData() {
         cleanupAttachmentStorage();
         bankTransferRepository.deleteAll();

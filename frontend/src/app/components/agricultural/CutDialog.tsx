@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import {
+  Alert,
   Button,
   Dialog,
   DialogActions,
@@ -8,7 +9,7 @@ import {
   MenuItem,
   Stack,
 } from '@mui/material';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { FormTextField } from '../../forms/FormTextField';
 import {
@@ -70,6 +71,26 @@ function getDefaultValues(): CutFormValues {
   };
 }
 
+function getProductCutRestriction(product: Product, cutDate: string) {
+  if (!product.active) {
+    return 'Produto inativo.';
+  }
+  if (!product.productFamilyId) {
+    return 'Produto sem familia.';
+  }
+  if (product.hasStock !== true) {
+    return 'Produto nao controla estoque.';
+  }
+  if (!product.stockControlStartDate) {
+    return 'Produto sem data inicial de controle de estoque.';
+  }
+  if (cutDate && cutDate < product.stockControlStartDate) {
+    return 'Data do corte anterior ao inicio do controle de estoque.';
+  }
+
+  return undefined;
+}
+
 export function CutDialog({
   open,
   onClose,
@@ -78,10 +99,13 @@ export function CutDialog({
   onSave,
   saving = false,
 }: Props) {
-  const { control, formState, handleSubmit, reset } = useForm<CutFormValues>({
-    defaultValues: getDefaultValues(),
-    resolver: zodResolver(cutSchema),
-  });
+  const { clearErrors, control, formState, handleSubmit, reset, setError } =
+    useForm<CutFormValues>({
+      defaultValues: getDefaultValues(),
+      resolver: zodResolver(cutSchema),
+    });
+  const cutDate = useWatch({ control, name: 'cutDate' });
+  const selectedProductId = useWatch({ control, name: 'productId' });
 
   useEffect(() => {
     if (open) {
@@ -89,12 +113,33 @@ export function CutDialog({
     }
   }, [open, reset]);
 
+  useEffect(() => {
+    clearErrors('productId');
+  }, [clearErrors, cutDate, selectedProductId]);
+
   const disabled = saving || formState.isSubmitting;
+  const hasEligibleProducts = products.some(
+    (product) => !getProductCutRestriction(product, cutDate),
+  );
 
   const handleFormSubmit = handleSubmit(async (values) => {
+    const productId = requiredIdFromInput(values.productId);
+    const selectedProduct = products.find((product) => product.id === productId);
+    const productRestriction = selectedProduct
+      ? getProductCutRestriction(selectedProduct, values.cutDate)
+      : 'Selecione um produto valido.';
+
+    if (productRestriction) {
+      setError('productId', {
+        type: 'manual',
+        message: productRestriction,
+      });
+      return;
+    }
+
     await onSave({
       fieldId: requiredIdFromInput(values.fieldId),
-      productId: requiredIdFromInput(values.productId),
+      productId,
       cutDate: values.cutDate,
       quantity: requiredNumberFromInput(values.quantity),
       unitCost: optionalNumberFromInput(values.unitCost),
@@ -132,6 +177,12 @@ export function CutDialog({
               InputLabelProps={{ shrink: true }}
             />
           </Stack>
+          {!hasEligibleProducts && (
+            <Alert severity="warning">
+              Nenhum produto disponivel para corte na data informada. Cadastre
+              ou ajuste um produto ativo com familia e controle de estoque.
+            </Alert>
+          )}
           <FormTextField
             control={control}
             name="productId"
@@ -139,12 +190,23 @@ export function CutDialog({
             select
             fullWidth
             size="small"
+            helperText="Somente produtos ativos, com familia e controle de estoque iniciado ate a data do corte."
           >
-            {products.map((product) => (
-              <MenuItem key={product.id} value={String(product.id)}>
-                {product.name}
-              </MenuItem>
-            ))}
+            {products.map((product) => {
+              const restriction = getProductCutRestriction(product, cutDate);
+
+              return (
+                <MenuItem
+                  key={product.id}
+                  value={String(product.id)}
+                  disabled={!!restriction}
+                >
+                  {restriction
+                    ? `${product.name} - ${restriction}`
+                    : product.name}
+                </MenuItem>
+              );
+            })}
           </FormTextField>
           <Stack direction="row" spacing={1.5}>
             <FormTextField
@@ -184,7 +246,7 @@ export function CutDialog({
         </Button>
         <Button
           variant="contained"
-          disabled={disabled}
+          disabled={disabled || !hasEligibleProducts}
           onClick={() => {
             void handleFormSubmit();
           }}

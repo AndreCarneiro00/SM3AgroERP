@@ -4,6 +4,7 @@ import com.sm3Agro.SM3AgroERP.masterData.adjustmentRootCause.entity.AdjustmentRo
 import com.sm3Agro.SM3AgroERP.inventory.adjustment.entity.InventoryAdjustment;
 import com.sm3Agro.SM3AgroERP.inventory.batch.entity.InventoryBatch;
 import com.sm3Agro.SM3AgroERP.inventory.movement.entity.InventoryMovement;
+import com.sm3Agro.SM3AgroERP.inventory.stock.InventoryStockService;
 import com.sm3Agro.SM3AgroERP.masterData.product.entity.Product;
 import com.sm3Agro.SM3AgroERP.inventory.adjustment.enums.InventoryAdjustmentType;
 import com.sm3Agro.SM3AgroERP.inventory.batch.enums.InventoryBatchStatus;
@@ -46,6 +47,7 @@ public class CutService {
     private final InventoryAdjustmentRepository inventoryAdjustmentRepository;
     private final AdjustmentRootCauseRepository adjustmentRootCauseRepository;
     private final ProductionBatchRepository productionBatchRepository;
+    private final InventoryStockService inventoryStockService;
 
     public List<CutResponse> findAll() {
         return cutRepository.findAllByOrderByCutDateDescIdDesc()
@@ -66,6 +68,7 @@ public class CutService {
         if (product.getProductFamily() == null) {
             throw new IllegalArgumentException("Product must have a product family to launch a cut");
         }
+        inventoryStockService.requireProductControlsStockForProduction(product, request.cutDate());
 
         Integer cutNumber = Math.toIntExact(
                 cutRepository.countByFieldIdAndStatus(field.getId(), CutStatus.DONE) + 1
