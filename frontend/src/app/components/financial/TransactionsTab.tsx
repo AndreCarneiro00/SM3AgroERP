@@ -312,6 +312,14 @@ export function TransactionsTab() {
     }),
     [filtered],
   );
+  const inventoryBatchesById = useMemo(
+    () => new Map(inventoryBatches.map((batch) => [batch.id, batch])),
+    [inventoryBatches],
+  );
+
+  const getInventoryBatchCode = (inventoryBatchId?: number) =>
+    inventoryBatchesById.get(inventoryBatchId ?? -1)?.code?.trim() ||
+    'Lote nao localizado';
 
   const handleSave = async (form: TransactionFormData) => {
     try {
@@ -822,7 +830,10 @@ export function TransactionsTab() {
                                               variant="caption"
                                               color="text.secondary"
                                             >
-                                              Lote #{item.inventoryBatchId}
+                                              Lote{' '}
+                                              {getInventoryBatchCode(
+                                                item.inventoryBatchId,
+                                              )}
                                             </Typography>
                                           </Stack>
                                         ) : (
