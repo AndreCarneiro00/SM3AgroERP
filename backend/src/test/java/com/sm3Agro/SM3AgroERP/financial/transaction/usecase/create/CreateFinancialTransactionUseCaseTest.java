@@ -13,6 +13,10 @@ import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransaction
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionFulfillmentService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionItemService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.service.FinancialTransactionService;
+import com.sm3Agro.SM3AgroERP.inventory.batch.entity.InventoryBatch;
+import com.sm3Agro.SM3AgroERP.inventory.batch.enums.InventoryBatchStatus;
+import com.sm3Agro.SM3AgroERP.inventory.movement.entity.InventoryMovement;
+import com.sm3Agro.SM3AgroERP.inventory.movement.enums.InventoryMovementType;
 import com.sm3Agro.SM3AgroERP.inventory.stock.InventoryStockService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -122,6 +126,63 @@ class CreateFinancialTransactionUseCaseTest {
         orderedFlow.verify(fulfillmentService).createAll(transaction, request.fulfillments());
         orderedFlow.verify(attachmentService).createAll(transaction, request.attachments(), files);
         orderedFlow.verify(financialTransactionService).recalculate(transaction.getId());
+    }
+
+    @Test
+    void shouldEnrichItemsWithCreatedStockMovement() {
+        CreateFinancialTransactionRequest request = createRequest();
+        List<MultipartFile> files = createFiles();
+        FinancialTransaction transaction = createTransaction();
+        FinancialTransaction recalculatedTransaction = createTransaction();
+        FinancialTransactionItemResult item = new FinancialTransactionItemResult(
+                10L,
+                100L,
+                200L,
+                new BigDecimal("2.00"),
+                new BigDecimal("50.00"),
+                new BigDecimal("100.00"),
+                300L
+        );
+        InventoryBatch batch = InventoryBatch.builder()
+                .id(70L)
+                .code("PUR-1-ITEM-10")
+                .batchDate(LocalDate.of(2026, 6, 29))
+                .status(InventoryBatchStatus.ACTIVE)
+                .quantity(new BigDecimal("2.00"))
+                .unitCost(new BigDecimal("50.00"))
+                .build();
+        InventoryMovement movement = InventoryMovement.builder()
+                .id(80L)
+                .batch(batch)
+                .movementType(InventoryMovementType.PURCHASE_IN)
+                .quantity(new BigDecimal("2.00"))
+                .unitCost(new BigDecimal("50.00"))
+                .movementDate(LocalDate.of(2026, 6, 29))
+                .financialTransactionItemId(10L)
+                .build();
+
+        when(financialTransactionService.create(request)).thenReturn(transaction);
+        when(itemService.createAll(transaction, request.items())).thenReturn(List.of(item));
+        when(inventoryStockService.createFinancialMovement(
+                transaction.getType(),
+                transaction.getId(),
+                transaction.getIssueDate(),
+                item.id(),
+                item.productId(),
+                item.quantity(),
+                request.items().getFirst().inventoryUnitCost(),
+                request.items().getFirst().inventoryBatchId()
+        )).thenReturn(Optional.of(new InventoryStockService.StockMovementResult(batch, movement)));
+        when(fulfillmentService.createAll(transaction, request.fulfillments())).thenReturn(List.of());
+        when(attachmentService.createAll(transaction, request.attachments(), files)).thenReturn(List.of());
+        when(financialTransactionService.recalculate(transaction.getId())).thenReturn(recalculatedTransaction);
+
+        CreateFinancialTransactionResult result = useCase.execute(request, files);
+
+        FinancialTransactionItemResult resultItem = result.items().getFirst();
+        assertEquals(80L, resultItem.inventoryMovementId());
+        assertEquals(70L, resultItem.inventoryBatchId());
+        assertEquals(InventoryMovementType.PURCHASE_IN, resultItem.stockMovementType());
     }
 
     @Test

@@ -3,6 +3,9 @@ package com.sm3Agro.SM3AgroERP.financial.transaction.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sm3Agro.SM3AgroERP.masterData.bankAccount.entity.BankAccount;
+import com.sm3Agro.SM3AgroERP.masterData.chartOfAccount.entity.ChartOfAccount;
+import com.sm3Agro.SM3AgroERP.masterData.costCenter.entity.CostCenter;
+import com.sm3Agro.SM3AgroERP.masterData.product.entity.Product;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionAttachmentRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentRequest;
@@ -199,6 +202,94 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(
                         "Changing transaction type to EXPENSE would make bank account 'Conta Recebimento' negative on 2026-06-29."
+                ));
+    }
+
+    @Test
+    void shouldRejectChangingTypeAndCancelingTransactionWithInventoryMovement() throws Exception {
+        CreateFinancialTransactionRequest request = createStockControlledPurchaseRequest();
+        Long transactionId = createTransaction(request, createAttachmentFile());
+
+        UpdateFinancialTransactionRequest updateRequest = new UpdateFinancialTransactionRequest(
+                request.description(),
+                request.counterpartyId(),
+                request.issueDate(),
+                request.dueDate(),
+                request.documentNumber(),
+                FinancialTransactionType.INCOME,
+                request.observation(),
+                request.hasNf()
+        );
+
+        mockMvc.perform(patch("/financial-transactions/{id}", transactionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(updateRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Cannot change type of a financial transaction with inventory movements."
+                ));
+
+        mockMvc.perform(post("/financial-transactions/{id}/cancel", transactionId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Cannot cancel a financial transaction with inventory movements."
+                ));
+    }
+
+    @Test
+    void shouldRejectUpdatingAndDeletingItemWithInventoryMovement() throws Exception {
+        CreateFinancialTransactionRequest request = createStockControlledPurchaseRequest();
+        Long transactionId = createTransaction(request, createAttachmentFile());
+        Long itemId = financialTransactionItemRepository.findByFinancialTransactionId(transactionId)
+                .getFirst()
+                .getId();
+        FinancialTransactionItemRequest item = request.items().getFirst();
+
+        UpdateFinancialTransactionItemRequest updateItemRequest = new UpdateFinancialTransactionItemRequest(
+                item.chartOfAccountId(),
+                item.costCenterId(),
+                new BigDecimal("3.00"),
+                item.unitPrice(),
+                new BigDecimal("150.00"),
+                item.productId()
+        );
+
+        mockMvc.perform(patch("/financial-transactions/{id}/items/{itemId}", transactionId, itemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(updateItemRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Financial transaction item cannot be changed because it has an inventory movement."
+                ));
+
+        mockMvc.perform(delete("/financial-transactions/{id}/items/{itemId}", transactionId, itemId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Financial transaction item cannot be changed because it has an inventory movement."
+                ));
+    }
+
+    @Test
+    void shouldRejectAddingStockControlledItemOutsideFullCreationFlow() throws Exception {
+        Long transactionId = createTransaction(createUnpaidRequest());
+        ChartOfAccount chartOfAccount = createChartOfAccount();
+        CostCenter costCenter = createCostCenter();
+        Product stockControlledProduct = createStockControlledProduct(LocalDate.of(2026, 6, 1));
+        FinancialTransactionItemRequest createItemRequest = new FinancialTransactionItemRequest(
+                chartOfAccount.getId(),
+                costCenter.getId(),
+                new BigDecimal("1.00"),
+                new BigDecimal("50.00"),
+                new BigDecimal("50.00"),
+                stockControlledProduct.getId()
+        );
+
+        mockMvc.perform(post("/financial-transactions/{id}/items", transactionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(createItemRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Stock-controlled financial items can only be created in the full transaction creation flow."
                 ));
     }
 
@@ -473,6 +564,35 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                                 ))
                         )
                 )
+        );
+    }
+
+    private CreateFinancialTransactionRequest createStockControlledPurchaseRequest() {
+        CreateFinancialTransactionRequest valid = createValidRequest();
+        Product product = createStockControlledProduct(LocalDate.of(2026, 6, 1));
+        FinancialTransactionItemRequest item = valid.items().getFirst();
+
+        return new CreateFinancialTransactionRequest(
+                valid.description(),
+                valid.counterpartyId(),
+                valid.issueDate(),
+                valid.dueDate(),
+                valid.documentNumber(),
+                FinancialTransactionType.EXPENSE,
+                valid.observation(),
+                valid.hasNf(),
+                List.of(new FinancialTransactionItemRequest(
+                        item.chartOfAccountId(),
+                        item.costCenterId(),
+                        item.quantity(),
+                        item.unitPrice(),
+                        item.amount(),
+                        product.getId(),
+                        null,
+                        new BigDecimal("42.50")
+                )),
+                valid.attachments(),
+                valid.fulfillments()
         );
     }
 
