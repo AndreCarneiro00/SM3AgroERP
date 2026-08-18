@@ -2,27 +2,19 @@ import { useState } from 'react';
 import {
   Box,
   Button,
-  Card,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
 } from '@mui/material';
 import type { ReactNode } from 'react';
-import { EmptyTableRow } from './EmptyTableRow';
 import { PageHeader } from './PageHeader';
 import { RowActions } from './RowActions';
+import { DataTable, type TableColumn } from './table';
 
-export interface CrudColumn<T> {
+export interface CrudColumn<T> extends TableColumn<T> {
   label: string;
-  render: (item: T) => ReactNode;
-  align?: 'left' | 'center' | 'right';
 }
 
 interface CrudTableProps<T extends { id: number }> {
@@ -47,6 +39,10 @@ interface CrudTableProps<T extends { id: number }> {
   emptyMessage?: string;
   headerContent?: ReactNode;
   sortItems?: (items: T[]) => T[];
+  tableMinWidth?: number | string;
+  tableMaxHeight?: number | string;
+  stickyHeader?: boolean;
+  actionsSticky?: boolean;
 }
 
 export function CrudTable<T extends { id: number }>({
@@ -64,6 +60,10 @@ export function CrudTable<T extends { id: number }>({
   emptyMessage,
   headerContent,
   sortItems,
+  tableMinWidth,
+  tableMaxHeight,
+  stickyHeader,
+  actionsSticky,
 }: CrudTableProps<T>) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<T | undefined>();
@@ -118,43 +118,25 @@ export function CrudTable<T extends { id: number }>({
         {headerContent}
       </PageHeader>
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              {columns.map((column) => (
-                <TableCell key={column.label} align={column.align}>
-                  {column.label}
-                </TableCell>
-              ))}
-              <TableCell align="center">Acoes</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {list.map((item) => (
-              <TableRow key={item.id}>
-                {columns.map((column) => (
-                  <TableCell key={column.label} align={column.align}>
-                    {column.render(item)}
-                  </TableCell>
-                ))}
-                <TableCell align="center">
-                  <RowActions
-                    onEdit={() => openEdit(item)}
-                    onDelete={() => {
-                      void handleDelete(item.id);
-                    }}
-                    disabled={isSubmitting || deletingId === item.id}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-            {list.length === 0 && (
-              <EmptyTableRow colSpan={columns.length + 1} message={emptyMessage} />
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      <DataTable
+        items={list}
+        columns={columns}
+        getRowId={(item) => item.id}
+        emptyMessage={emptyMessage}
+        minWidth={tableMinWidth ?? Math.max(560, columns.length * 128 + 96)}
+        maxHeight={tableMaxHeight}
+        stickyHeader={stickyHeader}
+        actionsSticky={actionsSticky}
+        renderActions={(item) => (
+          <RowActions
+            onEdit={() => openEdit(item)}
+            onDelete={() => {
+              void handleDelete(item.id);
+            }}
+            disabled={isSubmitting || deletingId === item.id}
+          />
+        )}
+      />
 
       <Dialog
         open={dialogOpen}

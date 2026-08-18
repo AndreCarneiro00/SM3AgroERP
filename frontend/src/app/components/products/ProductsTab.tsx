@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import {
   Box,
-  Card,
   Chip,
   Stack,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -22,6 +20,7 @@ import {
 } from '../../../domains/products/ui/hooks';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
+import { ResponsiveTableFrame } from '../shared/table';
 import { ProductDialog } from './ProductDialog';
 
 export function ProductsTab() {
@@ -59,84 +58,82 @@ export function ProductsTab() {
         }}
       />
 
-      <Card>
-        <Table size="small">
-          <TableHead>
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
+        <TableHead>
+          <TableRow>
+            <TableCell>Nome</TableCell>
+            <TableCell>Familia</TableCell>
+            <TableCell>Unidade de Medida</TableCell>
+            <TableCell>Tipo</TableCell>
+            <TableCell>Estoque</TableCell>
+            <TableCell>Status</TableCell>
+            <TableCell align="center">Acoes</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {isLoading && (
             <TableRow>
-              <TableCell>Nome</TableCell>
-              <TableCell>Familia</TableCell>
-              <TableCell>Unidade de Medida</TableCell>
-              <TableCell>Tipo</TableCell>
-              <TableCell>Estoque</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="center">Acoes</TableCell>
+              <TableCell colSpan={7}>
+                <Typography variant="body2" color="text.secondary">
+                  Carregando produtos...
+                </Typography>
+              </TableCell>
             </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading && (
-              <TableRow>
-                <TableCell colSpan={7}>
-                  <Typography variant="body2" color="text.secondary">
-                    Carregando produtos...
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-            {productRows.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {product.name}
-                  </Typography>
-                </TableCell>
-                <TableCell>{product.familyName}</TableCell>
-                <TableCell>{product.unitName}</TableCell>
-                <TableCell>{labelProductType(product.productType)}</TableCell>
-                <TableCell>
-                  <Stack spacing={0.25}>
-                    <Chip
-                      label={labelStockControl(product.hasStock)}
-                      size="small"
-                      color={
-                        product.hasStock === true
-                          ? 'info'
-                          : product.hasStock === false
-                            ? 'default'
-                            : 'warning'
-                      }
-                      sx={{ height: 20, width: 'fit-content' }}
-                    />
-                    {product.hasStock && product.stockControlStartDate && (
-                      <Typography variant="caption" color="text.secondary">
-                        {formatDate(product.stockControlStartDate)}
-                      </Typography>
-                    )}
-                  </Stack>
-                </TableCell>
-                <TableCell>
+          )}
+          {productRows.map((product) => (
+            <TableRow key={product.id}>
+              <TableCell>
+                <Typography variant="body2" fontWeight={500}>
+                  {product.name}
+                </Typography>
+              </TableCell>
+              <TableCell>{product.familyName}</TableCell>
+              <TableCell>{product.unitName}</TableCell>
+              <TableCell>{labelProductType(product.productType)}</TableCell>
+              <TableCell>
+                <Stack spacing={0.25}>
                   <Chip
-                    label={product.active ? 'Ativo' : 'Inativo'}
+                    label={labelStockControl(product.hasStock)}
                     size="small"
-                    color={product.active ? 'success' : 'default'}
-                    sx={{ height: 20 }}
+                    color={
+                      product.hasStock === true
+                        ? 'info'
+                        : product.hasStock === false
+                          ? 'default'
+                          : 'warning'
+                    }
+                    sx={{ height: 20, width: 'fit-content' }}
                   />
-                </TableCell>
-                <TableCell align="center">
-                  <RowActions
-                    onEdit={() => {
-                      setEditing(product);
-                      setDialogOpen(true);
-                    }}
-                    onDelete={() => {
-                      void handleDelete(product.id);
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+                  {product.hasStock && product.stockControlStartDate && (
+                    <Typography variant="caption" color="text.secondary">
+                      {formatDate(product.stockControlStartDate)}
+                    </Typography>
+                  )}
+                </Stack>
+              </TableCell>
+              <TableCell>
+                <Chip
+                  label={product.active ? 'Ativo' : 'Inativo'}
+                  size="small"
+                  color={product.active ? 'success' : 'default'}
+                  sx={{ height: 20 }}
+                />
+              </TableCell>
+              <TableCell align="center">
+                <RowActions
+                  onEdit={() => {
+                    setEditing(product);
+                    setDialogOpen(true);
+                  }}
+                  onDelete={() => {
+                    void handleDelete(product.id);
+                  }}
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </ResponsiveTableFrame>
 
       <ProductDialog
         open={dialogOpen}

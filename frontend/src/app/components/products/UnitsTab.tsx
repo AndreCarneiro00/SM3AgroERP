@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   Box,
   Button,
-  Card,
   Dialog,
   DialogActions,
   DialogContent,
@@ -12,7 +11,6 @@ import {
   MenuItem,
   Select,
   Stack,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -31,6 +29,7 @@ import {
   useProductsCatalogMutations,
 } from '../../../domains/products/ui/hooks';
 import { RowActions } from '../shared/RowActions';
+import { ResponsiveTableFrame } from '../shared/table';
 
 interface UomDialogProps {
   open: boolean;
@@ -177,7 +176,11 @@ export function UnitsTab() {
   const savingBase = createBaseUnit.isPending || updateBaseUnit.isPending;
 
   return (
-    <Stack direction="row" spacing={2} alignItems="flex-start">
+    <Stack
+      direction={{ xs: 'column', lg: 'row' }}
+      spacing={2}
+      alignItems="flex-start"
+    >
       <Box sx={{ flex: 1 }}>
         <Stack
           direction="row"
@@ -199,54 +202,52 @@ export function UnitsTab() {
             + Nova
           </Button>
         </Stack>
-        <Card>
-          <Table size="small">
-            <TableHead>
+        <ResponsiveTableFrame minWidth={640}>
+          <TableHead>
+            <TableRow>
+              <TableCell>Nome</TableCell>
+              <TableCell>Unidade Base</TableCell>
+              <TableCell>Fator</TableCell>
+              <TableCell align="center">Acoes</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {isLoading && (
               <TableRow>
-                <TableCell>Nome</TableCell>
-                <TableCell>Unidade Base</TableCell>
-                <TableCell>Fator</TableCell>
-                <TableCell align="center">Acoes</TableCell>
+                <TableCell colSpan={4}>
+                  <Typography variant="body2" color="text.secondary">
+                    Carregando unidades...
+                  </Typography>
+                </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {isLoading && (
-                <TableRow>
-                  <TableCell colSpan={4}>
-                    <Typography variant="body2" color="text.secondary">
-                      Carregando unidades...
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-              {unitsOfMeasure.map((unit) => (
-                <TableRow key={unit.id}>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
-                      {unit.name}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {baseUnits.find((baseUnit) => baseUnit.id === unit.baseUnitId)
-                      ?.name ?? '-'}
-                  </TableCell>
-                  <TableCell>{unit.conversionFactor ?? '-'}</TableCell>
-                  <TableCell align="center">
-                    <RowActions
-                      onEdit={() => {
-                        setEditingUom(unit);
-                        setUomOpen(true);
-                      }}
-                      onDelete={() => {
-                        void deleteUnitOfMeasure.mutateAsync(unit.id);
-                      }}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+            )}
+            {unitsOfMeasure.map((unit) => (
+              <TableRow key={unit.id}>
+                <TableCell>
+                  <Typography variant="body2" fontWeight={500}>
+                    {unit.name}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  {baseUnits.find((baseUnit) => baseUnit.id === unit.baseUnitId)
+                    ?.name ?? '-'}
+                </TableCell>
+                <TableCell>{unit.conversionFactor ?? '-'}</TableCell>
+                <TableCell align="center">
+                  <RowActions
+                    onEdit={() => {
+                      setEditingUom(unit);
+                      setUomOpen(true);
+                    }}
+                    onDelete={() => {
+                      void deleteUnitOfMeasure.mutateAsync(unit.id);
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </ResponsiveTableFrame>
         <UomDialog
           open={uomOpen}
           onClose={() => setUomOpen(false)}
@@ -257,7 +258,7 @@ export function UnitsTab() {
         />
       </Box>
 
-      <Box sx={{ width: 280 }}>
+      <Box sx={{ width: { xs: '100%', lg: 280 } }}>
         <Stack
           direction="row"
           justifyContent="space-between"
@@ -271,44 +272,42 @@ export function UnitsTab() {
             + Nova
           </Button>
         </Stack>
-        <Card>
-          <Table size="small">
-            <TableHead>
+        <ResponsiveTableFrame minWidth={320}>
+          <TableHead>
+            <TableRow>
+              <TableCell>Nome</TableCell>
+              <TableCell align="center">Acoes</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {isLoading && (
               <TableRow>
-                <TableCell>Nome</TableCell>
-                <TableCell align="center">Acoes</TableCell>
+                <TableCell colSpan={2}>
+                  <Typography variant="body2" color="text.secondary">
+                    Carregando unidades base...
+                  </Typography>
+                </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {isLoading && (
-                <TableRow>
-                  <TableCell colSpan={2}>
-                    <Typography variant="body2" color="text.secondary">
-                      Carregando unidades base...
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-              {baseUnits.map((baseUnit) => (
-                <TableRow key={baseUnit.id}>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
-                      {baseUnit.name}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <RowActions
-                      onEdit={() => openBase(baseUnit)}
-                      onDelete={() => {
-                        void deleteBaseUnit.mutateAsync(baseUnit.id);
-                      }}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+            )}
+            {baseUnits.map((baseUnit) => (
+              <TableRow key={baseUnit.id}>
+                <TableCell>
+                  <Typography variant="body2" fontWeight={500}>
+                    {baseUnit.name}
+                  </Typography>
+                </TableCell>
+                <TableCell align="center">
+                  <RowActions
+                    onEdit={() => openBase(baseUnit)}
+                    onDelete={() => {
+                      void deleteBaseUnit.mutateAsync(baseUnit.id);
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </ResponsiveTableFrame>
       </Box>
 
       <Dialog open={baseOpen} onClose={() => setBaseOpen(false)} maxWidth="xs" fullWidth>

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
-  Card,
   Chip,
   Dialog,
   DialogActions,
@@ -13,7 +12,6 @@ import {
   MenuItem,
   Select,
   Stack,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -50,6 +48,7 @@ import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
 import { StatBox } from '../shared/StatBox';
+import { ResponsiveTableFrame } from '../shared/table';
 
 const fmtBRL = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -549,99 +548,97 @@ export function InventoryMovementsTab() {
         />
       </PageHeader>
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Lote</TableCell>
-              <TableCell>Produto</TableCell>
-              <TableCell>Tipo</TableCell>
-              <TableCell>Data</TableCell>
-              <TableCell>Origem</TableCell>
-              <TableCell>Observacao</TableCell>
-              <TableCell align="right">Quantidade</TableCell>
-              <TableCell align="right">Custo Unit.</TableCell>
-              <TableCell align="right">Total</TableCell>
-              <TableCell align="center">Acoes</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {sorted.map((movement) => {
-              const batch = batchesById.get(movement.batchId ?? -1);
-              const adjustment = adjustmentsByMovementId.get(movement.id);
-              const total = (movement.quantity ?? 0) * (movement.unitCost ?? 0);
-              const canManageAdjustment = isAdjustmentMovement(movement);
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
+        <TableHead>
+          <TableRow>
+            <TableCell>Lote</TableCell>
+            <TableCell>Produto</TableCell>
+            <TableCell>Tipo</TableCell>
+            <TableCell>Data</TableCell>
+            <TableCell>Origem</TableCell>
+            <TableCell>Observacao</TableCell>
+            <TableCell align="right">Quantidade</TableCell>
+            <TableCell align="right">Custo Unit.</TableCell>
+            <TableCell align="right">Total</TableCell>
+            <TableCell align="center">Acoes</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {sorted.map((movement) => {
+            const batch = batchesById.get(movement.batchId ?? -1);
+            const adjustment = adjustmentsByMovementId.get(movement.id);
+            const total = (movement.quantity ?? 0) * (movement.unitCost ?? 0);
+            const canManageAdjustment = isAdjustmentMovement(movement);
 
-              return (
-                <TableRow key={movement.id}>
-                  <TableCell>
-                    <Typography
-                      variant="body2"
-                      fontWeight={600}
-                      sx={{ fontFamily: 'monospace' }}
-                    >
-                      {batch?.code ?? '-'}
+            return (
+              <TableRow key={movement.id}>
+                <TableCell>
+                  <Typography
+                    variant="body2"
+                    fontWeight={600}
+                    sx={{ fontFamily: 'monospace' }}
+                  >
+                    {batch?.code ?? '-'}
+                  </Typography>
+                </TableCell>
+                <TableCell>{getProductName(batch?.productId)}</TableCell>
+                <TableCell>
+                  {movement.movementType && (
+                    <Chip
+                      label={MOVE_LABEL[movement.movementType]}
+                      size="small"
+                      color={MOVE_COLOR[movement.movementType]}
+                      sx={{ height: 20 }}
+                    />
+                  )}
+                </TableCell>
+                <TableCell>{fmtDate(movement.movementDate)}</TableCell>
+                <TableCell>{getMovementOrigin(movement)}</TableCell>
+                <TableCell>{adjustment?.observation ?? '-'}</TableCell>
+                <TableCell align="right">
+                  <Typography variant="body2" fontWeight={600}>
+                    {movement.quantity?.toLocaleString('pt-BR') ?? 0}
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">
+                  {fmtBRL(movement.unitCost ?? 0)}
+                </TableCell>
+                <TableCell align="right">
+                  <Typography variant="body2" fontWeight={600}>
+                    {fmtBRL(total)}
+                  </Typography>
+                </TableCell>
+                <TableCell align="center">
+                  {canManageAdjustment ? (
+                    <RowActions
+                      disabled={saving}
+                      deleteConfirmMessage="Excluir ajuste e movimentacao vinculada?"
+                      onEdit={() => openEditAdjustment(movement)}
+                      onDelete={() => {
+                        void handleDeleteAdjustment(movement);
+                      }}
+                    />
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      -
                     </Typography>
-                  </TableCell>
-                  <TableCell>{getProductName(batch?.productId)}</TableCell>
-                  <TableCell>
-                    {movement.movementType && (
-                      <Chip
-                        label={MOVE_LABEL[movement.movementType]}
-                        size="small"
-                        color={MOVE_COLOR[movement.movementType]}
-                        sx={{ height: 20 }}
-                      />
-                    )}
-                  </TableCell>
-                  <TableCell>{fmtDate(movement.movementDate)}</TableCell>
-                  <TableCell>{getMovementOrigin(movement)}</TableCell>
-                  <TableCell>{adjustment?.observation ?? '-'}</TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2" fontWeight={600}>
-                      {movement.quantity?.toLocaleString('pt-BR') ?? 0}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    {fmtBRL(movement.unitCost ?? 0)}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2" fontWeight={600}>
-                      {fmtBRL(total)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    {canManageAdjustment ? (
-                      <RowActions
-                        disabled={saving}
-                        deleteConfirmMessage="Excluir ajuste e movimentacao vinculada?"
-                        onEdit={() => openEditAdjustment(movement)}
-                        onDelete={() => {
-                          void handleDeleteAdjustment(movement);
-                        }}
-                      />
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        -
-                      </Typography>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {sorted.length === 0 && (
-              <EmptyTableRow
-                colSpan={10}
-                message={
-                  isLoading
-                    ? 'Carregando movimentacoes de estoque...'
-                    : 'Nenhuma movimentacao registrada.'
-                }
-              />
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+          {sorted.length === 0 && (
+            <EmptyTableRow
+              colSpan={10}
+              message={
+                isLoading
+                  ? 'Carregando movimentacoes de estoque...'
+                  : 'Nenhuma movimentacao registrada.'
+              }
+            />
+          )}
+        </TableBody>
+      </ResponsiveTableFrame>
 
       <AdjustmentDialog
         open={dialogOpen}

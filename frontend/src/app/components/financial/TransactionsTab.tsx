@@ -12,7 +12,6 @@ import {
   Paper,
   Select,
   Stack,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -57,6 +56,7 @@ import { useProductsCatalogData } from '../../../domains/products/ui/hooks';
 import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
+import { ResponsiveTableFrame } from '../shared/table';
 import { FulfillmentDialog } from './FulfillmentDialog';
 import { TransactionAttachmentDialog } from './TransactionAttachmentDialog';
 import {
@@ -530,8 +530,7 @@ export function TransactionsTab() {
         </Paper>
       </Stack>
 
-      <Card>
-        <Table size="small">
+      <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
           <TableHead>
             <TableRow>
               <TableCell />
@@ -776,7 +775,7 @@ export function TransactionsTab() {
                                   Items
                                 </Typography>
                               </Box>
-                              <Table size="small">
+                              <ResponsiveTableFrame minWidth={760} withCard={false}>
                                 <TableHead>
                                   <TableRow>
                                     <TableCell>Conta</TableCell>
@@ -867,7 +866,7 @@ export function TransactionsTab() {
                                     />
                                   )}
                                 </TableBody>
-                              </Table>
+                              </ResponsiveTableFrame>
                             </Card>
 
                             <Card variant="outlined" sx={{ flex: 1 }}>
@@ -876,7 +875,7 @@ export function TransactionsTab() {
                                   Pagamentos
                                 </Typography>
                               </Box>
-                              <Table size="small">
+                              <ResponsiveTableFrame minWidth={680} withCard={false}>
                                 <TableHead>
                                   <TableRow>
                                     <TableCell>Conta</TableCell>
@@ -978,7 +977,7 @@ export function TransactionsTab() {
                                     />
                                   )}
                                 </TableBody>
-                              </Table>
+                              </ResponsiveTableFrame>
                             </Card>
 
                             <Card variant="outlined" sx={{ flex: 1 }}>
@@ -987,7 +986,7 @@ export function TransactionsTab() {
                                   Anexos
                                 </Typography>
                               </Box>
-                              <Table size="small">
+                              <ResponsiveTableFrame minWidth={560} withCard={false}>
                                 <TableHead>
                                   <TableRow>
                                     <TableCell>Arquivo</TableCell>
@@ -1050,7 +1049,7 @@ export function TransactionsTab() {
                                     />
                                   )}
                                 </TableBody>
-                              </Table>
+                              </ResponsiveTableFrame>
                             </Card>
                           </Stack>
                         </Stack>
@@ -1067,8 +1066,7 @@ export function TransactionsTab() {
               />
             )}
           </TableBody>
-        </Table>
-      </Card>
+      </ResponsiveTableFrame>
 
       <TransactionDialog
         open={dialogOpen}
