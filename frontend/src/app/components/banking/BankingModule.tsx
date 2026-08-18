@@ -7,14 +7,10 @@ import {
   Chip,
   Divider,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Typography,
 } from '@mui/material';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import type { GridColDef } from '@mui/x-data-grid';
 import type {
   BankAccount,
   BankAccountInput,
@@ -24,7 +20,7 @@ import {
   useBankAccountsMutations,
 } from '../../../domains/banking/ui/hooks';
 import { useFinancialCatalogData } from '../../../domains/financial/ui/hooks';
-import { EmptyTableRow } from '../shared/EmptyTableRow';
+import { AppDataGrid } from '../shared/AppDataGrid';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
 import { BankAccountDialog } from './BankAccountDialog';
@@ -209,6 +205,115 @@ export function BankingModule() {
 
   const saving = createBankAccount.isPending || updateBankAccount.isPending;
 
+  const columns: GridColDef<BankAccount>[] = [
+    {
+      field: 'name',
+      headerName: 'Nome',
+      flex: 1,
+      minWidth: 170,
+      renderCell: ({ row }) => (
+        <Typography variant="body2" fontWeight={500}>
+          {row.name}
+        </Typography>
+      ),
+    },
+    {
+      field: 'financialInstitution',
+      headerName: 'Instituicao',
+      flex: 1,
+      minWidth: 160,
+      valueFormatter: (value) => value ?? '-',
+    },
+    {
+      field: 'accountType',
+      headerName: 'Tipo',
+      flex: 0.8,
+      minWidth: 120,
+      valueFormatter: (value) => value ?? '-',
+    },
+    {
+      field: 'agency',
+      headerName: 'Agencia',
+      flex: 0.7,
+      minWidth: 110,
+      valueFormatter: (value) => value ?? '-',
+    },
+    {
+      field: 'accountNumber',
+      headerName: 'Conta',
+      flex: 0.8,
+      minWidth: 130,
+      valueFormatter: (value) => value ?? '-',
+    },
+    {
+      field: 'active',
+      headerName: 'Status',
+      flex: 0.7,
+      minWidth: 110,
+      valueFormatter: (value) => (value ? 'Ativa' : 'Inativa'),
+      renderCell: ({ row }) => (
+        <Chip
+          label={row.active ? 'Ativa' : 'Inativa'}
+          size="small"
+          color={row.active ? 'success' : 'default'}
+          sx={{ height: 20 }}
+        />
+      ),
+    },
+    {
+      field: 'currentBalance',
+      headerName: 'Saldo Atual',
+      type: 'number',
+      flex: 0.8,
+      minWidth: 140,
+      align: 'right',
+      headerAlign: 'right',
+      valueGetter: (_, row) => row.currentBalance ?? row.initialBalance ?? 0,
+      valueFormatter: (value) => fmtBRL((value as number | undefined) ?? 0),
+      renderCell: ({ row }) => (
+        <Typography variant="body2" fontWeight={700} color="primary.main">
+          {fmtBRL(row.currentBalance ?? row.initialBalance ?? 0)}
+        </Typography>
+      ),
+    },
+    {
+      field: 'initialBalance',
+      headerName: 'Saldo Inicial',
+      type: 'number',
+      flex: 0.8,
+      minWidth: 140,
+      align: 'right',
+      headerAlign: 'right',
+      valueFormatter: (value) => fmtBRL((value as number | undefined) ?? 0),
+      renderCell: ({ row }) => (
+        <Typography variant="body2" fontWeight={700} color="text.secondary">
+          {fmtBRL(row.initialBalance ?? 0)}
+        </Typography>
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'Acoes',
+      width: 110,
+      align: 'center',
+      headerAlign: 'center',
+      sortable: false,
+      filterable: false,
+      disableExport: true,
+      renderCell: ({ row }) => (
+        <RowActions
+          onEdit={() => {
+            setEditing(row);
+            setDialogOpen(true);
+          }}
+          onDelete={() => {
+            void handleDelete(row.id);
+          }}
+        />
+      ),
+    },
+  ];
+
   return (
     <Box>
       <PageHeader
@@ -265,79 +370,13 @@ export function BankingModule() {
         })}
       </Stack>
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Nome</TableCell>
-              <TableCell>Instituicao</TableCell>
-              <TableCell>Tipo</TableCell>
-              <TableCell>Agencia</TableCell>
-              <TableCell>Conta</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Saldo Atual</TableCell>
-              <TableCell align="right">Saldo Inicial</TableCell>
-              <TableCell align="center">Acoes</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading && (
-              <EmptyTableRow
-                colSpan={9}
-                message="Carregando contas bancarias..."
-              />
-            )}
-            {bankAccounts.map((bankAccount) => (
-              <TableRow key={bankAccount.id}>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {bankAccount.name}
-                  </Typography>
-                </TableCell>
-                <TableCell>{bankAccount.financialInstitution ?? '-'}</TableCell>
-                <TableCell>{bankAccount.accountType ?? '-'}</TableCell>
-                <TableCell>{bankAccount.agency ?? '-'}</TableCell>
-                <TableCell>{bankAccount.accountNumber ?? '-'}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={bankAccount.active ? 'Ativa' : 'Inativa'}
-                    size="small"
-                    color={bankAccount.active ? 'success' : 'default'}
-                    sx={{ height: 20 }}
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2" fontWeight={700} color="primary.main">
-                    {fmtBRL(bankAccount.currentBalance ?? bankAccount.initialBalance ?? 0)}
-                  </Typography>
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2" fontWeight={700} color="text.secondary">
-                    {fmtBRL(bankAccount.initialBalance ?? 0)}
-                  </Typography>
-                </TableCell>
-                <TableCell align="center">
-                  <RowActions
-                    onEdit={() => {
-                      setEditing(bankAccount);
-                      setDialogOpen(true);
-                    }}
-                    onDelete={() => {
-                      void handleDelete(bankAccount.id);
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-            {!isLoading && bankAccounts.length === 0 && (
-              <EmptyTableRow
-                colSpan={9}
-                message="Nenhuma conta bancaria cadastrada."
-              />
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      <AppDataGrid
+        rows={bankAccounts}
+        columns={columns}
+        loading={isLoading}
+        emptyMessage="Nenhuma conta bancaria cadastrada."
+        exportFileName="contas-bancarias"
+      />
 
       <BankAccountDialog
         open={dialogOpen}

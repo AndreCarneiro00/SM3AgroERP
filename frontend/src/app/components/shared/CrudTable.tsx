@@ -1,21 +1,16 @@
-import { useState } from 'react';
+import { isValidElement, useMemo, useState } from 'react';
 import {
   Box,
   Button,
-  Card,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
 } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
 import type { ReactNode } from 'react';
-import { EmptyTableRow } from './EmptyTableRow';
+import { AppDataGrid } from './AppDataGrid';
 import { PageHeader } from './PageHeader';
 import { RowActions } from './RowActions';
 
@@ -23,6 +18,10 @@ export interface CrudColumn<T> {
   label: string;
   render: (item: T) => ReactNode;
   align?: 'left' | 'center' | 'right';
+  exportValue?: (item: T) => string | number | boolean | null | undefined;
+  type?: GridColDef['type'];
+  minWidth?: number;
+  flex?: number;
 }
 
 interface CrudTableProps<T extends { id: number }> {
@@ -47,6 +46,30 @@ interface CrudTableProps<T extends { id: number }> {
   emptyMessage?: string;
   headerContent?: ReactNode;
   sortItems?: (items: T[]) => T[];
+  exportFileName?: string;
+}
+
+function stringifyReactNode(node: ReactNode): string {
+  if (node === null || node === undefined || typeof node === 'boolean') {
+    return '';
+  }
+
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(stringifyReactNode).filter(Boolean).join(' ');
+  }
+
+  if (isValidElement<{ children?: ReactNode; label?: ReactNode }>(node)) {
+    return [node.props.label, node.props.children]
+      .map(stringifyReactNode)
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  return '';
 }
 
 export function CrudTable<T extends { id: number }>({
@@ -64,6 +87,7 @@ export function CrudTable<T extends { id: number }>({
   emptyMessage,
   headerContent,
   sortItems,
+  exportFileName,
 }: CrudTableProps<T>) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<T | undefined>();
@@ -72,6 +96,44 @@ export function CrudTable<T extends { id: number }>({
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const list = sortItems ? sortItems(items) : items;
+  const gridColumns = useMemo<GridColDef<T>[]>(
+    () => [
+      ...columns.map((column, index) => ({
+        field: `column${index}`,
+        headerName: column.label,
+        flex: column.flex ?? 1,
+        minWidth: column.minWidth ?? 140,
+        align: column.align,
+        headerAlign: column.align,
+        type: column.type,
+        valueGetter: (_value: unknown, row: T) =>
+          column.exportValue
+            ? column.exportValue(row)
+            : stringifyReactNode(column.render(row)),
+        renderCell: ({ row }: { row: T }) => column.render(row),
+      })),
+      {
+        field: 'actions',
+        headerName: 'Acoes',
+        width: 110,
+        align: 'center',
+        headerAlign: 'center',
+        sortable: false,
+        filterable: false,
+        disableExport: true,
+        renderCell: ({ row }: { row: T }) => (
+          <RowActions
+            onEdit={() => openEdit(row)}
+            onDelete={() => {
+              void handleDelete(row.id);
+            }}
+            disabled={isSubmitting || deletingId === row.id}
+          />
+        ),
+      },
+    ],
+    [columns, deletingId, isSubmitting],
+  );
 
   const openCreate = () => {
     setEditing(undefined);
@@ -118,43 +180,12 @@ export function CrudTable<T extends { id: number }>({
         {headerContent}
       </PageHeader>
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              {columns.map((column) => (
-                <TableCell key={column.label} align={column.align}>
-                  {column.label}
-                </TableCell>
-              ))}
-              <TableCell align="center">Acoes</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {list.map((item) => (
-              <TableRow key={item.id}>
-                {columns.map((column) => (
-                  <TableCell key={column.label} align={column.align}>
-                    {column.render(item)}
-                  </TableCell>
-                ))}
-                <TableCell align="center">
-                  <RowActions
-                    onEdit={() => openEdit(item)}
-                    onDelete={() => {
-                      void handleDelete(item.id);
-                    }}
-                    disabled={isSubmitting || deletingId === item.id}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-            {list.length === 0 && (
-              <EmptyTableRow colSpan={columns.length + 1} message={emptyMessage} />
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      <AppDataGrid
+        rows={list}
+        columns={gridColumns}
+        emptyMessage={emptyMessage}
+        exportFileName={exportFileName ?? actionLabel.toLowerCase().replace(/\s+/g, '-')}
+      />
 
       <Dialog
         open={dialogOpen}

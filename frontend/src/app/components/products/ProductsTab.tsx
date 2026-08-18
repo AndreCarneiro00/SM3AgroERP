@@ -1,25 +1,22 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Box,
-  Card,
   Chip,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Typography,
 } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
 import type {
   Product,
   ProductInput,
+  ProductRow,
   ProductType,
 } from '../../../domains/products/model/entities';
 import {
   useProductsCatalogData,
   useProductsCatalogMutations,
 } from '../../../domains/products/ui/hooks';
+import { AppDataGrid } from '../shared/AppDataGrid';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
 import { ProductDialog } from './ProductDialog';
@@ -49,6 +46,106 @@ export function ProductsTab() {
 
   const saving = createProduct.isPending || updateProduct.isPending;
 
+  const columns = useMemo<GridColDef<ProductRow>[]>(
+    () => [
+      {
+        field: 'name',
+        headerName: 'Nome',
+        flex: 1.2,
+        minWidth: 180,
+        renderCell: ({ row }) => (
+          <Typography variant="body2" fontWeight={500}>
+            {row.name}
+          </Typography>
+        ),
+      },
+      {
+        field: 'familyName',
+        headerName: 'Familia',
+        flex: 1,
+        minWidth: 140,
+      },
+      {
+        field: 'unitName',
+        headerName: 'Unidade de Medida',
+        flex: 1,
+        minWidth: 150,
+      },
+      {
+        field: 'productType',
+        headerName: 'Tipo',
+        flex: 1,
+        minWidth: 150,
+        valueFormatter: (value) => labelProductType(value as ProductType),
+      },
+      {
+        field: 'hasStock',
+        headerName: 'Estoque',
+        flex: 0.9,
+        minWidth: 150,
+        valueFormatter: (value) => labelStockControl(value as boolean | null),
+        renderCell: ({ row }) => (
+          <Stack spacing={0.25}>
+            <Chip
+              label={labelStockControl(row.hasStock)}
+              size="small"
+              color={
+                row.hasStock === true
+                  ? 'info'
+                  : row.hasStock === false
+                    ? 'default'
+                    : 'warning'
+              }
+              sx={{ height: 20, width: 'fit-content' }}
+            />
+            {row.hasStock && row.stockControlStartDate && (
+              <Typography variant="caption" color="text.secondary">
+                {formatDate(row.stockControlStartDate)}
+              </Typography>
+            )}
+          </Stack>
+        ),
+      },
+      {
+        field: 'active',
+        headerName: 'Status',
+        flex: 0.7,
+        minWidth: 110,
+        valueFormatter: (value) => (value ? 'Ativo' : 'Inativo'),
+        renderCell: ({ row }) => (
+          <Chip
+            label={row.active ? 'Ativo' : 'Inativo'}
+            size="small"
+            color={row.active ? 'success' : 'default'}
+            sx={{ height: 20 }}
+          />
+        ),
+      },
+      {
+        field: 'actions',
+        headerName: 'Acoes',
+        width: 110,
+        align: 'center',
+        headerAlign: 'center',
+        sortable: false,
+        filterable: false,
+        disableExport: true,
+        renderCell: ({ row }) => (
+          <RowActions
+            onEdit={() => {
+              setEditing(row);
+              setDialogOpen(true);
+            }}
+            onDelete={() => {
+              void handleDelete(row.id);
+            }}
+          />
+        ),
+      },
+    ],
+    [deleteProduct],
+  );
+
   return (
     <Box>
       <PageHeader
@@ -59,84 +156,13 @@ export function ProductsTab() {
         }}
       />
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Nome</TableCell>
-              <TableCell>Familia</TableCell>
-              <TableCell>Unidade de Medida</TableCell>
-              <TableCell>Tipo</TableCell>
-              <TableCell>Estoque</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="center">Acoes</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading && (
-              <TableRow>
-                <TableCell colSpan={7}>
-                  <Typography variant="body2" color="text.secondary">
-                    Carregando produtos...
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-            {productRows.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {product.name}
-                  </Typography>
-                </TableCell>
-                <TableCell>{product.familyName}</TableCell>
-                <TableCell>{product.unitName}</TableCell>
-                <TableCell>{labelProductType(product.productType)}</TableCell>
-                <TableCell>
-                  <Stack spacing={0.25}>
-                    <Chip
-                      label={labelStockControl(product.hasStock)}
-                      size="small"
-                      color={
-                        product.hasStock === true
-                          ? 'info'
-                          : product.hasStock === false
-                            ? 'default'
-                            : 'warning'
-                      }
-                      sx={{ height: 20, width: 'fit-content' }}
-                    />
-                    {product.hasStock && product.stockControlStartDate && (
-                      <Typography variant="caption" color="text.secondary">
-                        {formatDate(product.stockControlStartDate)}
-                      </Typography>
-                    )}
-                  </Stack>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={product.active ? 'Ativo' : 'Inativo'}
-                    size="small"
-                    color={product.active ? 'success' : 'default'}
-                    sx={{ height: 20 }}
-                  />
-                </TableCell>
-                <TableCell align="center">
-                  <RowActions
-                    onEdit={() => {
-                      setEditing(product);
-                      setDialogOpen(true);
-                    }}
-                    onDelete={() => {
-                      void handleDelete(product.id);
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+      <AppDataGrid
+        rows={productRows}
+        columns={columns}
+        loading={isLoading}
+        emptyMessage="Nenhum produto cadastrado."
+        exportFileName="produtos"
+      />
 
       <ProductDialog
         open={dialogOpen}

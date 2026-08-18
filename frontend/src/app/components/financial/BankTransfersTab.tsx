@@ -1,14 +1,9 @@
 import { useState } from 'react';
 import {
   Box,
-  Card,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Typography,
 } from '@mui/material';
+import type { GridColDef } from '@mui/x-data-grid';
 import {
   selectBankAccountLabelById,
 } from '../../../domains/banking/selectors/selectors';
@@ -22,7 +17,7 @@ import {
   useFinancialMutations,
 } from '../../../domains/financial/ui/hooks';
 import { extractApiErrorMessage } from '../../../core/http/client';
-import { EmptyTableRow } from '../shared/EmptyTableRow';
+import { AppDataGrid } from '../shared/AppDataGrid';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
 import { BankTransferDialog } from './BankTransferDialog';
@@ -66,6 +61,75 @@ export function BankTransfersTab() {
     }
   };
 
+  const columns: GridColDef<BankTransfer>[] = [
+    {
+      field: 'sourceBankAccount',
+      headerName: 'Conta Origem',
+      flex: 1,
+      minWidth: 170,
+      valueGetter: (_, row) =>
+        selectBankAccountLabelById(catalog, row.sourceBankAccountId),
+    },
+    {
+      field: 'destinationBankAccount',
+      headerName: 'Conta Destino',
+      flex: 1,
+      minWidth: 170,
+      valueGetter: (_, row) =>
+        selectBankAccountLabelById(catalog, row.destinationBankAccountId),
+    },
+    {
+      field: 'transferDate',
+      headerName: 'Data',
+      flex: 0.7,
+      minWidth: 120,
+      valueFormatter: (value) => fmtDate(value as string),
+    },
+    {
+      field: 'observation',
+      headerName: 'Observacao',
+      flex: 1.2,
+      minWidth: 180,
+      valueFormatter: (value) => value ?? '-',
+    },
+    {
+      field: 'amount',
+      headerName: 'Valor',
+      type: 'number',
+      flex: 0.7,
+      minWidth: 130,
+      align: 'right',
+      headerAlign: 'right',
+      valueFormatter: (value) => fmtBRL((value as number | undefined) ?? 0),
+      renderCell: ({ row }) => (
+        <Typography variant="body2" fontWeight={700} color="info.main">
+          {fmtBRL(row.amount)}
+        </Typography>
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'Acoes',
+      width: 110,
+      align: 'center',
+      headerAlign: 'center',
+      sortable: false,
+      filterable: false,
+      disableExport: true,
+      renderCell: ({ row }) => (
+        <RowActions
+          onEdit={() => {
+            setEditing(row);
+            setDialogOpen(true);
+          }}
+          onDelete={() => {
+            void deleteBankTransfer.mutateAsync(row.id);
+          }}
+        />
+      ),
+    },
+  ];
+
   return (
     <Box>
       <PageHeader
@@ -76,64 +140,12 @@ export function BankTransfersTab() {
         }}
       />
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Conta Origem</TableCell>
-              <TableCell>Conta Destino</TableCell>
-              <TableCell>Data</TableCell>
-              <TableCell>Observacao</TableCell>
-              <TableCell align="right">Valor</TableCell>
-              <TableCell align="center">Acoes</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {sorted.map((bankTransfer) => (
-              <TableRow key={bankTransfer.id}>
-                <TableCell>
-                  {selectBankAccountLabelById(
-                    catalog,
-                    bankTransfer.sourceBankAccountId,
-                  )}
-                </TableCell>
-                <TableCell>
-                  {selectBankAccountLabelById(
-                    catalog,
-                    bankTransfer.destinationBankAccountId,
-                  )}
-                </TableCell>
-                <TableCell>{fmtDate(bankTransfer.transferDate)}</TableCell>
-                <TableCell sx={{ color: 'text.secondary' }}>
-                  {bankTransfer.observation ?? '-'}
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2" fontWeight={700} color="info.main">
-                    {fmtBRL(bankTransfer.amount)}
-                  </Typography>
-                </TableCell>
-                <TableCell align="center">
-                  <RowActions
-                    onEdit={() => {
-                      setEditing(bankTransfer);
-                      setDialogOpen(true);
-                    }}
-                    onDelete={() => {
-                      void deleteBankTransfer.mutateAsync(bankTransfer.id);
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-            {sorted.length === 0 && (
-              <EmptyTableRow
-                colSpan={6}
-                message="Nenhuma transferencia encontrada."
-              />
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      <AppDataGrid
+        rows={sorted}
+        columns={columns}
+        emptyMessage="Nenhuma transferencia encontrada."
+        exportFileName="transferencias-bancarias"
+      />
 
       <BankTransferDialog
         open={dialogOpen}
