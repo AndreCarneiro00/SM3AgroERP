@@ -2,23 +2,17 @@ import { useState } from 'react';
 import {
   Box,
   Button,
-  Card,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
-import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
+import { DataTable, type TableColumn } from '../shared/table';
 
 interface SimpleItem {
   id: number;
@@ -29,6 +23,9 @@ interface Column<T> {
   key: keyof T;
   label: string;
   render?: (item: T) => React.ReactNode;
+  align?: 'left' | 'center' | 'right';
+  minWidth?: number | string;
+  nowrap?: boolean;
 }
 
 interface Props<T extends SimpleItem> {
@@ -87,64 +84,50 @@ export function SimpleListTab<T extends SimpleItem>({
     setEditing(undefined);
   };
 
+  const columns: TableColumn<T>[] = [
+    {
+      id: 'name',
+      label: 'Nome',
+      minWidth: 220,
+      render: (item) => (
+        <Typography variant="body2" fontWeight={500}>
+          {item.name}
+        </Typography>
+      ),
+    },
+    ...(extraColumns?.map((column) => ({
+      id: String(column.key),
+      label: column.label,
+      align: column.align,
+      minWidth: column.minWidth ?? 160,
+      nowrap: column.nowrap,
+      cellSx: { color: 'text.secondary' },
+      render: (item: T) =>
+        column.render ? column.render(item) : String(item[column.key] ?? '-'),
+    })) ?? []),
+  ];
+
   return (
     <Box>
       <PageHeader actionLabel={`Novo(a) ${entityLabel}`} onAction={openCreate} />
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Nome</TableCell>
-              {extraColumns?.map((column) => (
-                <TableCell key={String(column.key)}>{column.label}</TableCell>
-              ))}
-              <TableCell align="center">Acoes</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading && (
-              <EmptyTableRow
-                colSpan={(extraColumns?.length ?? 0) + 2}
-                message={`Carregando ${entityLabel.toLowerCase()}...`}
-              />
-            )}
-            {items.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {item.name}
-                  </Typography>
-                </TableCell>
-                {extraColumns?.map((column) => (
-                  <TableCell
-                    key={String(column.key)}
-                    sx={{ color: 'text.secondary' }}
-                  >
-                    {column.render
-                      ? column.render(item)
-                      : String(item[column.key] ?? '-')}
-                  </TableCell>
-                ))}
-                <TableCell align="center">
-                  <RowActions
-                    onEdit={() => openEdit(item)}
-                    onDelete={() => {
-                      void onDelete(item);
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-            {!isLoading && items.length === 0 && (
-              <EmptyTableRow
-                colSpan={(extraColumns?.length ?? 0) + 2}
-                message={emptyMessage}
-              />
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      <DataTable
+        items={items}
+        columns={columns}
+        getRowId={(item) => item.id}
+        isLoading={isLoading}
+        loadingMessage={`Carregando ${entityLabel.toLowerCase()}...`}
+        emptyMessage={emptyMessage}
+        minWidth={Math.max(640, columns.length * 180 + 120)}
+        renderActions={(item) => (
+          <RowActions
+            onEdit={() => openEdit(item)}
+            onDelete={() => {
+              void onDelete(item);
+            }}
+          />
+        )}
+      />
 
       <Dialog
         open={dialogOpen}

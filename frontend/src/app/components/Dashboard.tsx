@@ -8,7 +8,6 @@ import {
   LinearProgress,
   Paper,
   Stack,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -44,6 +43,7 @@ import {
 } from '../../domains/master-data/selectors/selectors';
 import { useMasterDataCatalogData } from '../../domains/master-data/ui/hooks';
 import { appPaths } from '../router/routeMeta';
+import { ResponsiveTableFrame } from './shared/table';
 
 const fmtBRL = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -497,7 +497,7 @@ export function Dashboard() {
               Ver todas {'>'}
             </Typography>
           </Stack>
-          <Table size="small">
+          <ResponsiveTableFrame minWidth={860} withCard={false}>
             <TableHead>
               <TableRow>
                 <TableCell>Descricao</TableCell>
@@ -573,7 +573,7 @@ export function Dashboard() {
                 );
               })}
             </TableBody>
-          </Table>
+          </ResponsiveTableFrame>
         </CardContent>
       </Card>
     </Box>

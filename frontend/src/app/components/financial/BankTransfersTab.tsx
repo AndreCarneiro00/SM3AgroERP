@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import {
   Box,
-  Card,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -25,6 +23,7 @@ import { extractApiErrorMessage } from '../../../core/http/client';
 import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
+import { ResponsiveTableFrame } from '../shared/table';
 import { BankTransferDialog } from './BankTransferDialog';
 
 const fmtBRL = (value: number) =>
@@ -76,64 +75,62 @@ export function BankTransfersTab() {
         }}
       />
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Conta Origem</TableCell>
-              <TableCell>Conta Destino</TableCell>
-              <TableCell>Data</TableCell>
-              <TableCell>Observacao</TableCell>
-              <TableCell align="right">Valor</TableCell>
-              <TableCell align="center">Acoes</TableCell>
+      <ResponsiveTableFrame minWidth={900}>
+        <TableHead>
+          <TableRow>
+            <TableCell>Conta Origem</TableCell>
+            <TableCell>Conta Destino</TableCell>
+            <TableCell>Data</TableCell>
+            <TableCell>Observacao</TableCell>
+            <TableCell align="right">Valor</TableCell>
+            <TableCell align="center">Acoes</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {sorted.map((bankTransfer) => (
+            <TableRow key={bankTransfer.id}>
+              <TableCell>
+                {selectBankAccountLabelById(
+                  catalog,
+                  bankTransfer.sourceBankAccountId,
+                )}
+              </TableCell>
+              <TableCell>
+                {selectBankAccountLabelById(
+                  catalog,
+                  bankTransfer.destinationBankAccountId,
+                )}
+              </TableCell>
+              <TableCell>{fmtDate(bankTransfer.transferDate)}</TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>
+                {bankTransfer.observation ?? '-'}
+              </TableCell>
+              <TableCell align="right">
+                <Typography variant="body2" fontWeight={700} color="info.main">
+                  {fmtBRL(bankTransfer.amount)}
+                </Typography>
+              </TableCell>
+              <TableCell align="center">
+                <RowActions
+                  onEdit={() => {
+                    setEditing(bankTransfer);
+                    setDialogOpen(true);
+                  }}
+                  onDelete={() => {
+                    void deleteBankTransfer.mutateAsync(bankTransfer.id);
+                  }}
+                />
+              </TableCell>
             </TableRow>
-          </TableHead>
-          <TableBody>
-            {sorted.map((bankTransfer) => (
-              <TableRow key={bankTransfer.id}>
-                <TableCell>
-                  {selectBankAccountLabelById(
-                    catalog,
-                    bankTransfer.sourceBankAccountId,
-                  )}
-                </TableCell>
-                <TableCell>
-                  {selectBankAccountLabelById(
-                    catalog,
-                    bankTransfer.destinationBankAccountId,
-                  )}
-                </TableCell>
-                <TableCell>{fmtDate(bankTransfer.transferDate)}</TableCell>
-                <TableCell sx={{ color: 'text.secondary' }}>
-                  {bankTransfer.observation ?? '-'}
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2" fontWeight={700} color="info.main">
-                    {fmtBRL(bankTransfer.amount)}
-                  </Typography>
-                </TableCell>
-                <TableCell align="center">
-                  <RowActions
-                    onEdit={() => {
-                      setEditing(bankTransfer);
-                      setDialogOpen(true);
-                    }}
-                    onDelete={() => {
-                      void deleteBankTransfer.mutateAsync(bankTransfer.id);
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-            {sorted.length === 0 && (
-              <EmptyTableRow
-                colSpan={6}
-                message="Nenhuma transferencia encontrada."
-              />
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+          ))}
+          {sorted.length === 0 && (
+            <EmptyTableRow
+              colSpan={6}
+              message="Nenhuma transferencia encontrada."
+            />
+          )}
+        </TableBody>
+      </ResponsiveTableFrame>
 
       <BankTransferDialog
         open={dialogOpen}

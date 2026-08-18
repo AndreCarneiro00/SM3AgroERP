@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import {
   Box,
-  Card,
   Chip,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -25,6 +23,7 @@ import { useMasterDataCatalogData } from '../../../domains/master-data/ui/hooks'
 import { CostCenterDialog } from './CostCenterDialog';
 import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
+import { ResponsiveTableFrame } from '../shared/table';
 import { TreeNode } from '../shared/TreeNode';
 
 export function CostCentersTab() {
@@ -86,73 +85,71 @@ export function CostCentersTab() {
     <Box>
       <PageHeader actionLabel="Novo Centro Raiz" onAction={openCreate} />
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Centro de Custo</TableCell>
-              <TableCell>Tipo</TableCell>
-              <TableCell>Grupo Atividade</TableCell>
-              <TableCell>Lancamentos</TableCell>
-              <TableCell align="center">Acoes</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {roots.map((root) => (
-              <TreeNode
-                key={root.id}
-                node={root}
-                allNodes={costCenters}
-                depth={0}
-                onEdit={openEdit}
-                onDelete={(node) => {
-                  void handleDelete(node);
-                }}
-                onAddChild={openChild}
-                getParentId={(item) => item.parentId}
-                renderExtraCells={(node) => (
-                  <>
-                    <TableCell>
-                      {node.type && (
-                        <Chip
-                          label={node.type}
-                          size="small"
-                          color={node.type === 'CAPEX' ? 'warning' : 'info'}
-                          sx={{ height: 18, fontSize: '0.68rem' }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="caption" color="text.secondary">
-                        {getActivityGroupName(node.activityGroupId)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
+      <ResponsiveTableFrame minWidth={900}>
+        <TableHead>
+          <TableRow>
+            <TableCell>Centro de Custo</TableCell>
+            <TableCell>Tipo</TableCell>
+            <TableCell>Grupo Atividade</TableCell>
+            <TableCell>Lancamentos</TableCell>
+            <TableCell align="center">Acoes</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {roots.map((root) => (
+            <TreeNode
+              key={root.id}
+              node={root}
+              allNodes={costCenters}
+              depth={0}
+              onEdit={openEdit}
+              onDelete={(node) => {
+                void handleDelete(node);
+              }}
+              onAddChild={openChild}
+              getParentId={(item) => item.parentId}
+              renderExtraCells={(node) => (
+                <>
+                  <TableCell>
+                    {node.type && (
                       <Chip
-                        label={node.acceptsTransaction ? 'Sim' : 'Nao'}
+                        label={node.type}
                         size="small"
-                        color={node.acceptsTransaction ? 'success' : 'default'}
-                        variant="outlined"
+                        color={node.type === 'CAPEX' ? 'warning' : 'info'}
                         sx={{ height: 18, fontSize: '0.68rem' }}
                       />
-                    </TableCell>
-                  </>
-                )}
-              />
-            ))}
-            {roots.length === 0 && (
-              <EmptyTableRow
-                colSpan={5}
-                message={
-                  isLoading
-                    ? 'Carregando centros de custo...'
-                    : 'Nenhum centro de custo cadastrado.'
-                }
-              />
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="caption" color="text.secondary">
+                      {getActivityGroupName(node.activityGroupId)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={node.acceptsTransaction ? 'Sim' : 'Nao'}
+                      size="small"
+                      color={node.acceptsTransaction ? 'success' : 'default'}
+                      variant="outlined"
+                      sx={{ height: 18, fontSize: '0.68rem' }}
+                    />
+                  </TableCell>
+                </>
+              )}
+            />
+          ))}
+          {roots.length === 0 && (
+            <EmptyTableRow
+              colSpan={5}
+              message={
+                isLoading
+                  ? 'Carregando centros de custo...'
+                  : 'Nenhum centro de custo cadastrado.'
+              }
+            />
+          )}
+        </TableBody>
+      </ResponsiveTableFrame>
 
       <CostCenterDialog
         open={dialogOpen}

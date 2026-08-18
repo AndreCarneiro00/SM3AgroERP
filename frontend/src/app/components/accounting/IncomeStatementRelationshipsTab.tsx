@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   Button,
-  Card,
   Dialog,
   DialogActions,
   DialogContent,
@@ -11,7 +10,6 @@ import {
   MenuItem,
   Select,
   Stack,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -33,6 +31,7 @@ import {
 import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
+import { ResponsiveTableFrame } from '../shared/table';
 
 export function IncomeStatementRelationshipsTab() {
   const {
@@ -98,49 +97,47 @@ export function IncomeStatementRelationshipsTab() {
         onAction={openCreate}
       />
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Conta Contabil</TableCell>
-              <TableCell>Grupo DRE</TableCell>
-              <TableCell align="center">Acoes</TableCell>
+      <ResponsiveTableFrame minWidth={760}>
+        <TableHead>
+          <TableRow>
+            <TableCell>Conta Contabil</TableCell>
+            <TableCell>Grupo DRE</TableCell>
+            <TableCell align="center">Acoes</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {incomeStatementRelationshipRows.map((relationship) => (
+            <TableRow key={relationship.id}>
+              <TableCell>
+                <Typography variant="body2" fontWeight={500}>
+                  {relationship.chartOfAccountName}
+                </Typography>
+              </TableCell>
+              <TableCell>{relationship.incomeStatementGroupName}</TableCell>
+              <TableCell align="center">
+                <RowActions
+                  onEdit={() => openEdit(relationship)}
+                  onDelete={() => {
+                    void deleteIncomeStatementRelationship.mutateAsync(
+                      relationship.id,
+                    );
+                  }}
+                />
+              </TableCell>
             </TableRow>
-          </TableHead>
-          <TableBody>
-            {incomeStatementRelationshipRows.map((relationship) => (
-              <TableRow key={relationship.id}>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {relationship.chartOfAccountName}
-                  </Typography>
-                </TableCell>
-                <TableCell>{relationship.incomeStatementGroupName}</TableCell>
-                <TableCell align="center">
-                  <RowActions
-                    onEdit={() => openEdit(relationship)}
-                    onDelete={() => {
-                      void deleteIncomeStatementRelationship.mutateAsync(
-                        relationship.id,
-                      );
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-            {incomeStatementRelationshipRows.length === 0 && (
-              <EmptyTableRow
-                colSpan={3}
-                message={
-                  isLoading
-                    ? 'Carregando relacionamentos DRE...'
-                    : 'Nenhum relacionamento DRE cadastrado.'
-                }
-              />
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+          ))}
+          {incomeStatementRelationshipRows.length === 0 && (
+            <EmptyTableRow
+              colSpan={3}
+              message={
+                isLoading
+                  ? 'Carregando relacionamentos DRE...'
+                  : 'Nenhum relacionamento DRE cadastrado.'
+              }
+            />
+          )}
+        </TableBody>
+      </ResponsiveTableFrame>
 
       <Dialog
         open={dialogOpen}

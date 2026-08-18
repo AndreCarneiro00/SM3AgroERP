@@ -269,6 +269,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <Box
         sx={{
           flex: 1,
+          minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -302,7 +303,9 @@ export function Layout({ children }: { children: ReactNode }) {
             </Avatar>
           </Toolbar>
         </AppBar>
-        <Box sx={{ flex: 1, overflow: 'auto', p: 2.5 }}>{children}</Box>
+        <Box sx={{ flex: 1, minWidth: 0, overflow: 'auto', p: 2.5 }}>
+          {children}
+        </Box>
       </Box>
     </Box>
   );

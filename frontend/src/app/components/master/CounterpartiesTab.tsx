@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
   Box,
-  Card,
   Chip,
   FormControl,
   IconButton,
@@ -10,7 +9,6 @@ import {
   MenuItem,
   Select,
   Stack,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -30,6 +28,7 @@ import {
 import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
+import { ResponsiveTableFrame } from '../shared/table';
 import { CounterpartyDialog } from './CounterpartyDialog';
 
 export function CounterpartiesTab() {
@@ -128,112 +127,110 @@ export function CounterpartiesTab() {
         </FormControl>
       </PageHeader>
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Nome / Razao Social</TableCell>
-              <TableCell>Tipo</TableCell>
-              <TableCell>Documento</TableCell>
-              <TableCell>Cidade/UF</TableCell>
-              <TableCell>Telefone</TableCell>
-              <TableCell>Segmento</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="center">Acoes</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filtered.map((counterparty) => {
-              const typeColor: 'success' | 'warning' | 'default' =
-                counterparty.counterpartyTypeName === 'Cliente'
-                  ? 'success'
-                  : counterparty.counterpartyTypeName === 'Fornecedor'
-                    ? 'warning'
-                    : 'default';
+      <ResponsiveTableFrame minWidth={1200}>
+        <TableHead>
+          <TableRow>
+            <TableCell>Nome / Razao Social</TableCell>
+            <TableCell>Tipo</TableCell>
+            <TableCell>Documento</TableCell>
+            <TableCell>Cidade/UF</TableCell>
+            <TableCell>Telefone</TableCell>
+            <TableCell>Segmento</TableCell>
+            <TableCell>Status</TableCell>
+            <TableCell align="center">Acoes</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {filtered.map((counterparty) => {
+            const typeColor: 'success' | 'warning' | 'default' =
+              counterparty.counterpartyTypeName === 'Cliente'
+                ? 'success'
+                : counterparty.counterpartyTypeName === 'Fornecedor'
+                  ? 'warning'
+                  : 'default';
 
-              return (
-                <TableRow key={counterparty.id}>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
-                      {counterparty.displayName}
+            return (
+              <TableRow key={counterparty.id}>
+                <TableCell>
+                  <Typography variant="body2" fontWeight={500}>
+                    {counterparty.displayName}
+                  </Typography>
+                  {counterparty.tradeName && (
+                    <Typography variant="caption" color="text.secondary">
+                      {counterparty.legalName}
                     </Typography>
-                    {counterparty.tradeName && (
-                      <Typography variant="caption" color="text.secondary">
-                        {counterparty.legalName}
-                      </Typography>
-                    )}
-                    {counterparty.email && (
-                      <Typography variant="caption" color="text.secondary">
-                        {counterparty.email}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {counterparty.counterpartyTypeId && (
-                      <Chip
-                        label={counterparty.counterpartyTypeName}
-                        size="small"
-                        color={typeColor}
-                        sx={{ height: 20 }}
-                      />
-                    )}
-                  </TableCell>
-                  <TableCell
-                    sx={{ fontFamily: 'monospace', fontSize: '0.76rem' }}
-                  >
-                    {counterparty.documentType && (
-                      <Box
-                        component="span"
-                        sx={{ mr: 0.5, fontSize: '0.68rem', color: '#888' }}
-                      >
-                        {counterparty.documentType}
-                      </Box>
-                    )}
-                    {counterparty.document ?? '-'}
-                  </TableCell>
-                  <TableCell>
-                    {counterparty.city && counterparty.state
-                      ? `${counterparty.city}/${counterparty.state}`
-                      : counterparty.city ?? counterparty.state ?? '-'}
-                  </TableCell>
-                  <TableCell>{counterparty.phoneNumber ?? '-'}</TableCell>
-                  <TableCell sx={{ color: 'text.secondary' }}>
-                    {counterparty.segmentName}
-                  </TableCell>
-                  <TableCell>
+                  )}
+                  {counterparty.email && (
+                    <Typography variant="caption" color="text.secondary">
+                      {counterparty.email}
+                    </Typography>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {counterparty.counterpartyTypeId && (
                     <Chip
-                      label={counterparty.active ? 'Ativo' : 'Inativo'}
+                      label={counterparty.counterpartyTypeName}
                       size="small"
-                      color={counterparty.active ? 'success' : 'default'}
+                      color={typeColor}
                       sx={{ height: 20 }}
                     />
-                  </TableCell>
-                  <TableCell align="center">
-                    <RowActions
-                      onEdit={() => {
-                        const original = counterparties.find(
-                          (item) => item.id === counterparty.id,
-                        );
-                        setEditing(original);
-                        setDialogOpen(true);
-                      }}
-                      onDelete={() => {
-                        void deleteCounterparty.mutateAsync(counterparty.id);
-                      }}
-                    />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {filtered.length === 0 && (
-              <EmptyTableRow
-                colSpan={8}
-                message="Nenhuma contraparte encontrada."
-              />
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                  )}
+                </TableCell>
+                <TableCell
+                  sx={{ fontFamily: 'monospace', fontSize: '0.76rem' }}
+                >
+                  {counterparty.documentType && (
+                    <Box
+                      component="span"
+                      sx={{ mr: 0.5, fontSize: '0.68rem', color: '#888' }}
+                    >
+                      {counterparty.documentType}
+                    </Box>
+                  )}
+                  {counterparty.document ?? '-'}
+                </TableCell>
+                <TableCell>
+                  {counterparty.city && counterparty.state
+                    ? `${counterparty.city}/${counterparty.state}`
+                    : counterparty.city ?? counterparty.state ?? '-'}
+                </TableCell>
+                <TableCell>{counterparty.phoneNumber ?? '-'}</TableCell>
+                <TableCell sx={{ color: 'text.secondary' }}>
+                  {counterparty.segmentName}
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={counterparty.active ? 'Ativo' : 'Inativo'}
+                    size="small"
+                    color={counterparty.active ? 'success' : 'default'}
+                    sx={{ height: 20 }}
+                  />
+                </TableCell>
+                <TableCell align="center">
+                  <RowActions
+                    onEdit={() => {
+                      const original = counterparties.find(
+                        (item) => item.id === counterparty.id,
+                      );
+                      setEditing(original);
+                      setDialogOpen(true);
+                    }}
+                    onDelete={() => {
+                      void deleteCounterparty.mutateAsync(counterparty.id);
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+            );
+          })}
+          {filtered.length === 0 && (
+            <EmptyTableRow
+              colSpan={8}
+              message="Nenhuma contraparte encontrada."
+            />
+          )}
+        </TableBody>
+      </ResponsiveTableFrame>
 
       <CounterpartyDialog
         open={dialogOpen}

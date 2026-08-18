@@ -2,12 +2,10 @@ import { useState } from 'react';
 import {
   Box,
   Button,
-  Card,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -22,6 +20,7 @@ import {
 } from '../../../domains/products/ui/hooks';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
+import { ResponsiveTableFrame } from '../shared/table';
 
 export function FamiliesTab() {
   const { productFamilies, isLoading } = useProductsCatalogData();
@@ -67,44 +66,42 @@ export function FamiliesTab() {
     <Box>
       <PageHeader actionLabel="Nova Familia" onAction={openCreate} />
 
-      <Card>
-        <Table size="small">
-          <TableHead>
+      <ResponsiveTableFrame minWidth={640}>
+        <TableHead>
+          <TableRow>
+            <TableCell>Nome da Familia</TableCell>
+            <TableCell align="center">Acoes</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {isLoading && (
             <TableRow>
-              <TableCell>Nome da Familia</TableCell>
-              <TableCell align="center">Acoes</TableCell>
+              <TableCell colSpan={2}>
+                <Typography variant="body2" color="text.secondary">
+                  Carregando familias...
+                </Typography>
+              </TableCell>
             </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading && (
-              <TableRow>
-                <TableCell colSpan={2}>
-                  <Typography variant="body2" color="text.secondary">
-                    Carregando familias...
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-            {productFamilies.map((productFamily) => (
-              <TableRow key={productFamily.id}>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {productFamily.name}
-                  </Typography>
-                </TableCell>
-                <TableCell align="center">
-                  <RowActions
-                    onEdit={() => openEdit(productFamily)}
-                    onDelete={() => {
-                      void deleteProductFamily.mutateAsync(productFamily.id);
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+          )}
+          {productFamilies.map((productFamily) => (
+            <TableRow key={productFamily.id}>
+              <TableCell>
+                <Typography variant="body2" fontWeight={500}>
+                  {productFamily.name}
+                </Typography>
+              </TableCell>
+              <TableCell align="center">
+                <RowActions
+                  onEdit={() => openEdit(productFamily)}
+                  onDelete={() => {
+                    void deleteProductFamily.mutateAsync(productFamily.id);
+                  }}
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </ResponsiveTableFrame>
 
       <Dialog
         open={dialogOpen}

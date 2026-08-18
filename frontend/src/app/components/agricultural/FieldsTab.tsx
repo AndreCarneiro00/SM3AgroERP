@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import {
   Box,
-  Card,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -20,6 +18,7 @@ import type {
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
 import { StatBox } from '../shared/StatBox';
+import { ResponsiveTableFrame } from '../shared/table';
 import { FieldDialog } from './FieldDialog';
 
 export function FieldsTab() {
@@ -56,42 +55,40 @@ export function FieldsTab() {
         <StatBox label="Area Total" value={`${totalArea.toFixed(1)} ha`} />
       </PageHeader>
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Nome</TableCell>
-              <TableCell>Area (ha)</TableCell>
-              <TableCell align="center">Acoes</TableCell>
+      <ResponsiveTableFrame minWidth={640}>
+        <TableHead>
+          <TableRow>
+            <TableCell>Nome</TableCell>
+            <TableCell>Area (ha)</TableCell>
+            <TableCell align="center">Acoes</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {fields.map((field) => (
+            <TableRow key={field.id}>
+              <TableCell>
+                <Typography variant="body2" fontWeight={500}>
+                  {field.name}
+                </Typography>
+              </TableCell>
+              <TableCell>
+                {field.areaHectares?.toFixed(1) ?? '-'} ha
+              </TableCell>
+              <TableCell align="center">
+                <RowActions
+                  onEdit={() => {
+                    setEditing(field);
+                    setDialogOpen(true);
+                  }}
+                  onDelete={() => {
+                    void deleteField.mutateAsync(field.id);
+                  }}
+                />
+              </TableCell>
             </TableRow>
-          </TableHead>
-          <TableBody>
-            {fields.map((field) => (
-              <TableRow key={field.id}>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {field.name}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  {field.areaHectares?.toFixed(1) ?? '-'} ha
-                </TableCell>
-                <TableCell align="center">
-                  <RowActions
-                    onEdit={() => {
-                      setEditing(field);
-                      setDialogOpen(true);
-                    }}
-                    onDelete={() => {
-                      void deleteField.mutateAsync(field.id);
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+          ))}
+        </TableBody>
+      </ResponsiveTableFrame>
 
       <FieldDialog
         open={dialogOpen}

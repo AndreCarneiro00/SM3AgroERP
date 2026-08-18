@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import {
   Box,
-  Card,
   Chip,
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -20,6 +18,7 @@ import {
 import { ChartDialog } from './ChartDialog';
 import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
+import { ResponsiveTableFrame } from '../shared/table';
 import { TreeNode } from '../shared/TreeNode';
 
 const TYPE_COLOR: Record<
@@ -102,65 +101,63 @@ export function ChartOfAccountsTab() {
     <Box>
       <PageHeader actionLabel="Nova Conta Raiz" onAction={openCreate} />
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Conta</TableCell>
-              <TableCell>Tipo</TableCell>
-              <TableCell>Lancamentos</TableCell>
-              <TableCell align="center">Acoes</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {roots.map((root) => (
-              <TreeNode
-                key={root.id}
-                node={root}
-                allNodes={chartOfAccounts}
-                depth={0}
-                onEdit={openEdit}
-                onDelete={(node) => {
-                  void handleDelete(node);
-                }}
-                onAddChild={openChild}
-                getParentId={(item) => item.parentId}
-                renderExtraCells={(node) => (
-                  <>
-                    <TableCell>
-                      <Chip
-                        label={TYPE_LABEL[node.type]}
-                        size="small"
-                        color={TYPE_COLOR[node.type]}
-                        sx={{ height: 18, fontSize: '0.68rem' }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={node.acceptsTransaction ? 'Sim' : 'Nao'}
-                        size="small"
-                        color={node.acceptsTransaction ? 'success' : 'default'}
-                        variant="outlined"
-                        sx={{ height: 18, fontSize: '0.68rem' }}
-                      />
-                    </TableCell>
-                  </>
-                )}
-              />
-            ))}
-            {roots.length === 0 && (
-              <EmptyTableRow
-                colSpan={4}
-                message={
-                  isLoading
-                    ? 'Carregando plano de contas...'
-                    : 'Nenhuma conta contabil cadastrada.'
-                }
-              />
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      <ResponsiveTableFrame minWidth={820}>
+        <TableHead>
+          <TableRow>
+            <TableCell>Conta</TableCell>
+            <TableCell>Tipo</TableCell>
+            <TableCell>Lancamentos</TableCell>
+            <TableCell align="center">Acoes</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {roots.map((root) => (
+            <TreeNode
+              key={root.id}
+              node={root}
+              allNodes={chartOfAccounts}
+              depth={0}
+              onEdit={openEdit}
+              onDelete={(node) => {
+                void handleDelete(node);
+              }}
+              onAddChild={openChild}
+              getParentId={(item) => item.parentId}
+              renderExtraCells={(node) => (
+                <>
+                  <TableCell>
+                    <Chip
+                      label={TYPE_LABEL[node.type]}
+                      size="small"
+                      color={TYPE_COLOR[node.type]}
+                      sx={{ height: 18, fontSize: '0.68rem' }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={node.acceptsTransaction ? 'Sim' : 'Nao'}
+                      size="small"
+                      color={node.acceptsTransaction ? 'success' : 'default'}
+                      variant="outlined"
+                      sx={{ height: 18, fontSize: '0.68rem' }}
+                    />
+                  </TableCell>
+                </>
+              )}
+            />
+          ))}
+          {roots.length === 0 && (
+            <EmptyTableRow
+              colSpan={4}
+              message={
+                isLoading
+                  ? 'Carregando plano de contas...'
+                  : 'Nenhuma conta contabil cadastrada.'
+              }
+            />
+          )}
+        </TableBody>
+      </ResponsiveTableFrame>
 
       <ChartDialog
         open={dialogOpen}
