@@ -46,6 +46,9 @@ import {
   useFinancialCatalogData,
   useFinancialMutations,
 } from '../../../domains/financial/ui/hooks';
+import {
+  selectInventoryBatchLabelById,
+} from '../../../domains/inventory/selectors/selectors';
 import { useInventoryCatalogData } from '../../../domains/inventory/ui/hooks';
 import {
   selectCounterpartyLabelById,
@@ -245,7 +248,7 @@ export function TransactionsTab() {
     documentTypes,
   } = useMasterDataCatalogData();
   const { catalog: productsCatalog, products } = useProductsCatalogData();
-  const { inventoryBatches } = useInventoryCatalogData();
+  const { catalog: inventoryCatalog, inventoryBatches } = useInventoryCatalogData();
 
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'INCOME' | 'EXPENSE'>(
     'ALL',
@@ -822,7 +825,11 @@ export function TransactionsTab() {
                                               variant="caption"
                                               color="text.secondary"
                                             >
-                                              Lote #{item.inventoryBatchId}
+                                              Lote{' '}
+                                              {selectInventoryBatchLabelById(
+                                                inventoryCatalog,
+                                                item.inventoryBatchId,
+                                              )}
                                             </Typography>
                                           </Stack>
                                         ) : (
