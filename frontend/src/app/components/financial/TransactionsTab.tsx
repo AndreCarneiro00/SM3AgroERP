@@ -16,6 +16,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TextField,
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
@@ -30,6 +31,10 @@ import { selectChartOfAccountLabelById, selectCostCenterLabelById } from '../../
 import { useAccountingCatalogData } from '../../../domains/accounting/ui/hooks';
 import { selectBankAccountLabelById } from '../../../domains/banking/selectors/selectors';
 import { useBankAccountsData } from '../../../domains/banking/ui/hooks';
+import {
+  buildFinancialDateRange,
+  getCurrentYearDateRange,
+} from '../../../domains/financial/model/dateRange';
 import type {
   CreateFinancialTransactionInput,
   FinancialTransaction,
@@ -212,12 +217,24 @@ function buildFulfillmentAllocationsByItemId(
 }
 
 export function TransactionsTab() {
+  const [periodStart, setPeriodStart] = useState(
+    () => getCurrentYearDateRange().startDate,
+  );
+  const [periodEnd, setPeriodEnd] = useState(
+    () => getCurrentYearDateRange().endDate,
+  );
+  const financialTransactionsDateRange = buildFinancialDateRange(
+    periodStart,
+    periodEnd,
+  );
   const {
     financialTransactions,
     financialTransactionAttachments,
     financialTransactionFulfillments,
     financialTransactionItems,
-  } = useFinancialCatalogData();
+  } = useFinancialCatalogData({
+    financialTransactions: financialTransactionsDateRange,
+  });
   const {
     createFinancialTransaction,
     updateFinancialTransaction,
@@ -500,6 +517,26 @@ export function TransactionsTab() {
             <MenuItem value="CANCELED">Cancelado</MenuItem>
           </Select>
         </FormControl>
+
+        <TextField
+          label="Inicio"
+          type="date"
+          size="small"
+          value={periodStart}
+          onChange={(event) => setPeriodStart(event.target.value)}
+          slotProps={{ inputLabel: { shrink: true } }}
+          sx={{ minWidth: 145 }}
+        />
+
+        <TextField
+          label="Fim"
+          type="date"
+          size="small"
+          value={periodEnd}
+          onChange={(event) => setPeriodEnd(event.target.value)}
+          slotProps={{ inputLabel: { shrink: true } }}
+          sx={{ minWidth: 145 }}
+        />
       </PageHeader>
 
       <Stack direction="row" spacing={2} mb={1.5}>

@@ -43,6 +43,31 @@ function notFound() {
   return HttpResponse.json({ message: 'Not found' }, { status: 404 });
 }
 
+function getDateRange(request: Request) {
+  const url = new URL(request.url);
+
+  return {
+    startDate: url.searchParams.get('startDate'),
+    endDate: url.searchParams.get('endDate'),
+  };
+}
+
+function isInDateRange(
+  value: string | undefined,
+  startDate: string | null,
+  endDate: string | null,
+) {
+  if (!startDate && !endDate) {
+    return true;
+  }
+
+  if (!value) {
+    return false;
+  }
+
+  return (!startDate || value >= startDate) && (!endDate || value <= endDate);
+}
+
 function transactionNotFound(id?: number) {
   return fixtures.financialTransactions.find((item) => item.id === id);
 }
@@ -574,9 +599,15 @@ function rollbackCreatedTransaction(
 }
 
 export const financialHandlers: RequestHandler[] = [
-  http.get(`/api/financial-transactions`, () => {
+  http.get(`/api/financial-transactions`, ({ request }) => {
     syncAllTransactions();
-    return HttpResponse.json(fixtures.financialTransactions);
+    const { startDate, endDate } = getDateRange(request);
+    const filtered = fixtures.financialTransactions.filter(
+      (financialTransaction) =>
+        isInDateRange(financialTransaction.issueDate, startDate, endDate),
+    );
+
+    return HttpResponse.json(filtered);
   }),
   http.get(`/api/financial-transactions/:id`, ({ params }) => {
     const id = parseId(String(params.id));
@@ -1085,8 +1116,13 @@ export const financialHandlers: RequestHandler[] = [
     },
   ),
 
-  http.get(`/api/bank-transfers`, () => {
-    return HttpResponse.json(fixtures.bankTransfers);
+  http.get(`/api/bank-transfers`, ({ request }) => {
+    const { startDate, endDate } = getDateRange(request);
+    const filtered = fixtures.bankTransfers.filter((bankTransfer) =>
+      isInDateRange(bankTransfer.transferDate, startDate, endDate),
+    );
+
+    return HttpResponse.json(filtered);
   }),
   http.post(`/api/bank-transfers`, async ({ request }) => {
     const payload = (await request.json()) as CreateBankTransferDto;

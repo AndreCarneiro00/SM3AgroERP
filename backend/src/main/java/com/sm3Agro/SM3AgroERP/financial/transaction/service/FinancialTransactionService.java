@@ -16,12 +16,12 @@ import com.sm3Agro.SM3AgroERP.masterData.counterparty.entity.Counterparty;
 import com.sm3Agro.SM3AgroERP.masterData.counterparty.repository.CounterpartyRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -37,9 +37,11 @@ public class FinancialTransactionService {
     private final InventoryMovementRepository inventoryMovementRepository;
 
     public List<FinancialTransaction> findAll() {
-        return financialTransactionRepository.findAll(
-                Sort.by(Sort.Direction.DESC, "issueDate").and(Sort.by(Sort.Direction.DESC, "id"))
-        );
+        return findAll(null, null);
+    }
+
+    public List<FinancialTransaction> findAll(LocalDate startDate, LocalDate endDate) {
+        return financialTransactionRepository.findAllByIssueDatePeriod(startDate, endDate);
     }
 
     public FinancialTransaction findById(Long id) {

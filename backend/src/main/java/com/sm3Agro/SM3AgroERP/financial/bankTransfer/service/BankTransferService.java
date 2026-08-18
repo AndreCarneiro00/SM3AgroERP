@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -23,7 +24,11 @@ public class BankTransferService {
     private final BankBalanceService bankBalanceService;
 
     public List<BankTransfer> findAll() {
-        return repository.findAll();
+        return findAll(null, null);
+    }
+
+    public List<BankTransfer> findAll(LocalDate startDate, LocalDate endDate) {
+        return repository.findAllByTransferDatePeriod(startDate, endDate);
     }
 
     @Transactional

@@ -9,6 +9,7 @@ import com.sm3Agro.SM3AgroERP.financial.bankTransfer.entity.BankTransfer;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.service.BankTransferService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,9 +18,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -30,8 +33,15 @@ public class BankTransferController {
     private final BankTransferService service;
 
     @GetMapping
-    public List<FindAllBankTransferResponse> findAllBankTransfers() {
-        return service.findAll().stream()
+    public List<FindAllBankTransferResponse> findAllBankTransfers(
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate startDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate endDate
+    ) {
+        return service.findAll(startDate, endDate).stream()
                 .map(this::toFindAllResponse)
                 .toList();
     }

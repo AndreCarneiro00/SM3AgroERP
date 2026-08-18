@@ -122,6 +122,51 @@ class BankTransferControllerIT {
     }
 
     @Test
+    void shouldFilterBankTransfersByTransferDatePeriod() throws Exception {
+        BankAccount source = createBankAccount("Conta Periodo Origem", "1000.00", "2026-01-01");
+        BankAccount destination = createBankAccount("Conta Periodo Destino", "100.00", "2026-01-01");
+
+        repository.save(BankTransfer.builder()
+                .sourceBankAccount(source)
+                .destinationBankAccount(destination)
+                .amount(new BigDecimal("10.00"))
+                .transferDate(LocalDate.of(2025, 12, 31))
+                .observation("Fora antes")
+                .build());
+        repository.save(BankTransfer.builder()
+                .sourceBankAccount(source)
+                .destinationBankAccount(destination)
+                .amount(new BigDecimal("20.00"))
+                .transferDate(LocalDate.of(2026, 1, 1))
+                .observation("Inicio periodo")
+                .build());
+        repository.save(BankTransfer.builder()
+                .sourceBankAccount(source)
+                .destinationBankAccount(destination)
+                .amount(new BigDecimal("30.00"))
+                .transferDate(LocalDate.of(2026, 12, 31))
+                .observation("Fim periodo")
+                .build());
+        repository.save(BankTransfer.builder()
+                .sourceBankAccount(source)
+                .destinationBankAccount(destination)
+                .amount(new BigDecimal("40.00"))
+                .transferDate(LocalDate.of(2027, 1, 1))
+                .observation("Fora depois")
+                .build());
+
+        mockMvc.perform(get("/bank-transfers")
+                        .param("startDate", "2026-01-01")
+                        .param("endDate", "2026-12-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].transferDate").value("2026-12-31"))
+                .andExpect(jsonPath("$[0].observation").value("Fim periodo"))
+                .andExpect(jsonPath("$[1].transferDate").value("2026-01-01"))
+                .andExpect(jsonPath("$[1].observation").value("Inicio periodo"));
+    }
+
+    @Test
     void shouldUpdateBankTransfer() throws Exception {
         BankAccount source = createBankAccount("Conta Principal", "1000.00", "2026-07-01");
         BankAccount destination = createBankAccount("Conta Filial", "100.00", "2026-07-01");

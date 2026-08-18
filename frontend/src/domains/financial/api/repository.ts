@@ -3,6 +3,7 @@ import {
   resolveResourceItemPath,
   resolveResourcePath,
 } from '../../../core/http/resourcePath';
+import type { FinancialDateRange } from '../model/dateRange';
 import type {
   BankTransferDto,
   CreateBankTransferDto,
@@ -35,6 +36,21 @@ function transactionPath(id: number) {
   return resolveResourceItemPath(FINANCIAL_TRANSACTIONS_API_BASE, id);
 }
 
+function withDateRange(path: string, dateRange?: FinancialDateRange) {
+  const searchParams = new URLSearchParams();
+
+  if (dateRange?.startDate) {
+    searchParams.set('startDate', dateRange.startDate);
+  }
+
+  if (dateRange?.endDate) {
+    searchParams.set('endDate', dateRange.endDate);
+  }
+
+  const query = searchParams.toString();
+  return query ? `${path}?${query}` : path;
+}
+
 function appendJsonPart(formData: FormData, name: string, payload: unknown) {
   formData.append(
     name,
@@ -57,9 +73,9 @@ function requireTransactionId(financialTransactionId?: number) {
   return financialTransactionId;
 }
 
-async function listFinancialTransactionDetails() {
+async function listFinancialTransactionDetails(dateRange?: FinancialDateRange) {
   const transactions = await httpListRequest<FinancialTransactionDto>(
-    resolveResourcePath(FINANCIAL_TRANSACTIONS_API_BASE),
+    withDateRange(resolveResourcePath(FINANCIAL_TRANSACTIONS_API_BASE), dateRange),
   );
 
   return Promise.all(
@@ -70,9 +86,9 @@ async function listFinancialTransactionDetails() {
 }
 
 export const financialRepository = {
-  listFinancialTransactions: () =>
+  listFinancialTransactions: (dateRange?: FinancialDateRange) =>
     httpListRequest<FinancialTransactionDto>(
-      resolveResourcePath(FINANCIAL_TRANSACTIONS_API_BASE),
+      withDateRange(resolveResourcePath(FINANCIAL_TRANSACTIONS_API_BASE), dateRange),
     ),
   listFinancialTransactionDetails,
   findFinancialTransaction: (id: number) =>
@@ -283,8 +299,10 @@ export const financialRepository = {
       },
     ),
 
-  listBankTransfers: () =>
-    httpListRequest<BankTransferDto>(resolveResourcePath(BANK_TRANSFERS_API_BASE)),
+  listBankTransfers: (dateRange?: FinancialDateRange) =>
+    httpListRequest<BankTransferDto>(
+      withDateRange(resolveResourcePath(BANK_TRANSFERS_API_BASE), dateRange),
+    ),
   createBankTransfer: (payload: CreateBankTransferDto) =>
     httpRequest<BankTransferDto>(resolveResourcePath(BANK_TRANSFERS_API_BASE), {
       method: 'POST',

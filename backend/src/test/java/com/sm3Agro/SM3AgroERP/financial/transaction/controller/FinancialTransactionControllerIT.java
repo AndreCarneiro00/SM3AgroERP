@@ -146,6 +146,24 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
     }
 
     @Test
+    void shouldFilterTransactionsByIssueDatePeriod() throws Exception {
+        createTransaction(createUnpaidRequest("Fora antes", LocalDate.of(2025, 12, 31)));
+        createTransaction(createUnpaidRequest("Inicio periodo", LocalDate.of(2026, 1, 1)));
+        createTransaction(createUnpaidRequest("Fim periodo", LocalDate.of(2026, 12, 31)));
+        createTransaction(createUnpaidRequest("Fora depois", LocalDate.of(2027, 1, 1)));
+
+        mockMvc.perform(get("/financial-transactions")
+                        .param("startDate", "2026-01-01")
+                        .param("endDate", "2026-12-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].issueDate").value("2026-12-31"))
+                .andExpect(jsonPath("$[0].description").value("Fim periodo"))
+                .andExpect(jsonPath("$[1].issueDate").value("2026-01-01"))
+                .andExpect(jsonPath("$[1].description").value("Inicio periodo"));
+    }
+
+    @Test
     void shouldUpdateAndCancelTransactionHeader() throws Exception {
         Long transactionId = createTransaction(createValidRequest(), createAttachmentFile());
 
@@ -511,6 +529,23 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                 valid.type(),
                 valid.observation(),
                 valid.hasNf(),
+                valid.items(),
+                null,
+                List.of()
+        );
+    }
+
+    private CreateFinancialTransactionRequest createUnpaidRequest(String description, LocalDate issueDate) {
+        CreateFinancialTransactionRequest valid = createValidRequest();
+        return new CreateFinancialTransactionRequest(
+                description,
+                valid.counterpartyId(),
+                issueDate,
+                issueDate.plusDays(10),
+                valid.documentNumber(),
+                valid.type(),
+                valid.observation(),
+                false,
                 valid.items(),
                 null,
                 List.of()

@@ -200,11 +200,6 @@ export function Layout({ children }: { children: ReactNode }) {
                 >
                   SM3 Agro ERP
                 </Typography>
-                <Typography
-                  sx={{ fontSize: '0.65rem', color: '#81C784', lineHeight: 1 }}
-                >
-                  Prototipo operacional
-                </Typography>
               </Box>
             </Stack>
           )}
@@ -293,9 +288,6 @@ export function Layout({ children }: { children: ReactNode }) {
               {currentRoute.title}
             </Typography>
             <Box sx={{ flex: 1 }} />
-            <Typography variant="caption" sx={{ color: 'text.secondary', mr: 2 }}>
-              Dados locais - Safra 2025
-            </Typography>
             <Avatar
               sx={{ bgcolor: 'primary.main', width: 30, height: 30, fontSize: '0.8rem' }}
             >

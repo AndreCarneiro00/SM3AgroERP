@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -25,7 +26,12 @@ public class FinancialTransactionQueryService {
 
     @Transactional(readOnly = true)
     public List<FinancialTransactionSummaryResponse> findAll() {
-        return transactionService.findAll().stream()
+        return findAll(null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<FinancialTransactionSummaryResponse> findAll(LocalDate startDate, LocalDate endDate) {
+        return transactionService.findAll(startDate, endDate).stream()
                 .map(transaction -> mapper.toSummary(
                         transaction,
                         itemRepository.findByFinancialTransactionId(transaction.getId()),

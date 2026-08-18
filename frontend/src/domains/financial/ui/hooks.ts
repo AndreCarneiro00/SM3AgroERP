@@ -18,7 +18,10 @@ import {
   useUpdateFinancialTransactionItemMutation,
   useUpdateFinancialTransactionMutation,
 } from '../queries/mutations';
-import { useFinancialCatalogQueries } from '../queries/queries';
+import {
+  type FinancialCatalogQueryFilters,
+  useFinancialCatalogQueries,
+} from '../queries/queries';
 import {
   selectBankTransfers,
   selectFinancialTransactionAttachments,
@@ -27,11 +30,11 @@ import {
   selectFinancialTransactions,
 } from '../selectors/selectors';
 
-export function useFinancialCatalogData() {
+export function useFinancialCatalogData(filters: FinancialCatalogQueryFilters = {}) {
   const {
     financialTransactionDetailsQuery,
     bankTransfersQuery,
-  } = useFinancialCatalogQueries();
+  } = useFinancialCatalogQueries(filters);
 
   const catalog = useMemo(
     () =>

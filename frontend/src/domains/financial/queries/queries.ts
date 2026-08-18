@@ -1,18 +1,24 @@
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { financialRepository } from '../api/repository';
+import type { FinancialDateRange } from '../model/dateRange';
 import { financialKeys } from './keys';
 
-export function useFinancialTransactionsQuery() {
+export interface FinancialCatalogQueryFilters {
+  financialTransactions?: FinancialDateRange;
+  bankTransfers?: FinancialDateRange;
+}
+
+export function useFinancialTransactionsQuery(dateRange?: FinancialDateRange) {
   return useQuery({
-    queryKey: financialKeys.financialTransactions(),
-    queryFn: financialRepository.listFinancialTransactions,
+    queryKey: financialKeys.financialTransactions(dateRange),
+    queryFn: () => financialRepository.listFinancialTransactions(dateRange),
   });
 }
 
-export function useFinancialTransactionDetailsQuery() {
+export function useFinancialTransactionDetailsQuery(dateRange?: FinancialDateRange) {
   return useQuery({
-    queryKey: financialKeys.financialTransactionDetails(),
-    queryFn: financialRepository.listFinancialTransactionDetails,
+    queryKey: financialKeys.financialTransactionDetails(dateRange),
+    queryFn: () => financialRepository.listFinancialTransactionDetails(dateRange),
   });
 }
 
@@ -37,26 +43,32 @@ export function useFinancialTransactionFulfillmentsQuery() {
   });
 }
 
-export function useBankTransfersQuery() {
+export function useBankTransfersQuery(dateRange?: FinancialDateRange) {
   return useQuery({
-    queryKey: financialKeys.bankTransfers(),
-    queryFn: financialRepository.listBankTransfers,
+    queryKey: financialKeys.bankTransfers(dateRange),
+    queryFn: () => financialRepository.listBankTransfers(dateRange),
   });
 }
 
-export function useFinancialCatalogQueries() {
+export function useFinancialCatalogQueries(filters: FinancialCatalogQueryFilters = {}) {
   const [
     financialTransactionDetailsQuery,
     bankTransfersQuery,
   ] = useQueries({
     queries: [
       {
-        queryKey: financialKeys.financialTransactionDetails(),
-        queryFn: financialRepository.listFinancialTransactionDetails,
+        queryKey: financialKeys.financialTransactionDetails(
+          filters.financialTransactions,
+        ),
+        queryFn: () =>
+          financialRepository.listFinancialTransactionDetails(
+            filters.financialTransactions,
+          ),
       },
       {
-        queryKey: financialKeys.bankTransfers(),
-        queryFn: financialRepository.listBankTransfers,
+        queryKey: financialKeys.bankTransfers(filters.bankTransfers),
+        queryFn: () =>
+          financialRepository.listBankTransfers(filters.bankTransfers),
       },
     ],
   });

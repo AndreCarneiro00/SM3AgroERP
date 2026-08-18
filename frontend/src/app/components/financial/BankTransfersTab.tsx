@@ -5,6 +5,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from '@mui/material';
 import {
@@ -15,6 +16,10 @@ import type {
   BankTransfer,
   BankTransferInput,
 } from '../../../domains/financial/model/entities';
+import {
+  buildFinancialDateRange,
+  getCurrentYearDateRange,
+} from '../../../domains/financial/model/dateRange';
 import {
   useFinancialCatalogData,
   useFinancialMutations,
@@ -34,7 +39,19 @@ const fmtDate = (value: string) =>
 
 export function BankTransfersTab() {
   const { activeBankAccounts, catalog } = useBankAccountsData();
-  const { bankTransfers } = useFinancialCatalogData();
+  const [periodStart, setPeriodStart] = useState(
+    () => getCurrentYearDateRange().startDate,
+  );
+  const [periodEnd, setPeriodEnd] = useState(
+    () => getCurrentYearDateRange().endDate,
+  );
+  const bankTransfersDateRange = buildFinancialDateRange(
+    periodStart,
+    periodEnd,
+  );
+  const { bankTransfers } = useFinancialCatalogData({
+    bankTransfers: bankTransfersDateRange,
+  });
   const {
     createBankTransfer,
     updateBankTransfer,
@@ -73,7 +90,27 @@ export function BankTransfersTab() {
           setEditing(undefined);
           setDialogOpen(true);
         }}
-      />
+      >
+        <TextField
+          label="Inicio"
+          type="date"
+          size="small"
+          value={periodStart}
+          onChange={(event) => setPeriodStart(event.target.value)}
+          slotProps={{ inputLabel: { shrink: true } }}
+          sx={{ minWidth: 145 }}
+        />
+
+        <TextField
+          label="Fim"
+          type="date"
+          size="small"
+          value={periodEnd}
+          onChange={(event) => setPeriodEnd(event.target.value)}
+          slotProps={{ inputLabel: { shrink: true } }}
+          sx={{ minWidth: 145 }}
+        />
+      </PageHeader>
 
       <ResponsiveTableFrame minWidth={1180} maxHeight="calc(115vh - 260px)">
         <TableHead>
