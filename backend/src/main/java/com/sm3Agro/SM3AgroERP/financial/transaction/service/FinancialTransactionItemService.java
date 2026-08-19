@@ -6,15 +6,12 @@ import com.sm3Agro.SM3AgroERP.masterData.costCenter.entity.CostCenter;
 import com.sm3Agro.SM3AgroERP.masterData.costCenter.repository.CostCenterRepository;
 import com.sm3Agro.SM3AgroERP.masterData.product.entity.Product;
 import com.sm3Agro.SM3AgroERP.masterData.product.repository.ProductRepository;
-import com.sm3Agro.SM3AgroERP.financial.transaction.domain.FinancialTransactionRules;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionItemRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.UpdateFinancialTransactionItemRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransaction;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionItem;
-import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionFulfillmentAllocationRepository;
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionItemRepository;
 import com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create.FinancialTransactionItemResult;
-import com.sm3Agro.SM3AgroERP.inventory.movement.repository.InventoryMovementRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,10 +29,10 @@ public class FinancialTransactionItemService {
     private final ChartOfAccountRepository chartOfAccountRepository;
     private final CostCenterRepository costCenterRepository;
     private final ProductRepository productRepository;
-    private final InventoryMovementRepository inventoryMovementRepository;
     private final FinancialTransactionService transactionService;
-    private final FinancialTransactionFulfillmentAllocationRepository allocationRepository;
-    private final FinancialTransactionRules rules;
+
+    private static final String STRUCTURAL_ITEM_CHANGE_MESSAGE =
+            "Financial transaction items can only be defined during transaction creation.";
 
     public List<FinancialTransactionItemResult> createAll(
             FinancialTransaction financialTransaction,
@@ -48,12 +45,8 @@ public class FinancialTransactionItemService {
 
     @Transactional
     public FinancialTransactionItem create(Long financialTransactionId, FinancialTransactionItemRequest request) {
-        FinancialTransaction transaction = transactionService.findMutableById(financialTransactionId);
-        FinancialTransactionItem entity = buildEntity(transaction, request);
-        requireProductAllowedOutsideFullCreation(entity.getProduct());
-        FinancialTransactionItem saved = itemRepository.save(entity);
-        transactionService.recalculate(financialTransactionId);
-        return saved;
+        transactionService.findMutableById(financialTransactionId);
+        throw new IllegalArgumentException(STRUCTURAL_ITEM_CHANGE_MESSAGE);
     }
 
     @Transactional
@@ -63,51 +56,15 @@ public class FinancialTransactionItemService {
             UpdateFinancialTransactionItemRequest request
     ) {
         transactionService.findMutableById(financialTransactionId);
-        FinancialTransactionItem item = findOwnedItem(financialTransactionId, itemId);
-        requireItemWithoutStockMovement(itemId);
-
-        BigDecimal resolvedAmount = resolveAmount(
-                request.quantity(),
-                request.unitPrice(),
-                request.amount()
-        );
-        rules.requireItemAllocationNotOverAmount(
-                resolvedAmount,
-                allocationRepository.sumAmountByItemExcludingFulfillment(itemId, null)
-        );
-
-        item.setChartOfAccount(resolveChartOfAccount(request.chartOfAccountId()));
-        item.setCostCenter(resolveCostCenter(request.costCenterId()));
-        item.setQuantity(request.quantity());
-        item.setUnitPrice(request.unitPrice());
-        item.setAmount(resolvedAmount);
-        Product product = resolveProduct(request.productId());
-        requirePositiveQuantityForProduct(product, request.quantity());
-        requireProductAllowedOutsideFullCreation(product);
-        item.setProduct(product);
-
-        FinancialTransactionItem saved = itemRepository.save(item);
-        transactionService.recalculate(financialTransactionId);
-        return saved;
+        findOwnedItem(financialTransactionId, itemId);
+        throw new IllegalArgumentException(STRUCTURAL_ITEM_CHANGE_MESSAGE);
     }
 
     @Transactional
     public void delete(Long financialTransactionId, Long itemId) {
         transactionService.findMutableById(financialTransactionId);
-
-        FinancialTransactionItem item = findOwnedItem(financialTransactionId, itemId);
-        requireItemWithoutStockMovement(itemId);
-
-        if (itemRepository.countByFinancialTransactionId(financialTransactionId) <= 1) {
-            throw new IllegalArgumentException("Cannot remove the last financial transaction item.");
-        }
-
-        if (allocationRepository.existsByFinancialTransactionItemId(itemId)) {
-            throw new IllegalArgumentException("Cannot remove a financial transaction item with payment allocations.");
-        }
-
-        itemRepository.delete(item);
-        transactionService.recalculate(financialTransactionId);
+        findOwnedItem(financialTransactionId, itemId);
+        throw new IllegalArgumentException(STRUCTURAL_ITEM_CHANGE_MESSAGE);
     }
 
     private FinancialTransactionItem findOwnedItem(Long financialTransactionId, Long itemId) {
@@ -179,30 +136,6 @@ public class FinancialTransactionItemService {
     private void requirePositiveQuantityForProduct(Product product, BigDecimal quantity) {
         if (product != null && (quantity == null || quantity.signum() <= 0)) {
             throw new IllegalArgumentException("Product financial transaction item quantity must be greater than zero.");
-        }
-    }
-
-    private void requireProductAllowedOutsideFullCreation(Product product) {
-        if (product == null) {
-            return;
-        }
-
-        if (product.getHasStock() == null) {
-            throw new IllegalArgumentException("Product must be classified for stock control before use.");
-        }
-
-        if (Boolean.TRUE.equals(product.getHasStock())) {
-            throw new IllegalArgumentException(
-                    "Stock-controlled financial items can only be created in the full transaction creation flow."
-            );
-        }
-    }
-
-    private void requireItemWithoutStockMovement(Long itemId) {
-        if (inventoryMovementRepository.existsByFinancialTransactionItemId(itemId)) {
-            throw new IllegalArgumentException(
-                    "Financial transaction item cannot be changed because it has an inventory movement."
-            );
         }
     }
 

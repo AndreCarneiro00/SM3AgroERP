@@ -165,15 +165,16 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
 
     @Test
     void shouldUpdateAndCancelTransactionHeader() throws Exception {
-        Long transactionId = createTransaction(createValidRequest(), createAttachmentFile());
+        CreateFinancialTransactionRequest request = createValidRequest();
+        Long transactionId = createTransaction(request, createAttachmentFile());
 
         UpdateFinancialTransactionRequest updateRequest = new UpdateFinancialTransactionRequest(
                 "Updated description",
                 null,
-                LocalDate.of(2026, 7, 1),
+                request.issueDate(),
                 LocalDate.of(2026, 7, 31),
                 "DOC-UPDATED",
-                FinancialTransactionType.INCOME,
+                request.type(),
                 "updated observation",
                 false
         );
@@ -183,7 +184,7 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                         .content(objectMapper.writeValueAsBytes(updateRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.description").value("Updated description"))
-                .andExpect(jsonPath("$.type").value("INCOME"))
+                .andExpect(jsonPath("$.type").value("EXPENSE"))
                 .andExpect(jsonPath("$.status").value("PAID"))
                 .andExpect(jsonPath("$.totalAmount").value(100.00));
 
@@ -199,7 +200,7 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
     }
 
     @Test
-    void shouldRejectChangingTransactionTypeWhenProjectedExpenseBreaksBankBalance() throws Exception {
+    void shouldRejectChangingTransactionTypeAfterCreation() throws Exception {
         CreateFinancialTransactionRequest request = createIncomeRequestWithFulfillment("50.00");
         Long transactionId = createTransaction(request);
 
@@ -216,10 +217,35 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
 
         mockMvc.perform(patch("/financial-transactions/{id}", transactionId)
                         .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(updateRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Financial transaction type cannot be changed after creation."
+                ));
+    }
+
+    @Test
+    void shouldRejectChangingIssueDateAfterCreation() throws Exception {
+        CreateFinancialTransactionRequest request = createUnpaidRequest();
+        Long transactionId = createTransaction(request);
+
+        UpdateFinancialTransactionRequest updateRequest = new UpdateFinancialTransactionRequest(
+                request.description(),
+                request.counterpartyId(),
+                LocalDate.of(2026, 7, 1),
+                request.dueDate(),
+                request.documentNumber(),
+                request.type(),
+                request.observation(),
+                request.hasNf()
+        );
+
+        mockMvc.perform(patch("/financial-transactions/{id}", transactionId)
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsBytes(updateRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(
-                        "Changing transaction type to EXPENSE would make bank account 'Conta Recebimento' negative on 2026-06-29."
+                        "Financial transaction issue date cannot be changed after creation."
                 ));
     }
 
@@ -241,10 +267,10 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
 
         mockMvc.perform(patch("/financial-transactions/{id}", transactionId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsBytes(updateRequest)))
+                .content(objectMapper.writeValueAsBytes(updateRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(
-                        "Cannot change type of a financial transaction with inventory movements."
+                        "Financial transaction type cannot be changed after creation."
                 ));
 
         mockMvc.perform(post("/financial-transactions/{id}/cancel", transactionId))
@@ -255,7 +281,7 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
     }
 
     @Test
-    void shouldRejectUpdatingAndDeletingItemWithInventoryMovement() throws Exception {
+    void shouldRejectUpdatingAndDeletingItemAfterTransactionCreation() throws Exception {
         CreateFinancialTransactionRequest request = createStockControlledPurchaseRequest();
         Long transactionId = createTransaction(request, createAttachmentFile());
         Long itemId = financialTransactionItemRepository.findByFinancialTransactionId(transactionId)
@@ -274,21 +300,21 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
 
         mockMvc.perform(patch("/financial-transactions/{id}/items/{itemId}", transactionId, itemId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsBytes(updateItemRequest)))
+                .content(objectMapper.writeValueAsBytes(updateItemRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(
-                        "Financial transaction item cannot be changed because it has an inventory movement."
+                        "Financial transaction items can only be defined during transaction creation."
                 ));
 
         mockMvc.perform(delete("/financial-transactions/{id}/items/{itemId}", transactionId, itemId))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(
-                        "Financial transaction item cannot be changed because it has an inventory movement."
+                        "Financial transaction items can only be defined during transaction creation."
                 ));
     }
 
     @Test
-    void shouldRejectAddingStockControlledItemOutsideFullCreationFlow() throws Exception {
+    void shouldRejectAddingItemAfterTransactionCreation() throws Exception {
         Long transactionId = createTransaction(createUnpaidRequest());
         ChartOfAccount chartOfAccount = createChartOfAccount();
         CostCenter costCenter = createCostCenter();
@@ -304,19 +330,23 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
 
         mockMvc.perform(post("/financial-transactions/{id}/items", transactionId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsBytes(createItemRequest)))
+                .content(objectMapper.writeValueAsBytes(createItemRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(
-                        "Stock-controlled financial items can only be created in the full transaction creation flow."
+                        "Financial transaction items can only be defined during transaction creation."
                 ));
     }
 
     @Test
-    void shouldManageItemsAndRecalculateTotal() throws Exception {
+    void shouldRejectManagingItemsAfterTransactionCreation() throws Exception {
         Long transactionId = createTransaction(createValidRequest(), createAttachmentFile());
-        var chartOfAccount = createChartOfAccount();
-        var costCenter = createCostCenter();
-        var product = createProduct();
+        ChartOfAccount chartOfAccount = createChartOfAccount();
+        CostCenter costCenter = createCostCenter();
+        Product product = createProduct();
+        Long existingItemId = financialTransactionItemRepository
+                .findByFinancialTransactionId(transactionId)
+                .getFirst()
+                .getId();
 
         FinancialTransactionItemRequest createItemRequest = new FinancialTransactionItemRequest(
                 chartOfAccount.getId(),
@@ -327,18 +357,13 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                 product.getId()
         );
 
-        MvcResult createItemResult = mockMvc.perform(post("/financial-transactions/{id}/items", transactionId)
+        mockMvc.perform(post("/financial-transactions/{id}/items", transactionId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsBytes(createItemRequest)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.amount").value(50.00))
-                .andReturn();
-        Long createdItemId = readId(createItemResult);
-
-        mockMvc.perform(get("/financial-transactions/{id}", transactionId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalAmount").value(150.00))
-                .andExpect(jsonPath("$.status").value("PARTIAL"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Financial transaction items can only be defined during transaction creation."
+                ));
 
         UpdateFinancialTransactionItemRequest updateItemRequest = new UpdateFinancialTransactionItemRequest(
                 chartOfAccount.getId(),
@@ -349,33 +374,25 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                 product.getId()
         );
 
-        mockMvc.perform(patch("/financial-transactions/{id}/items/{itemId}", transactionId, createdItemId)
+        mockMvc.perform(patch("/financial-transactions/{id}/items/{itemId}", transactionId, existingItemId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsBytes(updateItemRequest)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.amount").value(80.00));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Financial transaction items can only be defined during transaction creation."
+                ));
 
-        mockMvc.perform(get("/financial-transactions/{id}", transactionId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalAmount").value(180.00))
-                .andExpect(jsonPath("$.status").value("PARTIAL"));
-
-        mockMvc.perform(delete("/financial-transactions/{id}/items/{itemId}", transactionId, createdItemId))
-                .andExpect(status().isNoContent());
+        mockMvc.perform(delete("/financial-transactions/{id}/items/{itemId}", transactionId, existingItemId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Financial transaction items can only be defined during transaction creation."
+                ));
 
         mockMvc.perform(get("/financial-transactions/{id}", transactionId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalAmount").value(100.00))
-                .andExpect(jsonPath("$.status").value("PAID"));
-
-        Long remainingItemId = financialTransactionItemRepository
-                .findByFinancialTransactionId(transactionId)
-                .getFirst()
-                .getId();
-
-        mockMvc.perform(delete("/financial-transactions/{id}/items/{itemId}", transactionId, remainingItemId))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Cannot remove the last financial transaction item."));
+                .andExpect(jsonPath("$.status").value("PAID"))
+                .andExpect(jsonPath("$.items", hasSize(1)));
     }
 
     @Test

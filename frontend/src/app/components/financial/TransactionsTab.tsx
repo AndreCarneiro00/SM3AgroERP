@@ -45,7 +45,6 @@ import type {
   FinancialTransactionFulfillmentInput,
   FinancialTransactionInput,
   FinancialTransactionItem,
-  FinancialTransactionItemInput,
 } from '../../../domains/financial/model/entities';
 import {
   useFinancialCatalogData,
@@ -68,7 +67,6 @@ import {
   TransactionDialog,
   type TransactionFormData,
 } from './TransactionDialog';
-import { TransactionItemDialog } from './TransactionItemDialog';
 
 const fmtBRL = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -239,9 +237,6 @@ export function TransactionsTab() {
     createFinancialTransaction,
     updateFinancialTransaction,
     deleteFinancialTransaction,
-    createFinancialTransactionItem,
-    updateFinancialTransactionItem,
-    deleteFinancialTransactionItem,
     createFinancialTransactionFulfillment,
     updateFinancialTransactionFulfillment,
     deleteFinancialTransactionFulfillment,
@@ -276,10 +271,6 @@ export function TransactionsTab() {
   >();
   const [editingFulfillment, setEditingFulfillment] = useState<
     FinancialTransactionFulfillment | undefined
-  >();
-  const [itemTarget, setItemTarget] = useState<FinancialTransaction | undefined>();
-  const [editingItem, setEditingItem] = useState<
-    FinancialTransactionItem | undefined
   >();
   const [attachmentTarget, setAttachmentTarget] = useState<
     FinancialTransaction | undefined
@@ -414,24 +405,6 @@ export function TransactionsTab() {
           'Nao foi possivel registrar o pagamento.',
       );
     }
-  };
-
-  const handleSaveItem = async (input: FinancialTransactionItemInput) => {
-    if (!itemTarget) return;
-
-    const payload = { ...input, financialTransactionId: itemTarget.id };
-
-    if (editingItem) {
-      await updateFinancialTransactionItem.mutateAsync({
-        id: editingItem.id,
-        input: payload,
-      });
-    } else {
-      await createFinancialTransactionItem.mutateAsync(payload);
-    }
-
-    setItemTarget(undefined);
-    setEditingItem(undefined);
   };
 
   const handleSaveAttachment = async (
@@ -783,16 +756,6 @@ export function TransactionsTab() {
                                   size="small"
                                   startIcon={<AddIcon />}
                                   onClick={() => {
-                                    setItemTarget(financialTransaction);
-                                    setEditingItem(undefined);
-                                  }}
-                                >
-                                  Novo item
-                                </Button>
-                                <Button
-                                  size="small"
-                                  startIcon={<AddIcon />}
-                                  onClick={() => {
                                     setFulfillTarget(financialTransaction);
                                     setEditingFulfillment(undefined);
                                   }}
@@ -829,7 +792,6 @@ export function TransactionsTab() {
                                     <TableCell>Estoque</TableCell>
                                     <TableCell align="right">Qtd</TableCell>
                                     <TableCell align="right">Valor</TableCell>
-                                    <TableCell align="center">Acoes</TableCell>
                                   </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -884,32 +846,11 @@ export function TransactionsTab() {
                                       <TableCell align="right">
                                         {fmtBRL(item.amount ?? 0)}
                                       </TableCell>
-                                      <TableCell align="center">
-                                        <RowActions
-                                          disabled={
-                                            isCanceled ||
-                                            !!item.inventoryMovementId
-                                          }
-                                          onEdit={() => {
-                                            setItemTarget(financialTransaction);
-                                            setEditingItem(item);
-                                          }}
-                                          onDelete={() => {
-                                            void deleteFinancialTransactionItem.mutateAsync(
-                                              {
-                                                financialTransactionId:
-                                                  financialTransaction.id,
-                                                id: item.id,
-                                              },
-                                            );
-                                          }}
-                                        />
-                                      </TableCell>
                                     </TableRow>
                                   ))}
                                   {transactionItems.length === 0 && (
                                     <EmptyTableRow
-                                      colSpan={7}
+                                      colSpan={6}
                                       message="Nenhum item."
                                     />
                                   )}
@@ -1150,25 +1091,6 @@ export function TransactionsTab() {
         }
         onSave={(bankId, date, amount, observation) => {
           void handleFulfill(bankId, date, amount, observation);
-        }}
-      />
-      <TransactionItemDialog
-        open={!!itemTarget}
-        onClose={() => {
-          setItemTarget(undefined);
-          setEditingItem(undefined);
-        }}
-        financialTransactionId={itemTarget?.id}
-        editing={editingItem}
-        chartOfAccounts={postableChartOfAccounts}
-        costCenters={postableCostCenters}
-        products={products}
-        saving={
-          createFinancialTransactionItem.isPending ||
-          updateFinancialTransactionItem.isPending
-        }
-        onSave={(input) => {
-          void handleSaveItem(input);
         }}
       />
       <TransactionAttachmentDialog

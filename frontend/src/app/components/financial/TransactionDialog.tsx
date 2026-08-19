@@ -836,6 +836,7 @@ export function TransactionDialog({
               select
               fullWidth
               size="small"
+              disabled={!!editing}
             >
               <MenuItem value="INCOME">Receita</MenuItem>
               <MenuItem value="EXPENSE">Despesa</MenuItem>
@@ -864,6 +865,7 @@ export function TransactionDialog({
               label="Emissao"
               type="date"
               fullWidth
+              disabled={!!editing}
               InputLabelProps={{ shrink: true }}
             />
             <FormTextField
@@ -907,7 +909,7 @@ export function TransactionDialog({
 
           {editing ? (
             <Typography variant="body2" color="text.secondary">
-              Items, pagamentos e anexos sao editados na expansao da transacao.
+              Pagamentos e anexos sao editados na expansao da transacao.
             </Typography>
           ) : (
             <>

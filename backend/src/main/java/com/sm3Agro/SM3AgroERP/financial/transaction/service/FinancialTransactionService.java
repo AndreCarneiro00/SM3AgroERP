@@ -1,6 +1,5 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.service;
 
-import com.sm3Agro.SM3AgroERP.financial.balance.BankBalanceService;
 import com.sm3Agro.SM3AgroERP.financial.transaction.domain.FinancialTransactionRules;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentRequest;
@@ -33,7 +32,6 @@ public class FinancialTransactionService {
     private final FinancialTransactionFulfillmentRepository fulfillmentRepository;
     private final CounterpartyRepository counterpartyRepository;
     private final FinancialTransactionRules rules;
-    private final BankBalanceService bankBalanceService;
     private final InventoryMovementRepository inventoryMovementRepository;
 
     public List<FinancialTransaction> findAll() {
@@ -86,6 +84,15 @@ public class FinancialTransactionService {
     @Transactional
     public FinancialTransaction update(Long id, UpdateFinancialTransactionRequest request) {
         FinancialTransaction transaction = findMutableById(id);
+
+        if (transaction.getType() != request.type()) {
+            throw new IllegalArgumentException("Financial transaction type cannot be changed after creation.");
+        }
+
+        if (!transaction.getIssueDate().equals(request.issueDate())) {
+            throw new IllegalArgumentException("Financial transaction issue date cannot be changed after creation.");
+        }
+
         Counterparty counterparty = request.counterpartyId() == null
                 ? null
                 : counterpartyRepository.findById(request.counterpartyId())
@@ -93,19 +100,10 @@ public class FinancialTransactionService {
                         "Counterparty not found: " + request.counterpartyId()
                 ));
 
-        if (transaction.getType() != request.type()
-                && inventoryMovementRepository.existsByFinancialTransactionId(id)) {
-            throw new IllegalArgumentException("Cannot change type of a financial transaction with inventory movements.");
-        }
-
-        bankBalanceService.validateTransactionTypeChange(transaction, request.type());
-
         transaction.setDescription(request.description());
         transaction.setCounterparty(counterparty);
-        transaction.setIssueDate(request.issueDate());
         transaction.setDueDate(request.dueDate());
         transaction.setDocumentNumber(request.documentNumber());
-        transaction.setType(request.type());
         transaction.setObservation(request.observation());
         transaction.setHasNf(request.hasNf() != null ? request.hasNf() : false);
 

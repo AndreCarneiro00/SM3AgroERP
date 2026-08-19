@@ -6,7 +6,6 @@ import type {
   CreateFinancialTransactionAttachmentDto,
   CreateFinancialTransactionDto,
   CreateFinancialTransactionFulfillmentDto,
-  CreateFinancialTransactionItemDto,
   CreateFinancialTransactionPayloadDto,
   FinancialTransactionAttachmentDto,
   FinancialTransactionDto,
@@ -22,7 +21,6 @@ import { cashManagementState } from '../state/cashManagement';
 import {
   validateBankTransfer,
   validateFulfillment,
-  validateTransactionTypeChange,
 } from '../utils/bankBalances';
 import { inventoryFixtures } from './inventory';
 import { productFixtures } from './products';
@@ -101,28 +99,6 @@ function hasStockMovementInTransaction(financialTransactionId: number) {
       item.financialTransactionId === financialTransactionId &&
       hasStockMovement(item.id),
   );
-}
-
-function getStandaloneItemStockError(productId?: number) {
-  if (!productId) {
-    return undefined;
-  }
-
-  const product = getProduct(productId);
-
-  if (!product) {
-    return `Product not found: ${productId}`;
-  }
-
-  if (product.hasStock === null || product.hasStock === undefined) {
-    return 'Product must be classified for stock control before use.';
-  }
-
-  if (product.hasStock === true) {
-    return 'Stock-controlled financial items can only be created in the full transaction creation flow.';
-  }
-
-  return undefined;
 }
 
 function getTotalAmount(financialTransactionId: number) {
@@ -730,33 +706,28 @@ export const financialHandlers: RequestHandler[] = [
 
     if (index < 0) return notFound();
 
-    if (
-      fixtures.financialTransactions[index].type !== payload.type &&
-      hasStockMovementInTransaction(id ?? 0)
-    ) {
+    const current = fixtures.financialTransactions[index];
+
+    if (current.type !== payload.type) {
       return HttpResponse.json(
-        { message: 'Cannot change type of a financial transaction with inventory movements.' },
+        { message: 'Financial transaction type cannot be changed after creation.' },
         { status: 400 },
       );
     }
 
-    try {
-      validateTransactionTypeChange(fixtures, id ?? 0, payload.type);
-    } catch (error) {
+    if (current.issueDate !== payload.issueDate) {
       return HttpResponse.json(
-        { message: error instanceof Error ? error.message : 'Invalid transaction update' },
+        { message: 'Financial transaction issue date cannot be changed after creation.' },
         { status: 400 },
       );
     }
 
     fixtures.financialTransactions[index] = {
-      ...fixtures.financialTransactions[index],
+      ...current,
       description: payload.description,
       counterpartyId: payload.counterpartyId,
-      issueDate: payload.issueDate,
       dueDate: payload.dueDate,
       documentNumber: payload.documentNumber,
-      type: payload.type,
       observation: payload.observation,
       hasNf: payload.hasNf,
     };
@@ -783,123 +754,54 @@ export const financialHandlers: RequestHandler[] = [
 
   http.post(
     `/api/financial-transactions/:id/items`,
-    async ({ params, request }) => {
+    ({ params }) => {
       const financialTransactionId = parseId(String(params.id));
       if (!transactionNotFound(financialTransactionId)) return notFound();
-      const payload = (await request.json()) as CreateFinancialTransactionItemDto;
-      const stockError = getStandaloneItemStockError(payload.productId);
 
-      if (stockError) {
-        return HttpResponse.json({ message: stockError }, { status: 400 });
-      }
-
-      const created: FinancialTransactionItemDto = {
-        id: nextId(fixtures.financialTransactionItems),
-        financialTransactionId,
-        chartOfAccountId: payload.chartOfAccountId,
-        costCenterId: payload.costCenterId,
-        quantity: payload.quantity,
-        unitPrice: payload.unitPrice,
-        amount: payload.amount,
-        productId: payload.productId,
-      };
-
-      fixtures.financialTransactionItems.push(created);
-      syncTransaction(financialTransactionId ?? 0);
-      return HttpResponse.json(created, { status: 201 });
+      return HttpResponse.json(
+        { message: 'Financial transaction items can only be defined during transaction creation.' },
+        { status: 400 },
+      );
     },
   ),
   http.patch(
     `/api/financial-transactions/:id/items/:itemId`,
-    async ({ params, request }) => {
+    ({ params }) => {
       const financialTransactionId = parseId(String(params.id));
       const itemId = parseId(String(params.itemId));
-      const payload = (await request.json()) as CreateFinancialTransactionItemDto;
-      const index = fixtures.financialTransactionItems.findIndex(
+      if (!transactionNotFound(financialTransactionId)) return notFound();
+
+      const itemExists = fixtures.financialTransactionItems.some(
         (item) =>
           item.id === itemId &&
           item.financialTransactionId === financialTransactionId,
       );
 
-      if (index < 0) return notFound();
+      if (!itemExists) return notFound();
 
-      if (hasStockMovement(itemId)) {
-        return HttpResponse.json(
-          {
-            message:
-              'Financial transaction item cannot be changed because it has an inventory movement.',
-          },
-          { status: 400 },
-        );
-      }
-
-      const stockError = getStandaloneItemStockError(payload.productId);
-
-      if (stockError) {
-        return HttpResponse.json({ message: stockError }, { status: 400 });
-      }
-
-      const nextItemAmount =
-        payload.amount ?? fixtures.financialTransactionItems[index].amount ?? 0;
-
-      if (
-        roundCurrency(nextItemAmount) <
-        roundCurrency(getAllocatedAmountForItem(itemId ?? 0))
-      ) {
-        return HttpResponse.json(
-          { message: 'Item amount cannot be lower than allocated amount' },
-          { status: 400 },
-        );
-      }
-
-      fixtures.financialTransactionItems[index] = {
-        ...fixtures.financialTransactionItems[index],
-        chartOfAccountId: payload.chartOfAccountId,
-        costCenterId: payload.costCenterId,
-        quantity: payload.quantity,
-        unitPrice: payload.unitPrice,
-        amount: payload.amount,
-        productId: payload.productId,
-      };
-      syncTransaction(financialTransactionId ?? 0);
-      return HttpResponse.json(fixtures.financialTransactionItems[index]);
+      return HttpResponse.json(
+        { message: 'Financial transaction items can only be defined during transaction creation.' },
+        { status: 400 },
+      );
     },
   ),
   http.delete(`/api/financial-transactions/:id/items/:itemId`, ({ params }) => {
     const financialTransactionId = parseId(String(params.id));
     const itemId = parseId(String(params.itemId));
+    if (!transactionNotFound(financialTransactionId)) return notFound();
 
-    if (hasStockMovement(itemId)) {
-      return HttpResponse.json(
-        {
-          message:
-            'Financial transaction item cannot be changed because it has an inventory movement.',
-        },
-        { status: 400 },
-      );
-    }
-
-    if (getTransactionItems(financialTransactionId ?? 0).length <= 1) {
-      return HttpResponse.json(
-        { message: 'Cannot remove the last financial transaction item' },
-        { status: 400 },
-      );
-    }
-
-    if (getAllocatedAmountForItem(itemId ?? 0) > 0) {
-      return HttpResponse.json(
-        { message: 'Cannot remove an item with payment allocations' },
-        { status: 400 },
-      );
-    }
-
-    fixtures.financialTransactionItems = fixtures.financialTransactionItems.filter(
+    const itemExists = fixtures.financialTransactionItems.some(
       (item) =>
-        item.id !== itemId ||
-        item.financialTransactionId !== financialTransactionId,
+        item.id === itemId &&
+        item.financialTransactionId === financialTransactionId,
     );
-    syncTransaction(financialTransactionId ?? 0);
-    return new HttpResponse(null, { status: 204 });
+
+    if (!itemExists) return notFound();
+
+    return HttpResponse.json(
+      { message: 'Financial transaction items can only be defined during transaction creation.' },
+      { status: 400 },
+    );
   }),
 
   http.post(

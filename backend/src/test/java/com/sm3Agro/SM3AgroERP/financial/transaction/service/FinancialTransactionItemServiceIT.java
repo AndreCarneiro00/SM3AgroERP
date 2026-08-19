@@ -3,7 +3,9 @@ package com.sm3Agro.SM3AgroERP.financial.transaction.service;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionItemRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.UpdateFinancialTransactionItemRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransaction;
+import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionItem;
 import com.sm3Agro.SM3AgroERP.financial.transaction.support.AbstractFinancialTransactionIT;
+import com.sm3Agro.SM3AgroERP.masterData.chartOfAccount.entity.ChartOfAccount;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -66,9 +68,33 @@ class FinancialTransactionItemServiceIT extends AbstractFinancialTransactionIT {
     }
 
     @Test
-    void shouldRejectProductItemWithoutPositiveQuantityWhenUpdating() {
+    void shouldRejectCreatingItemAfterTransactionCreation() {
         FinancialTransaction transaction = createPersistedTransaction();
-        var item = createPersistedTransactionItem(transaction);
+        ChartOfAccount chart = createChartOfAccount();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> itemService.create(
+                transaction.getId(),
+                new FinancialTransactionItemRequest(
+                        chart.getId(),
+                        null,
+                        null,
+                        null,
+                        new BigDecimal("100.00"),
+                        null
+                )
+        ));
+
+        assertEquals(
+                "Financial transaction items can only be defined during transaction creation.",
+                exception.getMessage()
+        );
+        assertEquals(0, financialTransactionItemRepository.count());
+    }
+
+    @Test
+    void shouldRejectUpdatingItemAfterTransactionCreation() {
+        FinancialTransaction transaction = createPersistedTransaction();
+        FinancialTransactionItem item = createPersistedTransactionItem(transaction);
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> itemService.update(
                 transaction.getId(),
@@ -83,7 +109,31 @@ class FinancialTransactionItemServiceIT extends AbstractFinancialTransactionIT {
                 )
         ));
 
-        assertEquals("Product financial transaction item quantity must be greater than zero.", exception.getMessage());
+        assertEquals(
+                "Financial transaction items can only be defined during transaction creation.",
+                exception.getMessage()
+        );
+        assertEquals(
+                BigDecimal.ONE,
+                financialTransactionItemRepository.findById(item.getId()).orElseThrow().getQuantity()
+        );
+    }
+
+    @Test
+    void shouldRejectDeletingItemAfterTransactionCreation() {
+        FinancialTransaction transaction = createPersistedTransaction();
+        FinancialTransactionItem item = createPersistedTransactionItem(transaction);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> itemService.delete(transaction.getId(), item.getId())
+        );
+
+        assertEquals(
+                "Financial transaction items can only be defined during transaction creation.",
+                exception.getMessage()
+        );
+        assertEquals(1, financialTransactionItemRepository.count());
     }
 
     @Test

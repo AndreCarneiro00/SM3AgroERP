@@ -230,9 +230,10 @@ O resultado esperado e:
 - Enquanto a reconciliacao nao estiver pronta, bloquear alteracao de `type` de
   transacao que possua item com movimento de estoque, porque isso inverteria a
   regra de entrada/saida.
-- Criacao avulsa de item em transacao existente deve seguir as mesmas regras de
-  estoque do create completo ou ser bloqueada para produto estocavel ate existir
-  fluxo dedicado.
+- Criacao avulsa, edicao e delecao de item em transacao existente ficam fora
+  deste plano e devem permanecer bloqueadas pelo plano
+  `financial-transaction-post-creation-lock.md` para evitar bypass de estoque e
+  reconciliacao parcial de totais.
 
 ## Implementation Steps
 
@@ -344,9 +345,10 @@ O resultado esperado e:
    - `FinancialTransactionService.cancel`.
 9. Bloquear alteracao de `type` em `FinancialTransactionService.update` quando a
    transacao ja possuir item com movimento de estoque.
-10. Definir se `FinancialTransactionItemService.create` avulso aplica as mesmas
-    regras de estoque ou bloqueia produto estocavel ate existir fluxo completo
-    de reconciliacao.
+10. Bloquear `FinancialTransactionItemService.create/update/delete` avulsos
+    conforme o plano `financial-transaction-post-creation-lock.md`. Item de
+    transacao existente nao deve ser criado, editado ou deletado fora do create
+    completo.
 
 ### 5. Frontend: products
 
@@ -401,10 +403,10 @@ O resultado esperado e:
    - quantidade vendida nao pode exceder saldo exibido do lote;
    - lista de lotes de venda deve ser ordenada FIFO por `batchDate ASC` e
      `id ASC`, com primeiro lote sugerido/preselecionado quando possivel.
-5. Ajustar `TransactionItemDialog` usado em edicao de item:
-   - exibir lote vinculado;
-   - bloquear edicao de estoque ate reconciliacao backend estar pronta, ou
-     implementar o mesmo contrato de update.
+5. Ajustar fluxos de item em transacao existente conforme o plano
+   `financial-transaction-post-creation-lock.md`:
+   - remover acoes de adicionar, editar e deletar item;
+   - manter itens existentes apenas em modo de consulta.
 6. Mostrar indicacao na lista/expansao da transacao quando um item gerou
    movimento de estoque.
 
@@ -463,6 +465,8 @@ O resultado esperado e:
    - receita com lote valido cria `SALE_OUT` e reduz saldo;
    - receita com saldo insuficiente falha e faz rollback completo;
    - venda permite lote nao-FIFO quando escolhido explicitamente e valido;
+   - criacao, edicao e delecao avulsas de item ficam bloqueadas conforme o
+     plano `financial-transaction-post-creation-lock.md`;
    - query de lotes vendaveis retorna sugestao FIFO;
    - `CutService` continua criando/cancelando estoque corretamente apos usar
      `InventoryStockService`;
