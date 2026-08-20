@@ -1,6 +1,9 @@
 import { normalizeById } from '../../../core/collections/normalize';
 import type {
   BankTransferDto,
+  CancelBankTransferDto,
+  CancelFinancialTransactionDto,
+  CancelFinancialTransactionFulfillmentDto,
   CreateBankTransferDto,
   CreateFinancialTransactionMultipartDto,
   CreateFinancialTransactionAttachmentDto,
@@ -15,6 +18,9 @@ import type {
 import type {
   BankTransfer,
   BankTransferInput,
+  CancelBankTransferInput,
+  CancelFinancialTransactionFulfillmentInput,
+  CancelFinancialTransactionInput,
   CreateFinancialTransactionInput,
   FinancialCatalog,
   FinancialTransaction,
@@ -101,6 +107,8 @@ export function mapFinancialTransactionFulfillmentDto(
     amountPaid: dto.amountPaid,
     allocations: dto.allocations ?? [],
     observation: dto.observation,
+    status: dto.status ?? 'ACTIVE',
+    cancelId: dto.cancelId,
   };
 }
 
@@ -112,6 +120,8 @@ export function mapBankTransferDto(dto: BankTransferDto): BankTransfer {
     amount: dto.amount,
     transferDate: dto.transferDate,
     observation: dto.observation,
+    status: dto.status ?? 'ACTIVE',
+    cancelId: dto.cancelId,
   };
 }
 
@@ -192,6 +202,24 @@ export function mapFinancialTransactionFulfillmentInputToDto(
   };
 }
 
+export function mapCancelFinancialTransactionInputToDto(
+  input: CancelFinancialTransactionInput,
+): CancelFinancialTransactionDto {
+  return {
+    adjustmentDate: input.adjustmentDate,
+    observation: input.observation,
+  };
+}
+
+export function mapCancelFinancialTransactionFulfillmentInputToDto(
+  input: CancelFinancialTransactionFulfillmentInput,
+): CancelFinancialTransactionFulfillmentDto {
+  return {
+    adjustmentDate: input.adjustmentDate,
+    observation: input.observation,
+  };
+}
+
 export function mapBankTransferInputToDto(
   input: BankTransferInput,
 ): CreateBankTransferDto {
@@ -200,6 +228,15 @@ export function mapBankTransferInputToDto(
     destinationBankAccountId: input.destinationBankAccountId,
     amount: input.amount,
     transferDate: input.transferDate,
+    observation: input.observation,
+  };
+}
+
+export function mapCancelBankTransferInputToDto(
+  input: CancelBankTransferInput,
+): CancelBankTransferDto {
+  return {
+    adjustmentDate: input.adjustmentDate,
     observation: input.observation,
   };
 }

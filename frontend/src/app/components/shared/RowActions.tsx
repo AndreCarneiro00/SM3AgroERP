@@ -1,4 +1,5 @@
 import { Stack, IconButton, Tooltip } from '@mui/material';
+import type { IconButtonProps } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 
@@ -6,6 +7,9 @@ interface RowActionsProps {
   onEdit: () => void;
   onDelete: () => void;
   deleteConfirmMessage?: string;
+  deleteTooltip?: string;
+  deleteIcon?: React.ReactNode;
+  deleteColor?: IconButtonProps['color'];
   extraActions?: React.ReactNode;
   disabled?: boolean;
 }
@@ -14,6 +18,9 @@ export function RowActions({
   onEdit,
   onDelete,
   deleteConfirmMessage = 'Confirmar exclusao?',
+  deleteTooltip = 'Excluir',
+  deleteIcon,
+  deleteColor = 'error',
   extraActions,
   disabled = false,
 }: RowActionsProps) {
@@ -29,14 +36,14 @@ export function RowActions({
           <EditIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Tooltip>
-      <Tooltip title="Excluir">
+      <Tooltip title={deleteTooltip}>
         <IconButton
           size="small"
-          color="error"
+          color={deleteColor}
           onClick={handleDelete}
           disabled={disabled}
         >
-          <DeleteIcon sx={{ fontSize: 16 }} />
+          {deleteIcon ?? <DeleteIcon sx={{ fontSize: 16 }} />}
         </IconButton>
       </Tooltip>
     </Stack>

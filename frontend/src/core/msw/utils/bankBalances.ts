@@ -83,13 +83,40 @@ function requireOperationWithinOpeningBalanceHorizon(
   }
 }
 
-function resolveFulfillmentSignedAmount(
+function resolveBaseFulfillmentSignedAmount(
   financialTransaction: FinancialTransactionDto,
   fulfillment: FinancialTransactionFulfillmentDto,
 ) {
   return financialTransaction.type === 'INCOME'
     ? fulfillment.amountPaid
     : -fulfillment.amountPaid;
+}
+
+function resolveFulfillmentSignedAmount(
+  state: CashManagementState,
+  financialTransaction: FinancialTransactionDto,
+  fulfillment: FinancialTransactionFulfillmentDto,
+) {
+  if (fulfillment.status === 'ADJUSTMENT') {
+    const canceledFulfillment = state.financialTransactionFulfillments.find(
+      (candidate) => candidate.id === fulfillment.cancelId,
+    );
+    const canceledTransaction = getFinancialTransaction(
+      state,
+      canceledFulfillment?.financialTransactionId,
+    );
+
+    if (!canceledFulfillment || !canceledTransaction) {
+      return 0;
+    }
+
+    return -resolveBaseFulfillmentSignedAmount(
+      canceledTransaction,
+      canceledFulfillment,
+    );
+  }
+
+  return resolveBaseFulfillmentSignedAmount(financialTransaction, fulfillment);
 }
 
 function aggregateDailyMovements(movements: LedgerMovement[]) {
@@ -145,7 +172,11 @@ function loadPersistedMovements(
 
     movements.push({
       date: fulfillment.paymentDate,
-      amount: resolveFulfillmentSignedAmount(financialTransaction, fulfillment),
+      amount: resolveFulfillmentSignedAmount(
+        state,
+        financialTransaction,
+        fulfillment,
+      ),
     });
   });
 
@@ -176,6 +207,99 @@ function loadPersistedMovements(
   });
 
   return movements;
+}
+
+export function validateBankTransferAdjustment(
+  state: CashManagementState,
+  bankTransfer: BankTransferDto,
+  adjustmentDate: string,
+) {
+  const adjustmentSourceBankAccount = getBankAccount(
+    state,
+    bankTransfer.destinationBankAccountId,
+  );
+  const adjustmentDestinationBankAccount = getBankAccount(
+    state,
+    bankTransfer.sourceBankAccountId,
+  );
+
+  if (!adjustmentSourceBankAccount || !adjustmentDestinationBankAccount) {
+    return;
+  }
+
+  requireOperationWithinOpeningBalanceHorizon(
+    adjustmentSourceBankAccount,
+    adjustmentDate,
+    'Source bank account',
+  );
+  requireOperationWithinOpeningBalanceHorizon(
+    adjustmentDestinationBankAccount,
+    adjustmentDate,
+    'Destination bank account',
+  );
+
+  const projection = findFirstNegativeProjection(
+    state,
+    adjustmentSourceBankAccount,
+    [
+      {
+        date: adjustmentDate,
+        amount: -bankTransfer.amount,
+      },
+    ],
+  );
+
+  if (projection) {
+    throw new Error(
+      `Transfer cancellation would make bank account '${adjustmentSourceBankAccount.name}' negative on ${projection.date}.`,
+    );
+  }
+}
+
+export function validateFulfillmentAdjustment(
+  state: CashManagementState,
+  fulfillment: FinancialTransactionFulfillmentDto,
+  adjustmentDate: string,
+) {
+  const financialTransaction = getFinancialTransaction(
+    state,
+    fulfillment.financialTransactionId,
+  );
+  const bankAccount = getBankAccount(state, fulfillment.bankAccountId);
+
+  if (!financialTransaction || !bankAccount) {
+    return;
+  }
+
+  requireOperationWithinOpeningBalanceHorizon(
+    bankAccount,
+    adjustmentDate,
+    'Bank account',
+  );
+
+  const adjustmentAmount =
+    -resolveBaseFulfillmentSignedAmount(financialTransaction, fulfillment);
+
+  if (adjustmentAmount >= 0) {
+    return;
+  }
+
+  const projection = findFirstNegativeProjection(
+    state,
+    bankAccount,
+    [
+      {
+        date: adjustmentDate,
+        amount: adjustmentAmount,
+      },
+    ],
+  );
+
+  if (projection) {
+    throw new Error(
+      `Fulfillment cancellation would make bank account '${bankAccount.name}' negative on ${projection.date}.`,
+    );
+  }
 }
 
 function findFirstNegativeProjection(

@@ -2,6 +2,9 @@ import { HttpResponse, http } from 'msw';
 import type { RequestHandler } from 'msw';
 import type {
   BankTransferDto,
+  CancelBankTransferDto,
+  CancelFinancialTransactionDto,
+  CancelFinancialTransactionFulfillmentDto,
   CreateBankTransferDto,
   CreateFinancialTransactionAttachmentDto,
   CreateFinancialTransactionDto,
@@ -20,7 +23,9 @@ import type {
 import { cashManagementState } from '../state/cashManagement';
 import {
   validateBankTransfer,
+  validateBankTransferAdjustment,
   validateFulfillment,
+  validateFulfillmentAdjustment,
 } from '../utils/bankBalances';
 import { inventoryFixtures } from './inventory';
 import { productFixtures } from './products';
@@ -39,6 +44,10 @@ function parseId(rawId?: string) {
 
 function notFound() {
   return HttpResponse.json({ message: 'Not found' }, { status: 404 });
+}
+
+function badRequest(message: string) {
+  return HttpResponse.json({ message }, { status: 400 });
 }
 
 function getDateRange(request: Request) {
@@ -115,7 +124,8 @@ function getPaidAmount(
     .filter(
       (item) =>
         item.financialTransactionId === financialTransactionId &&
-        item.id !== excludedFulfillmentId,
+        item.id !== excludedFulfillmentId &&
+        (item.status ?? 'ACTIVE') === 'ACTIVE',
     )
     .reduce((sum, item) => sum + item.amountPaid, 0);
 }
@@ -149,6 +159,7 @@ function getTransactionItems(financialTransactionId: number) {
 
 function getAllocatedAmountForItem(itemId: number) {
   return fixtures.financialTransactionFulfillments
+    .filter((fulfillment) => (fulfillment.status ?? 'ACTIVE') === 'ACTIVE')
     .flatMap((fulfillment) => fulfillment.allocations ?? [])
     .filter((allocation) => allocation.itemId === itemId)
     .reduce((sum, allocation) => sum + allocation.amount, 0);
@@ -196,7 +207,8 @@ function resolveFulfillmentAllocations(
     .filter(
       (fulfillment) =>
         fulfillment.financialTransactionId === financialTransactionId &&
-        fulfillment.id !== excludedFulfillmentId,
+        fulfillment.id !== excludedFulfillmentId &&
+        (fulfillment.status ?? 'ACTIVE') === 'ACTIVE',
     )
     .forEach((fulfillment) => {
       (fulfillment.allocations ?? []).forEach((allocation) => {
@@ -314,6 +326,102 @@ function resolveFulfillmentAllocations(
   return exceedsItemAmount ? undefined : resolvedAllocations;
 }
 
+function normalizeFulfillmentAllocations(
+  allocations:
+    | FinancialTransactionFulfillmentAllocationDto[]
+    | undefined,
+  items: FinancialTransactionItemDto[],
+) {
+  return (allocations ?? [])
+    .map((allocation) => {
+      const itemId =
+        allocation.itemId ??
+        (allocation.itemIndex !== undefined
+          ? items[allocation.itemIndex]?.id
+          : undefined);
+
+      return {
+        itemId,
+        amount: roundCurrency(allocation.amount),
+      };
+    })
+    .sort((left, right) => {
+      if ((left.itemId ?? 0) !== (right.itemId ?? 0)) {
+        return (left.itemId ?? 0) - (right.itemId ?? 0);
+      }
+
+      return left.amount - right.amount;
+    });
+}
+
+function fulfillmentAllocationsChanged(
+  current: FinancialTransactionFulfillmentDto,
+  payload: CreateFinancialTransactionFulfillmentDto,
+) {
+  const items = getTransactionItems(current.financialTransactionId);
+  const currentAllocations = normalizeFulfillmentAllocations(
+    current.allocations,
+    items,
+  );
+  const incomingAllocations = normalizeFulfillmentAllocations(
+    payload.allocations,
+    items,
+  );
+
+  if (currentAllocations.length !== incomingAllocations.length) {
+    return true;
+  }
+
+  return currentAllocations.some((allocation, index) => {
+    const incoming = incomingAllocations[index];
+
+    return (
+      allocation.itemId !== incoming.itemId ||
+      Math.abs(roundCurrency(allocation.amount - incoming.amount)) > 0.009
+    );
+  });
+}
+
+function fulfillmentCashFieldsChanged(
+  current: FinancialTransactionFulfillmentDto,
+  payload: CreateFinancialTransactionFulfillmentDto,
+) {
+  return (
+    current.bankAccountId !== payload.bankAccountId ||
+    current.paymentDate !== payload.paymentDate ||
+    Math.abs(roundCurrency(current.amountPaid - payload.amountPaid)) > 0.009 ||
+    fulfillmentAllocationsChanged(current, payload)
+  );
+}
+
+function createFulfillmentAdjustment(
+  fulfillment: FinancialTransactionFulfillmentDto,
+  request: CancelFinancialTransactionFulfillmentDto,
+) {
+  if ((fulfillment.status ?? 'ACTIVE') !== 'ACTIVE') {
+    throw new Error('Only active fulfillments can be canceled.');
+  }
+
+  validateFulfillmentAdjustment(fixtures, fulfillment, request.adjustmentDate);
+
+  const created: FinancialTransactionFulfillmentDto = {
+    id: nextId(fixtures.financialTransactionFulfillments),
+    financialTransactionId: fulfillment.financialTransactionId,
+    bankAccountId: fulfillment.bankAccountId,
+    paymentDate: request.adjustmentDate,
+    amountPaid: fulfillment.amountPaid,
+    allocations: [],
+    observation: request.observation,
+    status: 'ADJUSTMENT',
+    cancelId: fulfillment.id,
+  };
+
+  fulfillment.status = 'CANCELED';
+  fixtures.financialTransactionFulfillments.push(created);
+  syncTransaction(fulfillment.financialTransactionId);
+  return created;
+}
+
 function syncTransaction(financialTransactionId: number) {
   const financialTransaction = fixtures.financialTransactions.find(
     (item) => item.id === financialTransactionId,
@@ -415,6 +523,12 @@ async function readPayloadPart<T>(request: Request): Promise<{
     payload: JSON.parse(payloadText) as T,
     formData,
   };
+}
+
+async function readOptionalJson<T>(request: Request) {
+  const text = await request.text();
+
+  return text.trim().length > 0 ? (JSON.parse(text) as T) : undefined;
 }
 
 function createAttachmentFromFile(
@@ -683,6 +797,7 @@ export const financialHandlers: RequestHandler[] = [
         amountPaid: fulfillment.amountPaid,
         allocations,
         observation: fulfillment.observation,
+        status: 'ACTIVE',
       });
     }
 
@@ -736,15 +851,54 @@ export const financialHandlers: RequestHandler[] = [
       buildTransactionDetail(fixtures.financialTransactions[index]),
     );
   }),
-  http.post(`/api/financial-transactions/:id/cancel`, ({ params }) => {
+  http.post(`/api/financial-transactions/:id/cancel`, async ({ params, request }) => {
     const id = parseId(String(params.id));
     const financialTransaction = transactionNotFound(id);
     if (!financialTransaction) return notFound();
 
+    if (financialTransaction.status === 'CANCELED') {
+      return badRequest('Canceled financial transactions cannot be changed.');
+    }
+
     if (hasStockMovementInTransaction(id ?? 0)) {
-      return HttpResponse.json(
-        { message: 'Cannot cancel a financial transaction with inventory movements.' },
-        { status: 400 },
+      return badRequest(
+        'Cannot cancel a financial transaction with inventory movements.',
+      );
+    }
+
+    const payload =
+      (await readOptionalJson<CancelFinancialTransactionDto>(request)) ?? {};
+    const activeFulfillments = fixtures.financialTransactionFulfillments.filter(
+      (fulfillment) =>
+        fulfillment.financialTransactionId === id &&
+        (fulfillment.status ?? 'ACTIVE') === 'ACTIVE',
+    );
+
+    if (activeFulfillments.length > 0 && !payload.adjustmentDate) {
+      return badRequest(
+        'Adjustment date is required to cancel a paid financial transaction.',
+      );
+    }
+
+    const fulfillmentsSnapshot = structuredClone(
+      fixtures.financialTransactionFulfillments,
+    );
+    const currentStatus = financialTransaction.status;
+
+    try {
+      activeFulfillments.forEach((fulfillment) => {
+        createFulfillmentAdjustment(fulfillment, {
+          adjustmentDate: payload.adjustmentDate ?? '',
+          observation: payload.observation,
+        });
+      });
+    } catch (error) {
+      fixtures.financialTransactionFulfillments = fulfillmentsSnapshot;
+      financialTransaction.status = currentStatus;
+      syncTransaction(id ?? 0);
+
+      return badRequest(
+        error instanceof Error ? error.message : 'Invalid fulfillment adjustment',
       );
     }
 
@@ -846,6 +1000,7 @@ export const financialHandlers: RequestHandler[] = [
         amountPaid: payload.amountPaid,
         allocations,
         observation: payload.observation,
+        status: 'ACTIVE',
       };
 
       fixtures.financialTransactionFulfillments.push(created);
@@ -868,45 +1023,16 @@ export const financialHandlers: RequestHandler[] = [
 
       if (index < 0) return notFound();
 
-      const allocations = resolveFulfillmentAllocations(
-        financialTransactionId ?? 0,
-        payload.amountPaid,
-        payload.allocations,
-        getTransactionItems(financialTransactionId ?? 0),
-        fulfillmentId,
-      );
+      const current = fixtures.financialTransactionFulfillments[index];
 
-      if (!allocations) {
-        return HttpResponse.json(
-          { message: 'Invalid fulfillment allocations' },
-          { status: 400 },
-        );
-      }
-
-      try {
-        validateFulfillment(
-          fixtures,
-          financialTransactionId ?? 0,
-          {
-            bankAccountId: payload.bankAccountId,
-            paymentDate: payload.paymentDate,
-            amountPaid: payload.amountPaid,
-          },
-          fulfillmentId,
-        );
-      } catch (error) {
-        return HttpResponse.json(
-          { message: error instanceof Error ? error.message : 'Invalid fulfillment' },
-          { status: 400 },
+      if (fulfillmentCashFieldsChanged(current, payload)) {
+        return badRequest(
+          'Paid fulfillment cash fields cannot be changed. Use a cancellation adjustment.',
         );
       }
 
       fixtures.financialTransactionFulfillments[index] = {
-        ...fixtures.financialTransactionFulfillments[index],
-        bankAccountId: payload.bankAccountId,
-        paymentDate: payload.paymentDate,
-        amountPaid: payload.amountPaid,
-        allocations,
+        ...current,
         observation: payload.observation,
       };
       syncTransaction(financialTransactionId ?? 0);
@@ -918,14 +1044,55 @@ export const financialHandlers: RequestHandler[] = [
     ({ params }) => {
       const financialTransactionId = parseId(String(params.id));
       const fulfillmentId = parseId(String(params.fulfillmentId));
-      fixtures.financialTransactionFulfillments =
-        fixtures.financialTransactionFulfillments.filter(
-          (item) =>
-            item.id !== fulfillmentId ||
-            item.financialTransactionId !== financialTransactionId,
+      const fulfillmentExists = fixtures.financialTransactionFulfillments.some(
+        (item) =>
+          item.id === fulfillmentId &&
+          item.financialTransactionId === financialTransactionId,
+      );
+
+      if (!fulfillmentExists) return notFound();
+
+      return badRequest(
+        'Paid fulfillment cannot be deleted. Use a cancellation adjustment.',
+      );
+    },
+  ),
+  http.post(
+    `/api/financial-transactions/:id/fulfillments/:fulfillmentId/cancel`,
+    async ({ params, request }) => {
+      const financialTransactionId = parseId(String(params.id));
+      const fulfillmentId = parseId(String(params.fulfillmentId));
+      const financialTransaction = transactionNotFound(financialTransactionId);
+      if (!financialTransaction) return notFound();
+
+      if (financialTransaction.status === 'CANCELED') {
+        return badRequest('Canceled financial transactions cannot be changed.');
+      }
+
+      const fulfillment = fixtures.financialTransactionFulfillments.find(
+        (item) =>
+          item.id === fulfillmentId &&
+          item.financialTransactionId === financialTransactionId,
+      );
+
+      if (!fulfillment) return notFound();
+
+      const payload =
+        await readOptionalJson<CancelFinancialTransactionFulfillmentDto>(request);
+
+      if (!payload?.adjustmentDate) {
+        return badRequest('Adjustment date is required.');
+      }
+
+      try {
+        const adjustment = createFulfillmentAdjustment(fulfillment, payload);
+        syncTransaction(financialTransactionId ?? 0);
+        return HttpResponse.json(adjustment, { status: 201 });
+      } catch (error) {
+        return badRequest(
+          error instanceof Error ? error.message : 'Invalid fulfillment adjustment',
         );
-      syncTransaction(financialTransactionId ?? 0);
-      return new HttpResponse(null, { status: 204 });
+      }
     },
   ),
 
@@ -1047,6 +1214,7 @@ export const financialHandlers: RequestHandler[] = [
       amount: payload.amount,
       transferDate: payload.transferDate,
       observation: payload.observation,
+      status: 'ACTIVE',
     };
     fixtures.bankTransfers.push(created);
     return HttpResponse.json(created, { status: 201 });
@@ -1058,21 +1226,21 @@ export const financialHandlers: RequestHandler[] = [
 
     if (index < 0) return notFound();
 
-    try {
-      validateBankTransfer(fixtures, payload, id);
-    } catch (error) {
-      return HttpResponse.json(
-        { message: error instanceof Error ? error.message : 'Invalid bank transfer' },
-        { status: 400 },
+    const current = fixtures.bankTransfers[index];
+    const cashFieldsChanged =
+      current.sourceBankAccountId !== payload.sourceBankAccountId ||
+      current.destinationBankAccountId !== payload.destinationBankAccountId ||
+      Math.abs(roundCurrency(current.amount - payload.amount)) > 0.009 ||
+      current.transferDate !== payload.transferDate;
+
+    if (cashFieldsChanged) {
+      return badRequest(
+        'Bank transfer cash fields cannot be changed. Use a cancellation adjustment.',
       );
     }
 
     fixtures.bankTransfers[index] = {
-      ...fixtures.bankTransfers[index],
-      sourceBankAccountId: payload.sourceBankAccountId,
-      destinationBankAccountId: payload.destinationBankAccountId,
-      amount: payload.amount,
-      transferDate: payload.transferDate,
+      ...current,
       observation: payload.observation,
     };
 
@@ -1080,7 +1248,51 @@ export const financialHandlers: RequestHandler[] = [
   }),
   http.delete(`/api/bank-transfers/:id`, ({ params }) => {
     const id = parseId(String(params.id));
-    fixtures.bankTransfers = fixtures.bankTransfers.filter((item) => item.id !== id);
-    return new HttpResponse(null, { status: 204 });
+    const bankTransferExists = fixtures.bankTransfers.some((item) => item.id === id);
+
+    if (!bankTransferExists) return notFound();
+
+    return badRequest(
+      'Bank transfer cannot be deleted. Use a cancellation adjustment.',
+    );
+  }),
+  http.post(`/api/bank-transfers/:id/cancel`, async ({ params, request }) => {
+    const id = parseId(String(params.id));
+    const original = fixtures.bankTransfers.find((item) => item.id === id);
+
+    if (!original) return notFound();
+
+    if ((original.status ?? 'ACTIVE') !== 'ACTIVE') {
+      return badRequest('Only active bank transfers can be canceled.');
+    }
+
+    const payload = await readOptionalJson<CancelBankTransferDto>(request);
+
+    if (!payload?.adjustmentDate) {
+      return badRequest('Adjustment date is required.');
+    }
+
+    try {
+      validateBankTransferAdjustment(fixtures, original, payload.adjustmentDate);
+    } catch (error) {
+      return badRequest(
+        error instanceof Error ? error.message : 'Invalid bank transfer adjustment',
+      );
+    }
+
+    const adjustment: BankTransferDto = {
+      id: nextId(fixtures.bankTransfers),
+      sourceBankAccountId: original.destinationBankAccountId,
+      destinationBankAccountId: original.sourceBankAccountId,
+      amount: original.amount,
+      transferDate: payload.adjustmentDate,
+      observation: payload.observation,
+      status: 'ADJUSTMENT',
+      cancelId: original.id,
+    };
+
+    original.status = 'CANCELED';
+    fixtures.bankTransfers.push(adjustment);
+    return HttpResponse.json(adjustment, { status: 201 });
   }),
 ];

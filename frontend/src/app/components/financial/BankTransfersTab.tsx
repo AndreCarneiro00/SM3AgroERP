@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Box,
+  Chip,
   TableBody,
   TableCell,
   TableHead,
@@ -8,6 +9,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import UndoIcon from '@mui/icons-material/Undo';
 import {
   selectBankAccountLabelById,
 } from '../../../domains/banking/selectors/selectors';
@@ -25,6 +27,7 @@ import {
   useFinancialMutations,
 } from '../../../domains/financial/ui/hooks';
 import { extractApiErrorMessage } from '../../../core/http/client';
+import { todayIsoDate } from '../../forms/valueParsers';
 import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
@@ -36,6 +39,12 @@ const fmtBRL = (value: number) =>
 
 const fmtDate = (value: string) =>
   new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR');
+
+const CASH_STATUS_LABEL: Record<string, string> = {
+  ACTIVE: 'Ativa',
+  CANCELED: 'Cancelada',
+  ADJUSTMENT: 'Ajuste',
+};
 
 export function BankTransfersTab() {
   const { activeBankAccounts, catalog } = useBankAccountsData();
@@ -55,7 +64,7 @@ export function BankTransfersTab() {
   const {
     createBankTransfer,
     updateBankTransfer,
-    deleteBankTransfer,
+    cancelBankTransfer,
   } = useFinancialMutations();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<BankTransfer | undefined>();
@@ -78,6 +87,32 @@ export function BankTransfersTab() {
       window.alert(
         extractApiErrorMessage(error) ??
           'Nao foi possivel salvar a transferencia.',
+      );
+    }
+  };
+
+  const handleCancel = async (bankTransfer: BankTransfer) => {
+    const adjustmentDate = window.prompt(
+      'Data do ajuste de cancelamento',
+      todayIsoDate(),
+    );
+
+    if (!adjustmentDate) {
+      return;
+    }
+
+    try {
+      await cancelBankTransfer.mutateAsync({
+        id: bankTransfer.id,
+        input: {
+          adjustmentDate,
+          observation: `Cancelamento da transferencia ${bankTransfer.id}`,
+        },
+      });
+    } catch (error) {
+      window.alert(
+        extractApiErrorMessage(error) ??
+          'Nao foi possivel cancelar a transferencia.',
       );
     }
   };
@@ -118,6 +153,7 @@ export function BankTransfersTab() {
             <TableCell>Conta Origem</TableCell>
             <TableCell>Conta Destino</TableCell>
             <TableCell>Data</TableCell>
+            <TableCell>Status</TableCell>
             <TableCell>Observacao</TableCell>
             <TableCell align="right">Valor</TableCell>
             <TableCell align="center">Acoes</TableCell>
@@ -139,6 +175,29 @@ export function BankTransfersTab() {
                 )}
               </TableCell>
               <TableCell>{fmtDate(bankTransfer.transferDate)}</TableCell>
+              <TableCell>
+                <Chip
+                  size="small"
+                  label={CASH_STATUS_LABEL[bankTransfer.status] ?? bankTransfer.status}
+                  color={
+                    bankTransfer.status === 'ACTIVE'
+                      ? 'success'
+                      : bankTransfer.status === 'ADJUSTMENT'
+                        ? 'info'
+                        : 'default'
+                  }
+                  sx={{ height: 20 }}
+                />
+                {bankTransfer.cancelId && (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
+                    ref. #{bankTransfer.cancelId}
+                  </Typography>
+                )}
+              </TableCell>
               <TableCell sx={{ color: 'text.secondary' }}>
                 {bankTransfer.observation ?? '-'}
               </TableCell>
@@ -149,20 +208,25 @@ export function BankTransfersTab() {
               </TableCell>
               <TableCell align="center">
                 <RowActions
+                  disabled={bankTransfer.status !== 'ACTIVE'}
                   onEdit={() => {
                     setEditing(bankTransfer);
                     setDialogOpen(true);
                   }}
                   onDelete={() => {
-                    void deleteBankTransfer.mutateAsync(bankTransfer.id);
+                    void handleCancel(bankTransfer);
                   }}
+                  deleteConfirmMessage="Cancelar esta transferencia por ajuste?"
+                  deleteTooltip="Cancelar por ajuste"
+                  deleteColor="warning"
+                  deleteIcon={<UndoIcon sx={{ fontSize: 16 }} />}
                 />
               </TableCell>
             </TableRow>
           ))}
           {sorted.length === 0 && (
             <EmptyTableRow
-              colSpan={6}
+              colSpan={7}
               message="Nenhuma transferencia encontrada."
             />
           )}

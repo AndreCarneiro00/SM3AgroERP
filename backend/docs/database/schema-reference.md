@@ -5,6 +5,7 @@ Source migrations:
 - `backend/src/main/resources/db/migration/V1__initial_shema.sql`
 - `backend/src/main/resources/db/migration/V2__normalize_local_date_storage.sql`
 - `backend/src/main/resources/db/migration/V3__point_cut_to_product.sql`
+- `backend/src/main/resources/db/migration/V4__add_cash_movement_audit_fields.sql`
 
 This document is an agent-facing map of the initial database. Use it when changing
 backend entities, DTOs, services, Flyway migrations, frontend API models, or tests
@@ -368,6 +369,8 @@ Attachment location rule: at least one of `storage_path`, `external_file_id`, or
 | `payment_date` | `DATE` | yes | Payment or receipt date. |
 | `amount_paid` | `REAL` | yes | Must be greater than `0`. |
 | `observation` | `TEXT` | no | Free-text notes. |
+| `status` | `TEXT` | yes | Defaults to `ACTIVE`; allowed `ACTIVE`, `CANCELED`, `ADJUSTMENT`. |
+| `cancel_id` | `INTEGER` | no | Self-reference to the original fulfillment when this row is an adjustment. |
 
 `financial_transaction_fulfillment_item_allocation`
 
@@ -388,6 +391,8 @@ Attachment location rule: at least one of `storage_path`, `external_file_id`, or
 | `amount` | `REAL` | yes | Transfer amount. No positive check in V1. |
 | `transfer_date` | `DATE` | yes | Transfer date. |
 | `observation` | `TEXT` | no | Free-text notes. |
+| `status` | `TEXT` | yes | Defaults to `ACTIVE`; allowed `ACTIVE`, `CANCELED`, `ADJUSTMENT`. |
+| `cancel_id` | `INTEGER` | no | Self-reference to the original transfer when this row is an adjustment. |
 
 Transfer rule: `source_bank_account_id` must differ from
 `destination_bank_account_id`.
@@ -467,7 +472,9 @@ Transfer rule: `source_bank_account_id` must differ from
 | `field_operation.status` | `PLANNED`, `DONE`, `CANCELED` |
 | `financial_transaction.status` | `PENDING`, `PAID`, `CANCELED`, `PARTIAL` |
 | `financial_transaction.type` | `INCOME`, `EXPENSE` |
+| `financial_transaction_fulfillment.status` | `ACTIVE`, `CANCELED`, `ADJUSTMENT` |
 | `financial_transaction_attachment.storage_provider` | `LOCAL`, `ONEDRIVE`, `S3` |
+| `bank_transfer.status` | `ACTIVE`, `CANCELED`, `ADJUSTMENT` |
 | `inventory_batch.status` | `ACTIVE`, `CONSUMED`, `SOLD`, `CANCELED` |
 | `inventory_movement.movement_type` | `PURCHASE_IN`, `PRODUCTION_IN`, `SALE_OUT`, `CONSUMPTION_OUT`, `ADJUSTMENT_IN`, `ADJUSTMENT_OUT`, `TRANSFER_IN`, `TRANSFER_OUT` |
 | `inventory_adjustment.type` | `POSITIVE`, `NEGATIVE` |
@@ -554,12 +561,12 @@ lookups by stable business data instead of hard-coded ids.
 | `cut` | `6` cuts |
 | `field_operation` | `5` operations |
 | `field_operation_machine` | `5` machine allocations |
-| `financial_transaction` | `12` transactions |
-| `financial_transaction_items` | `12` items |
-| `financial_transaction_fulfillment` | `6` fulfillments |
-| `financial_transaction_fulfillment_item_allocation` | `6` allocations |
+| `financial_transaction` | `14` transactions, including canceled income and expense examples with cash adjustments |
+| `financial_transaction_items` | `14` items |
+| `financial_transaction_fulfillment` | `10` fulfillments, including `CANCELED` originals and `ADJUSTMENT` reversals |
+| `financial_transaction_fulfillment_item_allocation` | `8` allocations |
 | `financial_transaction_attachment` | `3` attachments |
-| `bank_transfer` | `3` transfers |
+| `bank_transfer` | `5` transfers, including a canceled transfer and inverse adjustment |
 | `inventory_batch` | `11` batches |
 | `inventory_movement` | `20` movements |
 | `inventory_adjustment` | `2` adjustments |
@@ -594,4 +601,6 @@ When changing persistence behavior:
 - Fulfillment allocations are not constrained to stay within the paid amount or item
   amount.
 - `inventory_batch.quantity` is not automatically derived from movements.
-- No table has audit columns except `financial_transaction_attachment.uploaded_at`.
+- Cash movement audit metadata exists on `financial_transaction_fulfillment` and
+  `bank_transfer`; other tables still have no generic audit columns except
+  `financial_transaction_attachment.uploaded_at`.

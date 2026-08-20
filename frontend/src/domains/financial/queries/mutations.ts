@@ -8,6 +8,9 @@ import { inventoryKeys } from '../../inventory/queries/keys';
 import { financialRepository } from '../api/repository';
 import {
   mapBankTransferInputToDto,
+  mapCancelBankTransferInputToDto,
+  mapCancelFinancialTransactionFulfillmentInputToDto,
+  mapCancelFinancialTransactionInputToDto,
   mapCreateFinancialTransactionInputToMultipartDto,
   mapFinancialTransactionAttachmentInputToDto,
   mapFinancialTransactionFulfillmentInputToDto,
@@ -16,6 +19,9 @@ import {
 } from '../model/mappers';
 import type {
   BankTransferInput,
+  CancelBankTransferInput,
+  CancelFinancialTransactionFulfillmentInput,
+  CancelFinancialTransactionInput,
   CreateFinancialTransactionInput,
   FinancialTransactionAttachmentInput,
   FinancialTransactionFulfillmentInput,
@@ -107,7 +113,17 @@ export function useDeleteFinancialTransactionMutation() {
   const invalidateGraph = useFinancialGraphInvalidation();
 
   return useMutation({
-    mutationFn: (id: number) => financialRepository.deleteFinancialTransaction(id),
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: number;
+      input?: CancelFinancialTransactionInput;
+    }) =>
+      financialRepository.deleteFinancialTransaction(
+        id,
+        input ? mapCancelFinancialTransactionInputToDto(input) : undefined,
+      ),
     onSuccess: invalidateGraph,
   });
 }
@@ -293,6 +309,28 @@ export function useDeleteFinancialTransactionFulfillmentMutation() {
   });
 }
 
+export function useCancelFinancialTransactionFulfillmentMutation() {
+  const invalidateGraph = useFinancialCashGraphInvalidation();
+
+  return useMutation({
+    mutationFn: ({
+      financialTransactionId,
+      id,
+      input,
+    }: {
+      financialTransactionId: number;
+      id: number;
+      input: CancelFinancialTransactionFulfillmentInput;
+    }) =>
+      financialRepository.cancelFinancialTransactionFulfillment(
+        financialTransactionId,
+        id,
+        mapCancelFinancialTransactionFulfillmentInputToDto(input),
+      ),
+    onSuccess: invalidateGraph,
+  });
+}
+
 export function useCreateBankTransferMutation() {
   const invalidate = useFinancialInvalidation();
 
@@ -322,6 +360,21 @@ export function useDeleteBankTransferMutation() {
 
   return useMutation({
     mutationFn: (id: number) => financialRepository.deleteBankTransfer(id),
+    onSuccess: async () => {
+      await invalidate(financialKeys.bankTransfers(), bankingKeys.list());
+    },
+  });
+}
+
+export function useCancelBankTransferMutation() {
+  const invalidate = useFinancialInvalidation();
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: number; input: CancelBankTransferInput }) =>
+      financialRepository.cancelBankTransfer(
+        id,
+        mapCancelBankTransferInputToDto(input),
+      ),
     onSuccess: async () => {
       await invalidate(financialKeys.bankTransfers(), bankingKeys.list());
     },

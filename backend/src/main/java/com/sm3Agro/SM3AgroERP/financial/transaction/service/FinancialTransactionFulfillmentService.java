@@ -4,6 +4,7 @@ import com.sm3Agro.SM3AgroERP.financial.balance.BankBalanceService;
 import com.sm3Agro.SM3AgroERP.masterData.bankAccount.entity.BankAccount;
 import com.sm3Agro.SM3AgroERP.masterData.bankAccount.repository.BankAccountRepository;
 import com.sm3Agro.SM3AgroERP.financial.transaction.domain.FinancialTransactionRules;
+import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CancelFinancialTransactionFulfillmentRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentAllocationRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.UpdateFinancialTransactionFulfillmentRequest;
@@ -25,6 +26,7 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @RequiredArgsConstructor
 @Service
@@ -37,6 +39,7 @@ public class FinancialTransactionFulfillmentService {
     private final FinancialTransactionService transactionService;
     private final FinancialTransactionRules rules;
     private final BankBalanceService bankBalanceService;
+    private final FinancialTransactionFulfillmentAdjustmentService fulfillmentAdjustmentService;
 
     public List<FinancialTransactionFulfillmentResult> createAll(
             FinancialTransaction financialTransaction,
@@ -71,34 +74,11 @@ public class FinancialTransactionFulfillmentService {
     ) {
         transactionService.findMutableById(financialTransactionId);
         FinancialTransactionFulfillment fulfillment = findOwnedFulfillment(financialTransactionId, fulfillmentId);
-        BankAccount bankAccount = resolveBankAccount(request.bankAccountId());
 
-        bankBalanceService.validateFulfillment(
-                fulfillment.getFinancialTransaction(),
-                bankAccount,
-                request.paymentDate(),
-                request.amountPaid(),
-                fulfillmentId
-        );
-
-        fulfillment.setBankAccount(bankAccount);
-        fulfillment.setPaymentDate(request.paymentDate());
-        fulfillment.setAmountPaid(request.amountPaid());
+        requireCashFieldsUnchanged(fulfillment, request);
         fulfillment.setObservation(request.observation());
-        validatePaymentBounds(
-                fulfillment.getFinancialTransaction(),
-                fulfillment.getAmountPaid(),
-                fulfillmentId
-        );
-        validateAndResolveAllocations(
-                fulfillment.getFinancialTransaction(),
-                fulfillmentId,
-                fulfillment.getAmountPaid(),
-                request.allocations()
-        );
 
         FinancialTransactionFulfillment saved = fulfillmentRepository.save(fulfillment);
-        replaceAllocations(saved, request.allocations());
         transactionService.recalculate(financialTransactionId);
         return saved;
     }
@@ -106,10 +86,29 @@ public class FinancialTransactionFulfillmentService {
     @Transactional
     public void delete(Long financialTransactionId, Long fulfillmentId) {
         transactionService.findMutableById(financialTransactionId);
+        findOwnedFulfillment(financialTransactionId, fulfillmentId);
+        throw new IllegalArgumentException("Paid fulfillment cannot be deleted. Use a cancellation adjustment.");
+    }
+
+    @Transactional
+    public FinancialTransactionFulfillment cancel(
+            Long financialTransactionId,
+            Long fulfillmentId,
+            CancelFinancialTransactionFulfillmentRequest request
+    ) {
+        transactionService.findMutableById(financialTransactionId);
         FinancialTransactionFulfillment fulfillment = findOwnedFulfillment(financialTransactionId, fulfillmentId);
-        allocationRepository.deleteByFulfillmentId(fulfillmentId);
-        fulfillmentRepository.delete(fulfillment);
+        if (request == null || request.adjustmentDate() == null) {
+            throw new IllegalArgumentException("Adjustment date is required.");
+        }
+
+        FinancialTransactionFulfillment adjustment = fulfillmentAdjustmentService.cancel(
+                fulfillment,
+                request.adjustmentDate(),
+                request.observation()
+        );
         transactionService.recalculate(financialTransactionId);
+        return adjustment;
     }
 
     private FinancialTransactionFulfillment createForTransaction(
@@ -215,6 +214,67 @@ public class FinancialTransactionFulfillmentService {
         return resolvedItems;
     }
 
+    private void requireCashFieldsUnchanged(
+            FinancialTransactionFulfillment fulfillment,
+            UpdateFinancialTransactionFulfillmentRequest request
+    ) {
+        if (!Objects.equals(fulfillment.getBankAccount().getId(), request.bankAccountId())
+                || !Objects.equals(fulfillment.getPaymentDate(), request.paymentDate())
+                || moneyChanged(fulfillment.getAmountPaid(), request.amountPaid())
+                || allocationsChanged(fulfillment, request.allocations())) {
+            throw new IllegalArgumentException(
+                    "Paid fulfillment cash fields cannot be changed. Use a cancellation adjustment."
+            );
+        }
+    }
+
+    private boolean moneyChanged(BigDecimal currentValue, BigDecimal requestedValue) {
+        BigDecimal normalizedCurrentValue = currentValue != null ? currentValue : BigDecimal.ZERO;
+        BigDecimal normalizedRequestedValue = requestedValue != null ? requestedValue : BigDecimal.ZERO;
+
+        return normalizedCurrentValue.compareTo(normalizedRequestedValue) != 0;
+    }
+
+    private boolean allocationsChanged(
+            FinancialTransactionFulfillment fulfillment,
+            List<FinancialTransactionFulfillmentAllocationRequest> allocationRequests
+    ) {
+        if (allocationRequests == null) {
+            return true;
+        }
+
+        Map<Long, BigDecimal> currentAllocations = new LinkedHashMap<>();
+        allocationRepository.findByFulfillmentId(fulfillment.getId()).forEach(allocation ->
+                currentAllocations.merge(
+                        allocation.getFinancialTransactionItem().getId(),
+                        allocation.getAmount(),
+                        BigDecimal::add
+                )
+        );
+
+        Map<Long, BigDecimal> requestedAllocations = new LinkedHashMap<>();
+        for (FinancialTransactionFulfillmentAllocationRequest allocationRequest : allocationRequests) {
+            FinancialTransactionItem item = resolveAllocationItem(
+                    fulfillment.getFinancialTransaction(),
+                    allocationRequest
+            );
+            requestedAllocations.merge(item.getId(), allocationRequest.amount(), BigDecimal::add);
+        }
+
+        if (!currentAllocations.keySet().equals(requestedAllocations.keySet())) {
+            return true;
+        }
+
+        for (Map.Entry<Long, BigDecimal> entry : currentAllocations.entrySet()) {
+            BigDecimal requestedAmount = requestedAllocations.get(entry.getKey());
+            if (moneyChanged(entry.getValue(), requestedAmount)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void validatePaymentBounds(
             FinancialTransaction transaction,
             BigDecimal amountPaid,
@@ -271,6 +331,8 @@ public class FinancialTransactionFulfillmentService {
                 saved.getPaymentDate(),
                 saved.getAmountPaid(),
                 saved.getObservation(),
+                saved.getStatus(),
+                saved.getCancelFulfillment() != null ? saved.getCancelFulfillment().getId() : null,
                 allocationRepository.findByFulfillmentId(saved.getId()).stream()
                         .map(allocation -> new FinancialTransactionFulfillmentAllocationResult(
                                 allocation.getId(),

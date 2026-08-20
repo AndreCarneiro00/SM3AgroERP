@@ -1,11 +1,14 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.service;
 
+import com.sm3Agro.SM3AgroERP.financial.cashMovement.enums.CashMovementStatus;
+import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CancelFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.domain.FinancialTransactionRules;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionItemRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.UpdateFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransaction;
+import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionFulfillment;
 import com.sm3Agro.SM3AgroERP.financial.transaction.enums.FinancialTransactionStatus;
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionFulfillmentRepository;
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionItemRepository;
@@ -33,6 +36,7 @@ public class FinancialTransactionService {
     private final CounterpartyRepository counterpartyRepository;
     private final FinancialTransactionRules rules;
     private final InventoryMovementRepository inventoryMovementRepository;
+    private final FinancialTransactionFulfillmentAdjustmentService fulfillmentAdjustmentService;
 
     public List<FinancialTransaction> findAll() {
         return findAll(null, null);
@@ -112,10 +116,33 @@ public class FinancialTransactionService {
 
     @Transactional
     public FinancialTransaction cancel(Long id) {
+        return cancel(id, null);
+    }
+
+    @Transactional
+    public FinancialTransaction cancel(Long id, CancelFinancialTransactionRequest request) {
         FinancialTransaction transaction = findById(id);
+        rules.requireMutable(transaction);
+
         if (inventoryMovementRepository.existsByFinancialTransactionId(id)) {
             throw new IllegalArgumentException("Cannot cancel a financial transaction with inventory movements.");
         }
+
+        List<FinancialTransactionFulfillment> activeFulfillments =
+                fulfillmentRepository.findByFinancialTransactionIdAndStatus(id, CashMovementStatus.ACTIVE);
+
+        if (!activeFulfillments.isEmpty() && (request == null || request.adjustmentDate() == null)) {
+            throw new IllegalArgumentException("Adjustment date is required to cancel a paid financial transaction.");
+        }
+
+        for (FinancialTransactionFulfillment fulfillment : activeFulfillments) {
+            fulfillmentAdjustmentService.cancel(
+                    fulfillment,
+                    request.adjustmentDate(),
+                    request.observation()
+            );
+        }
+
         transaction.setStatus(FinancialTransactionStatus.CANCELED);
         return financialTransactionRepository.save(transaction);
     }

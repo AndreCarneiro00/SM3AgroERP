@@ -1,5 +1,6 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.domain;
 
+import com.sm3Agro.SM3AgroERP.financial.cashMovement.enums.CashMovementStatus;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransaction;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionFulfillment;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionItem;
@@ -29,6 +30,7 @@ public class FinancialTransactionRules {
         }
 
         return fulfillments.stream()
+                .filter(fulfillment -> fulfillment.getStatus() == CashMovementStatus.ACTIVE)
                 .map(fulfillment -> fulfillment.getAmountPaid() == null ? BigDecimal.ZERO : fulfillment.getAmountPaid())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }

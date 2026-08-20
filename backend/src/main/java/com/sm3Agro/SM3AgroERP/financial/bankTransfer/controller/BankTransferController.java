@@ -1,5 +1,6 @@
 package com.sm3Agro.SM3AgroERP.financial.bankTransfer.controller;
 
+import com.sm3Agro.SM3AgroERP.financial.bankTransfer.dto.bankTransfer.CancelBankTransferRequest;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.dto.bankTransfer.CreateBankTransferRequest;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.dto.bankTransfer.CreateBankTransferResponse;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.dto.bankTransfer.FindAllBankTransferResponse;
@@ -68,6 +69,15 @@ public class BankTransferController {
         service.delete(id);
     }
 
+    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping("/{id}/cancel")
+    public CreateBankTransferResponse cancelBankTransfer(
+            @PathVariable Long id,
+            @Valid @RequestBody CancelBankTransferRequest request
+    ) {
+        return toCreateResponse(service.cancel(id, request));
+    }
+
     private FindAllBankTransferResponse toFindAllResponse(BankTransfer bankTransfer) {
         return new FindAllBankTransferResponse(
                 bankTransfer.getId(),
@@ -75,7 +85,9 @@ public class BankTransferController {
                 bankTransfer.getDestinationBankAccount().getId(),
                 bankTransfer.getAmount(),
                 bankTransfer.getTransferDate(),
-                bankTransfer.getObservation()
+                bankTransfer.getObservation(),
+                bankTransfer.getStatus(),
+                bankTransfer.getCancelTransfer() != null ? bankTransfer.getCancelTransfer().getId() : null
         );
     }
 
@@ -86,7 +98,9 @@ public class BankTransferController {
                 bankTransfer.getDestinationBankAccount().getId(),
                 bankTransfer.getAmount(),
                 bankTransfer.getTransferDate(),
-                bankTransfer.getObservation()
+                bankTransfer.getObservation(),
+                bankTransfer.getStatus(),
+                bankTransfer.getCancelTransfer() != null ? bankTransfer.getCancelTransfer().getId() : null
         );
     }
 
@@ -97,7 +111,9 @@ public class BankTransferController {
                 bankTransfer.getDestinationBankAccount().getId(),
                 bankTransfer.getAmount(),
                 bankTransfer.getTransferDate(),
-                bankTransfer.getObservation()
+                bankTransfer.getObservation(),
+                bankTransfer.getStatus(),
+                bankTransfer.getCancelTransfer() != null ? bankTransfer.getCancelTransfer().getId() : null
         );
     }
 }

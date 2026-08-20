@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import {
+  Alert,
   Box,
   Button,
   Dialog,
@@ -116,7 +117,7 @@ export function FulfillmentDialog({
     () => createFulfillmentSchema(maximumPayableAmount),
     [maximumPayableAmount],
   );
-  const { control, formState, handleSubmit, reset } =
+  const { control, formState, handleSubmit, reset, watch } =
     useForm<FulfillmentFormValues>({
       defaultValues: getDefaultValues(transaction, fulfillment),
       resolver: zodResolver(fulfillmentSchema),
@@ -131,12 +132,23 @@ export function FulfillmentDialog({
   }, [fulfillment, open, reset, transaction]);
 
   const disabled = saving || formState.isSubmitting;
+  const isEditing = !!fulfillment;
+  const selectedBankId = watch('bankId');
+  const paymentAmount = Number(watch('amount'));
+  const selectedBankAccount = activeBankAccounts.find(
+    (bankAccount) => String(bankAccount.id) === selectedBankId,
+  );
+  const shouldWarnAboutCurrentBalance =
+    transaction?.type === 'EXPENSE' &&
+    selectedBankAccount?.currentBalance !== undefined &&
+    Number.isFinite(paymentAmount) &&
+    selectedBankAccount.currentBalance < paymentAmount;
 
   const handleFormSubmit = handleSubmit(async (values) => {
     await onSave(
-      Number(values.bankId),
-      values.date,
-      Number(values.amount),
+      isEditing ? fulfillment.bankAccountId : Number(values.bankId),
+      isEditing ? fulfillment.paymentDate : values.date,
+      isEditing ? fulfillment.amountPaid : Number(values.amount),
       values.observation.trim(),
     );
   });
@@ -166,6 +178,23 @@ export function FulfillmentDialog({
           </Box>
         )}
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {isEditing && (
+            <Alert severity="info">
+              Pagamentos registrados preservam conta, data, valor e alocacoes.
+              Apenas a observacao pode ser editada.
+            </Alert>
+          )}
+
+          {selectedBankAccount && (
+            <Alert severity={shouldWarnAboutCurrentBalance ? 'warning' : 'info'}>
+              Saldo atual de {selectedBankAccount.name}:{' '}
+              {fmtBRL(selectedBankAccount.currentBalance ?? 0)}
+              {shouldWarnAboutCurrentBalance
+                ? '. A validacao final considera a linha do tempo no backend.'
+                : ''}
+            </Alert>
+          )}
+
           <FormTextField
             control={control}
             name="bankId"
@@ -173,6 +202,7 @@ export function FulfillmentDialog({
             select
             fullWidth
             size="small"
+            disabled={isEditing}
           >
             {activeBankAccounts.map((bankAccount) => (
               <MenuItem key={bankAccount.id} value={String(bankAccount.id)}>
@@ -186,6 +216,7 @@ export function FulfillmentDialog({
             label="Data do Pagamento"
             type="date"
             fullWidth
+            disabled={isEditing}
             InputLabelProps={{ shrink: true }}
           />
           <FormTextField
@@ -194,6 +225,7 @@ export function FulfillmentDialog({
             label="Valor Pago (R$)"
             type="number"
             fullWidth
+            disabled={isEditing}
             inputProps={{
               min: 0,
               max: Number.isFinite(maximumPayableAmount)

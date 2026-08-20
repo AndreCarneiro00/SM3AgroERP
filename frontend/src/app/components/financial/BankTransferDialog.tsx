@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import {
+  Alert,
   Button,
   Dialog,
   DialogActions,
@@ -88,13 +89,18 @@ export function BankTransferDialog({
 
   const source = watch('source');
   const disabled = saving || formState.isSubmitting;
+  const isEditing = !!editing;
 
   const handleFormSubmit = handleSubmit(async (values) => {
     await onSave({
-      sourceBankAccountId: Number(values.source),
-      destinationBankAccountId: Number(values.destination),
-      amount: Number(values.amount),
-      transferDate: values.date,
+      sourceBankAccountId: isEditing
+        ? editing.sourceBankAccountId
+        : Number(values.source),
+      destinationBankAccountId: isEditing
+        ? editing.destinationBankAccountId
+        : Number(values.destination),
+      amount: isEditing ? editing.amount : Number(values.amount),
+      transferDate: isEditing ? editing.transferDate : values.date,
       observation: optionalTextFromInput(values.observation),
     });
   });
@@ -106,6 +112,13 @@ export function BankTransferDialog({
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {isEditing && (
+            <Alert severity="info">
+              Transferencias registradas nao podem alterar origem, destino,
+              valor ou data. Para corrigir, cancele e crie uma nova.
+            </Alert>
+          )}
+
           <FormTextField
             control={control}
             name="source"
@@ -113,6 +126,7 @@ export function BankTransferDialog({
             select
             fullWidth
             size="small"
+            disabled={isEditing}
           >
             {activeBankAccounts.map((bankAccount) => (
               <MenuItem key={bankAccount.id} value={String(bankAccount.id)}>
@@ -127,6 +141,7 @@ export function BankTransferDialog({
             select
             fullWidth
             size="small"
+            disabled={isEditing}
           >
             {activeBankAccounts
               .filter((bankAccount) => String(bankAccount.id) !== source)
@@ -142,6 +157,7 @@ export function BankTransferDialog({
             label="Valor (R$)"
             type="number"
             fullWidth
+            disabled={isEditing}
           />
           <FormTextField
             control={control}
@@ -149,6 +165,7 @@ export function BankTransferDialog({
             label="Data"
             type="date"
             fullWidth
+            disabled={isEditing}
             InputLabelProps={{ shrink: true }}
           />
           <FormTextField

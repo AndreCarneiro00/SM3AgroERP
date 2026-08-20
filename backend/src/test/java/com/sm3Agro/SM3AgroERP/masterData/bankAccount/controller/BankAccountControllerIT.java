@@ -3,6 +3,7 @@ package com.sm3Agro.SM3AgroERP.masterData.bankAccount.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sm3Agro.SM3AgroERP.masterData.bankAccount.dto.CreateBankAccountRequest;
 import com.sm3Agro.SM3AgroERP.masterData.bankAccount.dto.UpdateBankAccountRequest;
+import com.sm3Agro.SM3AgroERP.financial.bankTransfer.entity.BankTransfer;
 import com.sm3Agro.SM3AgroERP.masterData.bankAccount.entity.BankAccount;
 import com.sm3Agro.SM3AgroERP.masterData.bankAccount.repository.BankAccountRepository;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.repository.BankTransferRepository;
@@ -129,8 +130,8 @@ class BankAccountControllerIT {
                 "INVEST",
                 "Conta Nova",
                 false,
-                new BigDecimal("900.00"),
-                LocalDate.of(2024, 2, 5),
+                null,
+                null,
                 "Banco Atualizado",
                 "0002",
                 "99999-9"
@@ -144,7 +145,57 @@ class BankAccountControllerIT {
                 .andExpect(jsonPath("$.name").value("Conta Nova"))
                 .andExpect(jsonPath("$.accountType").value("SAVINGS"))
                 .andExpect(jsonPath("$.active").value(false))
-                .andExpect(jsonPath("$.currentBalance").value(900.00));
+                .andExpect(jsonPath("$.currentBalance").value(0));
+    }
+
+    @Test
+    void shouldRejectChangingInitialBalanceAfterCreation() throws Exception {
+        BankAccount bankAccount = repository.save(BankAccount.builder()
+                .name("Conta Base")
+                .initialBalance(BigDecimal.ZERO)
+                .build());
+
+        UpdateBankAccountRequest request = new UpdateBankAccountRequest(
+                null,
+                null,
+                "Conta Base",
+                true,
+                new BigDecimal("1.00"),
+                null,
+                null,
+                null,
+                null
+        );
+
+        mockMvc.perform(put("/bank-account/{id}", bankAccount.getId())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Initial bank balance cannot be changed after account creation."
+                ));
+    }
+
+    @Test
+    void shouldCreateBankAccountWithZeroInitialBalanceWhenRequestIsNull() throws Exception {
+        CreateBankAccountRequest request = new CreateBankAccountRequest(
+                null,
+                null,
+                "Conta Sem Saldo",
+                true,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        mockMvc.perform(post("/bank-account")
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.initialBalance").value(0))
+                .andExpect(jsonPath("$.currentBalance").value(0));
     }
 
     @Test
@@ -157,6 +208,30 @@ class BankAccountControllerIT {
 
         mockMvc.perform(delete("/bank-account/{id}", bankAccount.getId()))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void shouldRejectDeletingBankAccountWithTransfer() throws Exception {
+        BankAccount source = repository.save(BankAccount.builder()
+                .name("Conta Origem")
+                .initialBalance(new BigDecimal("100.00"))
+                .build());
+        BankAccount destination = repository.save(BankAccount.builder()
+                .name("Conta Destino")
+                .initialBalance(BigDecimal.ZERO)
+                .build());
+        bankTransferRepository.save(BankTransfer.builder()
+                .sourceBankAccount(source)
+                .destinationBankAccount(destination)
+                .amount(new BigDecimal("10.00"))
+                .transferDate(LocalDate.of(2026, 7, 1))
+                .build());
+
+        mockMvc.perform(delete("/bank-account/{id}", source.getId()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Bank account cannot be deleted because it has financial movements."
+                ));
     }
 
     @Test

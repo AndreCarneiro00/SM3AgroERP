@@ -2,6 +2,8 @@ package com.sm3Agro.SM3AgroERP.financial.transaction.controller;
 
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionAttachmentRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
+import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CancelFinancialTransactionFulfillmentRequest;
+import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CancelFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionItemRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.UpdateFinancialTransactionAttachmentRequest;
@@ -132,6 +134,8 @@ public class FinancialTransactionController {
                                 fulfillment.paymentDate(),
                                 fulfillment.amountPaid(),
                                 fulfillment.observation(),
+                                fulfillment.status(),
+                                fulfillment.cancelId(),
                                 fulfillment.allocations().stream()
                                         .map(allocation -> new FinancialTransactionFulfillmentAllocationResponse(
                                                 allocation.id(),
@@ -154,8 +158,11 @@ public class FinancialTransactionController {
     }
 
     @PostMapping("/{id}/cancel")
-    public FinancialTransactionDetailResponse cancel(@PathVariable Long id) {
-        transactionService.cancel(id);
+    public FinancialTransactionDetailResponse cancel(
+            @PathVariable Long id,
+            @RequestBody(required = false) CancelFinancialTransactionRequest request
+    ) {
+        transactionService.cancel(id, request);
         return queryService.findById(id);
     }
 
@@ -211,6 +218,16 @@ public class FinancialTransactionController {
             @PathVariable Long fulfillmentId
     ) {
         fulfillmentService.delete(id, fulfillmentId);
+    }
+
+    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping("/{id}/fulfillments/{fulfillmentId}/cancel")
+    public FinancialTransactionFulfillmentResponse cancelFulfillment(
+            @PathVariable Long id,
+            @PathVariable Long fulfillmentId,
+            @Valid @RequestBody CancelFinancialTransactionFulfillmentRequest request
+    ) {
+        return mapper.toFulfillmentResponse(fulfillmentService.cancel(id, fulfillmentId, request));
     }
 
     @ResponseStatus(HttpStatus.CREATED)

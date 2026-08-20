@@ -1,5 +1,6 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.repository;
 
+import com.sm3Agro.SM3AgroERP.financial.cashMovement.enums.CashMovementStatus;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionFulfillmentAllocation;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -24,9 +25,22 @@ public interface FinancialTransactionFulfillmentAllocationRepository
             from FinancialTransactionFulfillmentAllocation allocation
             where allocation.financialTransactionItem.id = :itemId
               and (:excludedFulfillmentId is null or allocation.fulfillment.id <> :excludedFulfillmentId)
+              and allocation.fulfillment.status = :activeStatus
             """)
-    BigDecimal sumAmountByItemExcludingFulfillment(
+    BigDecimal sumActiveAmountByItemExcludingFulfillment(
             @Param("itemId") Long itemId,
-            @Param("excludedFulfillmentId") Long excludedFulfillmentId
+            @Param("excludedFulfillmentId") Long excludedFulfillmentId,
+            @Param("activeStatus") CashMovementStatus activeStatus
     );
+
+    default BigDecimal sumAmountByItemExcludingFulfillment(
+            Long itemId,
+            Long excludedFulfillmentId
+    ) {
+        return sumActiveAmountByItemExcludingFulfillment(
+                itemId,
+                excludedFulfillmentId,
+                CashMovementStatus.ACTIVE
+        );
+    }
 }

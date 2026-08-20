@@ -1,6 +1,7 @@
 import type { EntityCollection } from '../../../core/collections/types';
 import type {
   AttachmentStorageProvider,
+  CashMovementStatus,
   FinancialTransactionStatus,
   FinancialTransactionType,
 } from '../api/dtos';
@@ -65,6 +66,8 @@ export interface FinancialTransactionFulfillment {
   amountPaid: number;
   allocations: FinancialTransactionFulfillmentAllocation[];
   observation?: string;
+  status: CashMovementStatus;
+  cancelId?: number;
 }
 
 export interface FinancialTransactionFulfillmentAllocation {
@@ -81,6 +84,8 @@ export interface BankTransfer {
   amount: number;
   transferDate: string;
   observation?: string;
+  status: CashMovementStatus;
+  cancelId?: number;
 }
 
 export interface FinancialCatalog {
@@ -131,6 +136,16 @@ export interface FinancialTransactionFulfillmentInput {
   observation?: string;
 }
 
+export interface CancelFinancialTransactionInput {
+  adjustmentDate?: string;
+  observation?: string;
+}
+
+export interface CancelFinancialTransactionFulfillmentInput {
+  adjustmentDate: string;
+  observation?: string;
+}
+
 export interface FinancialTransactionFulfillmentAllocationInput {
   itemId?: number;
   itemIndex?: number;
@@ -148,5 +163,10 @@ export interface BankTransferInput {
   destinationBankAccountId?: number;
   amount: number;
   transferDate: string;
+  observation?: string;
+}
+
+export interface CancelBankTransferInput {
+  adjustmentDate: string;
   observation?: string;
 }

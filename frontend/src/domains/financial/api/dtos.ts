@@ -10,6 +10,8 @@ export type FinancialTransactionType = 'INCOME' | 'EXPENSE';
 
 export type AttachmentStorageProvider = 'LOCAL' | 'ONEDRIVE' | 'S3';
 
+export type CashMovementStatus = 'ACTIVE' | 'CANCELED' | 'ADJUSTMENT';
+
 export interface FinancialTransactionDto {
   id: number;
   description?: string;
@@ -73,6 +75,8 @@ export interface FinancialTransactionFulfillmentDto {
   amountPaid: number;
   allocations: FinancialTransactionFulfillmentAllocationDto[];
   observation?: string;
+  status?: CashMovementStatus;
+  cancelId?: number;
 }
 
 export interface FinancialTransactionFulfillmentAllocationDto {
@@ -89,6 +93,8 @@ export interface BankTransferDto {
   amount: number;
   transferDate: string;
   observation?: string;
+  status?: CashMovementStatus;
+  cancelId?: number;
 }
 
 export type UpdateFinancialTransactionDto = Pick<
@@ -149,12 +155,27 @@ export type UpdateFinancialTransactionItemDto = CreateFinancialTransactionItemDt
 
 export type CreateFinancialTransactionFulfillmentDto = Omit<
   FinancialTransactionFulfillmentDto,
-  'id' | 'financialTransactionId'
+  'id' | 'financialTransactionId' | 'status' | 'cancelId'
 > & {
   financialTransactionId?: number;
 };
 export type UpdateFinancialTransactionFulfillmentDto =
   CreateFinancialTransactionFulfillmentDto;
 
-export type CreateBankTransferDto = Omit<BankTransferDto, 'id'>;
+export interface CancelFinancialTransactionDto {
+  adjustmentDate?: string;
+  observation?: string;
+}
+
+export interface CancelFinancialTransactionFulfillmentDto {
+  adjustmentDate: string;
+  observation?: string;
+}
+
+export type CreateBankTransferDto = Omit<BankTransferDto, 'id' | 'status' | 'cancelId'>;
 export type UpdateBankTransferDto = CreateBankTransferDto;
+
+export interface CancelBankTransferDto {
+  adjustmentDate: string;
+  observation?: string;
+}

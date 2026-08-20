@@ -6,6 +6,8 @@ import {
   useCreateFinancialTransactionFulfillmentMutation,
   useCreateFinancialTransactionItemMutation,
   useCreateFinancialTransactionMutation,
+  useCancelBankTransferMutation,
+  useCancelFinancialTransactionFulfillmentMutation,
   useDeleteBankTransferMutation,
   useDeleteFinancialTransactionAttachmentMutation,
   useDeleteFinancialTransactionFulfillmentMutation,
@@ -104,8 +106,11 @@ export function useFinancialMutations() {
       useUpdateFinancialTransactionFulfillmentMutation(),
     deleteFinancialTransactionFulfillment:
       useDeleteFinancialTransactionFulfillmentMutation(),
+    cancelFinancialTransactionFulfillment:
+      useCancelFinancialTransactionFulfillmentMutation(),
     createBankTransfer: useCreateBankTransferMutation(),
     updateBankTransfer: useUpdateBankTransferMutation(),
     deleteBankTransfer: useDeleteBankTransferMutation(),
+    cancelBankTransfer: useCancelBankTransferMutation(),
   };
 }

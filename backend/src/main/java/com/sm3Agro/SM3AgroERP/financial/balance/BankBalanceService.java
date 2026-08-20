@@ -1,12 +1,13 @@
 package com.sm3Agro.SM3AgroERP.financial.balance;
 
-import com.sm3Agro.SM3AgroERP.masterData.bankAccount.entity.BankAccount;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.entity.BankTransfer;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.repository.BankTransferRepository;
+import com.sm3Agro.SM3AgroERP.financial.cashMovement.enums.CashMovementStatus;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransaction;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionFulfillment;
 import com.sm3Agro.SM3AgroERP.financial.transaction.enums.FinancialTransactionType;
 import com.sm3Agro.SM3AgroERP.financial.transaction.repository.FinancialTransactionFulfillmentRepository;
+import com.sm3Agro.SM3AgroERP.masterData.bankAccount.entity.BankAccount;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +16,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -41,13 +43,13 @@ public class BankBalanceService {
         List<LedgerMovement> persistedMovements = loadPersistedMovements(
                 bankAccount.getId(),
                 openingDate,
-                null,
+                Set.of(),
                 Set.of()
         );
 
         return aggregateDailyMovements(persistedMovements).entrySet().stream()
                 .filter(entry -> !entry.getKey().isAfter(asOfDate))
-                .sorted(Comparator.comparing(java.util.Map.Entry::getKey))
+                .sorted(Comparator.comparing(Map.Entry::getKey))
                 .reduce(
                         runningBalance,
                         (balance, entry) -> balance.add(entry.getValue()),
@@ -67,14 +69,44 @@ public class BankBalanceService {
 
         NegativeBalanceProjection projection = findFirstNegativeProjection(
                 sourceBankAccount,
-                List.of(new LedgerMovement(transferDate, amount.negate())),
-                excludedTransferId,
+                List.of(new LedgerMovement(transferDate, normalize(amount).negate())),
+                excludedTransferId != null ? Set.of(excludedTransferId) : Set.of(),
                 Set.of()
         );
 
         if (projection != null) {
             throw new IllegalArgumentException(
                     "Transfer would make source bank account '" + sourceBankAccount.getName()
+                            + "' negative on " + projection.date() + "."
+            );
+        }
+    }
+
+    public void validateTransferAdjustment(BankTransfer originalTransfer, LocalDate adjustmentDate) {
+        BankAccount adjustmentSourceBankAccount = originalTransfer.getDestinationBankAccount();
+        BankAccount adjustmentDestinationBankAccount = originalTransfer.getSourceBankAccount();
+
+        requireOperationWithinOpeningBalanceHorizon(
+                adjustmentSourceBankAccount,
+                adjustmentDate,
+                "Source bank account"
+        );
+        requireOperationWithinOpeningBalanceHorizon(
+                adjustmentDestinationBankAccount,
+                adjustmentDate,
+                "Destination bank account"
+        );
+
+        NegativeBalanceProjection projection = findFirstNegativeProjection(
+                adjustmentSourceBankAccount,
+                List.of(new LedgerMovement(adjustmentDate, normalize(originalTransfer.getAmount()).negate())),
+                Set.of(),
+                Set.of()
+        );
+
+        if (projection != null) {
+            throw new IllegalArgumentException(
+                    "Transfer cancellation would make bank account '" + adjustmentSourceBankAccount.getName()
                             + "' negative on " + projection.date() + "."
             );
         }
@@ -95,14 +127,41 @@ public class BankBalanceService {
 
         NegativeBalanceProjection projection = findFirstNegativeProjection(
                 bankAccount,
-                List.of(new LedgerMovement(paymentDate, amountPaid.negate())),
-                null,
+                List.of(new LedgerMovement(paymentDate, normalize(amountPaid).negate())),
+                Set.of(),
                 excludedFulfillmentId != null ? Set.of(excludedFulfillmentId) : Set.of()
         );
 
         if (projection != null) {
             throw new IllegalArgumentException(
                     "Expense fulfillment would make bank account '" + bankAccount.getName()
+                            + "' negative on " + projection.date() + "."
+            );
+        }
+    }
+
+    public void validateFulfillmentAdjustment(
+            FinancialTransactionFulfillment originalFulfillment,
+            LocalDate adjustmentDate
+    ) {
+        BankAccount bankAccount = originalFulfillment.getBankAccount();
+        requireOperationWithinOpeningBalanceHorizon(bankAccount, adjustmentDate, "Bank account");
+
+        BigDecimal adjustmentAmount = resolveBaseFulfillmentSignedAmount(originalFulfillment).negate();
+        if (adjustmentAmount.compareTo(BigDecimal.ZERO) >= 0) {
+            return;
+        }
+
+        NegativeBalanceProjection projection = findFirstNegativeProjection(
+                bankAccount,
+                List.of(new LedgerMovement(adjustmentDate, adjustmentAmount)),
+                Set.of(),
+                Set.of()
+        );
+
+        if (projection != null) {
+            throw new IllegalArgumentException(
+                    "Fulfillment cancellation would make bank account '" + bankAccount.getName()
                             + "' negative on " + projection.date() + "."
             );
         }
@@ -141,14 +200,14 @@ public class BankBalanceService {
 
                         projectedMovements.add(new LedgerMovement(
                                 fulfillment.getPaymentDate(),
-                                fulfillment.getAmountPaid().negate()
+                                normalize(fulfillment.getAmountPaid()).negate()
                         ));
                     }
 
                     NegativeBalanceProjection projection = findFirstNegativeProjection(
                             bankAccount,
                             projectedMovements,
-                            null,
+                            Set.of(),
                             excludedFulfillmentIds
                     );
 
@@ -180,17 +239,22 @@ public class BankBalanceService {
     private NegativeBalanceProjection findFirstNegativeProjection(
             BankAccount bankAccount,
             List<LedgerMovement> candidateMovements,
-            Long excludedTransferId,
+            Set<Long> excludedTransferIds,
             Set<Long> excludedFulfillmentIds
     ) {
         LocalDate openingDate = resolveOpeningDate(bankAccount);
         BigDecimal runningBalance = resolveOpeningBalance(bankAccount);
         List<LedgerMovement> projectedMovements = new ArrayList<>(
-                loadPersistedMovements(bankAccount.getId(), openingDate, excludedTransferId, excludedFulfillmentIds)
+                loadPersistedMovements(
+                        bankAccount.getId(),
+                        openingDate,
+                        excludedTransferIds,
+                        excludedFulfillmentIds
+                )
         );
         projectedMovements.addAll(candidateMovements);
 
-        for (var entry : aggregateDailyMovements(projectedMovements).entrySet()) {
+        for (Map.Entry<LocalDate, BigDecimal> entry : aggregateDailyMovements(projectedMovements).entrySet()) {
             runningBalance = runningBalance.add(entry.getValue());
 
             if (runningBalance.compareTo(BigDecimal.ZERO) < 0) {
@@ -214,7 +278,7 @@ public class BankBalanceService {
     private List<LedgerMovement> loadPersistedMovements(
             Long bankAccountId,
             LocalDate openingDate,
-            Long excludedTransferId,
+            Set<Long> excludedTransferIds,
             Set<Long> excludedFulfillmentIds
     ) {
         List<LedgerMovement> movements = new ArrayList<>();
@@ -236,7 +300,7 @@ public class BankBalanceService {
                 bankAccountId,
                 bankAccountId
         )) {
-            if (excludedTransferId != null && excludedTransferId.equals(bankTransfer.getId())) {
+            if (excludedTransferIds.contains(bankTransfer.getId())) {
                 continue;
             }
 
@@ -245,8 +309,8 @@ public class BankBalanceService {
             }
 
             BigDecimal signedAmount = bankTransfer.getSourceBankAccount().getId().equals(bankAccountId)
-                    ? bankTransfer.getAmount().negate()
-                    : bankTransfer.getAmount();
+                    ? normalize(bankTransfer.getAmount()).negate()
+                    : normalize(bankTransfer.getAmount());
 
             movements.add(new LedgerMovement(bankTransfer.getTransferDate(), signedAmount));
         }
@@ -255,12 +319,27 @@ public class BankBalanceService {
     }
 
     private BigDecimal resolveFulfillmentSignedAmount(FinancialTransactionFulfillment fulfillment) {
-        FinancialTransaction transaction = fulfillment.getFinancialTransaction();
-        if (transaction.getType() == FinancialTransactionType.INCOME) {
-            return fulfillment.getAmountPaid();
+        if (fulfillment.getStatus() == CashMovementStatus.ADJUSTMENT) {
+            FinancialTransactionFulfillment canceledFulfillment = fulfillment.getCancelFulfillment();
+            if (canceledFulfillment == null) {
+                throw new IllegalStateException(
+                        "Adjustment fulfillment must reference the canceled fulfillment."
+                );
+            }
+
+            return resolveBaseFulfillmentSignedAmount(canceledFulfillment).negate();
         }
 
-        return fulfillment.getAmountPaid().negate();
+        return resolveBaseFulfillmentSignedAmount(fulfillment);
+    }
+
+    private BigDecimal resolveBaseFulfillmentSignedAmount(FinancialTransactionFulfillment fulfillment) {
+        FinancialTransaction transaction = fulfillment.getFinancialTransaction();
+        if (transaction.getType() == FinancialTransactionType.INCOME) {
+            return normalize(fulfillment.getAmountPaid());
+        }
+
+        return normalize(fulfillment.getAmountPaid()).negate();
     }
 
     private LocalDate resolveOpeningDate(BankAccount bankAccount) {
@@ -270,7 +349,11 @@ public class BankBalanceService {
     }
 
     private BigDecimal resolveOpeningBalance(BankAccount bankAccount) {
-        return bankAccount.getInitialBalance() != null ? bankAccount.getInitialBalance() : BigDecimal.ZERO;
+        return normalize(bankAccount.getInitialBalance());
+    }
+
+    private BigDecimal normalize(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 
     private record LedgerMovement(

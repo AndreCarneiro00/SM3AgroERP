@@ -1,7 +1,11 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.entity;
 
+import com.sm3Agro.SM3AgroERP.financial.cashMovement.enums.CashMovementStatus;
 import com.sm3Agro.SM3AgroERP.masterData.bankAccount.entity.BankAccount;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -43,4 +47,13 @@ public class FinancialTransactionFulfillment {
     private BigDecimal amountPaid;
 
     private String observation;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CashMovementStatus status = CashMovementStatus.ACTIVE;
+
+    @ManyToOne
+    @JoinColumn(name = "cancel_id")
+    private FinancialTransactionFulfillment cancelFulfillment;
 }

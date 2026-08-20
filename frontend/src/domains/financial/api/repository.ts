@@ -6,6 +6,9 @@ import {
 import type { FinancialDateRange } from '../model/dateRange';
 import type {
   BankTransferDto,
+  CancelBankTransferDto,
+  CancelFinancialTransactionDto,
+  CancelFinancialTransactionFulfillmentDto,
   CreateBankTransferDto,
   CreateFinancialTransactionMultipartDto,
   CreateFinancialTransactionAttachmentDto,
@@ -112,11 +115,12 @@ export const financialRepository = {
         body: JSON.stringify(payload),
       },
     ),
-  deleteFinancialTransaction: (id: number) =>
+  deleteFinancialTransaction: (id: number, payload?: CancelFinancialTransactionDto) =>
     httpRequest<FinancialTransactionDto>(
       `${transactionPath(id)}/cancel`,
       {
         method: 'POST',
+        body: payload ? JSON.stringify(payload) : undefined,
       },
     ),
 
@@ -298,6 +302,18 @@ export const financialRepository = {
         method: 'DELETE',
       },
     ),
+  cancelFinancialTransactionFulfillment: (
+    financialTransactionId: number,
+    id: number,
+    payload: CancelFinancialTransactionFulfillmentDto,
+  ) =>
+    httpRequest<FinancialTransactionFulfillmentDto>(
+      `${transactionPath(financialTransactionId)}/fulfillments/${id}/cancel`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    ).then((fulfillment) => ({ ...fulfillment, financialTransactionId })),
 
   listBankTransfers: (dateRange?: FinancialDateRange) =>
     httpListRequest<BankTransferDto>(
@@ -317,4 +333,12 @@ export const financialRepository = {
     httpRequest<void>(resolveResourceItemPath(BANK_TRANSFERS_API_BASE, id), {
       method: 'DELETE',
     }),
+  cancelBankTransfer: (id: number, payload: CancelBankTransferDto) =>
+    httpRequest<BankTransferDto>(
+      `${resolveResourceItemPath(BANK_TRANSFERS_API_BASE, id)}/cancel`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    ),
 };

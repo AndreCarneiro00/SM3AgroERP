@@ -112,6 +112,8 @@ public class FinancialTransactionResponseMapper {
                 fulfillment.getPaymentDate(),
                 fulfillment.getAmountPaid(),
                 fulfillment.getObservation(),
+                fulfillment.getStatus(),
+                fulfillment.getCancelFulfillment() != null ? fulfillment.getCancelFulfillment().getId() : null,
                 allocationRepository.findByFulfillmentId(fulfillment.getId()).stream()
                         .map(allocation -> new FinancialTransactionFulfillmentAllocationResponse(
                                 allocation.getId(),

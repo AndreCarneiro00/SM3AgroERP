@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import {
+  Alert,
   Button,
   Dialog,
   DialogActions,
@@ -86,6 +87,7 @@ export function BankAccountDialog({
   }, [editing, open, reset]);
 
   const disabled = saving || formState.isSubmitting;
+  const isEditing = !!editing;
 
   const handleFormSubmit = handleSubmit(async (values) => {
     await onSave({
@@ -95,8 +97,12 @@ export function BankAccountDialog({
       financialInstitution: optionalTextFromInput(values.institution),
       agency: optionalTextFromInput(values.agency),
       accountNumber: optionalTextFromInput(values.accountNumber),
-      initialBalance: optionalNumberFromInput(values.balance),
-      initialBalanceDate: optionalTextFromInput(values.balanceDate),
+      initialBalance: isEditing
+        ? editing.initialBalance
+        : optionalNumberFromInput(values.balance),
+      initialBalanceDate: isEditing
+        ? editing.initialBalanceDate
+        : optionalTextFromInput(values.balanceDate),
       active: values.active === 'ativo',
     });
   });
@@ -108,6 +114,13 @@ export function BankAccountDialog({
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
+          {isEditing && (
+            <Alert severity="info">
+              Saldo inicial e data inicial sao historicos e nao podem ser
+              alterados apos a criacao da conta.
+            </Alert>
+          )}
+
           <FormTextField
             control={control}
             name="name"
@@ -167,6 +180,7 @@ export function BankAccountDialog({
               label="Saldo Inicial (R$)"
               type="number"
               fullWidth
+              disabled={isEditing}
             />
             <FormTextField
               control={control}
@@ -174,6 +188,7 @@ export function BankAccountDialog({
               label="Data Saldo Inicial"
               type="date"
               fullWidth
+              disabled={isEditing}
               InputLabelProps={{ shrink: true }}
             />
           </Stack>

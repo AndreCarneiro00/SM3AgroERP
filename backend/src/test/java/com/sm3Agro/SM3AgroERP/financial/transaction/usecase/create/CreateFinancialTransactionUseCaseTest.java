@@ -1,6 +1,7 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create;
 
 import com.sm3Agro.SM3AgroERP.masterData.counterparty.entity.Counterparty;
+import com.sm3Agro.SM3AgroERP.financial.cashMovement.enums.CashMovementStatus;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionAttachmentRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentAllocationRequest;
@@ -74,6 +75,8 @@ class CreateFinancialTransactionUseCaseTest {
         List<FinancialTransactionFulfillmentResult> fulfillments = List.of(
                 new FinancialTransactionFulfillmentResult(30L, 500L, LocalDate.of(2026, 6, 29),
                         new BigDecimal("100.00"), "paid",
+                        CashMovementStatus.ACTIVE,
+                        null,
                         List.of(new FinancialTransactionFulfillmentAllocationResult(
                                 40L,
                                 10L,

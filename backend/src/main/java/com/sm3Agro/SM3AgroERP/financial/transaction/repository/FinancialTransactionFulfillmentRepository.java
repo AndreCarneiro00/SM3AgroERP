@@ -1,6 +1,7 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.repository;
 
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransactionFulfillment;
+import com.sm3Agro.SM3AgroERP.financial.cashMovement.enums.CashMovementStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,12 +14,23 @@ public interface FinancialTransactionFulfillmentRepository extends JpaRepository
 
     List<FinancialTransactionFulfillment> findByFinancialTransactionId(Long financialTransactionId);
 
+    List<FinancialTransactionFulfillment> findByFinancialTransactionIdAndStatus(
+            Long financialTransactionId,
+            CashMovementStatus status
+    );
+
     Optional<FinancialTransactionFulfillment> findByIdAndFinancialTransactionId(Long id, Long financialTransactionId);
+
+    boolean existsByBankAccountId(Long bankAccountId);
+
+    long countByBankAccountId(Long bankAccountId);
 
     @Query("""
             select fulfillment
             from FinancialTransactionFulfillment fulfillment
             join fetch fulfillment.financialTransaction transaction
+            left join fetch fulfillment.cancelFulfillment canceledFulfillment
+            left join fetch canceledFulfillment.financialTransaction canceledTransaction
             where fulfillment.bankAccount.id = :bankAccountId
             """)
     List<FinancialTransactionFulfillment> findByBankAccountIdWithTransaction(
@@ -30,9 +42,22 @@ public interface FinancialTransactionFulfillmentRepository extends JpaRepository
             from FinancialTransactionFulfillment fulfillment
             where fulfillment.financialTransaction.id = :financialTransactionId
               and (:excludedFulfillmentId is null or fulfillment.id <> :excludedFulfillmentId)
+              and fulfillment.status = :activeStatus
             """)
-    BigDecimal sumAmountPaidByTransactionExcludingFulfillment(
+    BigDecimal sumActiveAmountPaidByTransactionExcludingFulfillment(
             @Param("financialTransactionId") Long financialTransactionId,
-            @Param("excludedFulfillmentId") Long excludedFulfillmentId
+            @Param("excludedFulfillmentId") Long excludedFulfillmentId,
+            @Param("activeStatus") CashMovementStatus activeStatus
     );
+
+    default BigDecimal sumAmountPaidByTransactionExcludingFulfillment(
+            Long financialTransactionId,
+            Long excludedFulfillmentId
+    ) {
+        return sumActiveAmountPaidByTransactionExcludingFulfillment(
+                financialTransactionId,
+                excludedFulfillmentId,
+                CashMovementStatus.ACTIVE
+        );
+    }
 }

@@ -26,4 +26,14 @@ public interface BankTransferRepository extends JpaRepository<BankTransfer, Long
             Long sourceBankAccountId,
             Long destinationBankAccountId
     );
+
+    boolean existsBySourceBankAccountIdOrDestinationBankAccountId(
+            Long sourceBankAccountId,
+            Long destinationBankAccountId
+    );
+
+    long countBySourceBankAccountIdOrDestinationBankAccountId(
+            Long sourceBankAccountId,
+            Long destinationBankAccountId
+    );
 }

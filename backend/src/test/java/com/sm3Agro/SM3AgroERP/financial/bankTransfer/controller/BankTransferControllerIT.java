@@ -1,8 +1,10 @@
 package com.sm3Agro.SM3AgroERP.financial.bankTransfer.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sm3Agro.SM3AgroERP.financial.bankTransfer.dto.bankTransfer.CancelBankTransferRequest;
 import com.sm3Agro.SM3AgroERP.masterData.bankAccount.entity.BankAccount;
 import com.sm3Agro.SM3AgroERP.masterData.bankAccount.repository.BankAccountRepository;
+import com.sm3Agro.SM3AgroERP.financial.cashMovement.enums.CashMovementStatus;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.dto.bankTransfer.CreateBankTransferRequest;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.dto.bankTransfer.UpdateBankTransferRequest;
 import com.sm3Agro.SM3AgroERP.financial.bankTransfer.entity.BankTransfer;
@@ -22,7 +24,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -97,7 +101,9 @@ class BankTransferControllerIT {
                 .andExpect(jsonPath("$.destinationBankAccountId").value(destination.getId()))
                 .andExpect(jsonPath("$.amount").value(350.75))
                 .andExpect(jsonPath("$.transferDate").value("2026-07-05"))
-                .andExpect(jsonPath("$.observation").value("Transferencia operacional"));
+                .andExpect(jsonPath("$.observation").value("Transferencia operacional"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.cancelId").doesNotExist());
     }
 
     @Test
@@ -118,7 +124,9 @@ class BankTransferControllerIT {
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].sourceBankAccountId").value(source.getId()))
                 .andExpect(jsonPath("$[0].destinationBankAccountId").value(destination.getId()))
-                .andExpect(jsonPath("$[0].amount").value(120.00));
+                .andExpect(jsonPath("$[0].amount").value(120.00))
+                .andExpect(jsonPath("$[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$[0].cancelId").doesNotExist());
     }
 
     @Test
@@ -170,6 +178,38 @@ class BankTransferControllerIT {
     void shouldUpdateBankTransfer() throws Exception {
         BankAccount source = createBankAccount("Conta Principal", "1000.00", "2026-07-01");
         BankAccount destination = createBankAccount("Conta Filial", "100.00", "2026-07-01");
+
+        BankTransfer bankTransfer = repository.save(BankTransfer.builder()
+                .sourceBankAccount(source)
+                .destinationBankAccount(destination)
+                .amount(new BigDecimal("90.00"))
+                .transferDate(LocalDate.of(2026, 7, 1))
+                .observation("Original")
+                .build());
+
+        UpdateBankTransferRequest request = new UpdateBankTransferRequest(
+                source.getId(),
+                destination.getId(),
+                new BigDecimal("90.00"),
+                LocalDate.of(2026, 7, 1),
+                "Observacao atualizada"
+        );
+
+        mockMvc.perform(put("/bank-transfers/{id}", bankTransfer.getId())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(bankTransfer.getId()))
+                .andExpect(jsonPath("$.destinationBankAccountId").value(destination.getId()))
+                .andExpect(jsonPath("$.amount").value(90.00))
+                .andExpect(jsonPath("$.transferDate").value("2026-07-01"))
+                .andExpect(jsonPath("$.observation").value("Observacao atualizada"));
+    }
+
+    @Test
+    void shouldRejectUpdatingBankTransferCashFields() throws Exception {
+        BankAccount source = createBankAccount("Conta Principal", "1000.00", "2026-07-01");
+        BankAccount destination = createBankAccount("Conta Filial", "100.00", "2026-07-01");
         BankAccount newDestination = createBankAccount("Conta Investimentos", "150.00", "2026-07-01");
 
         BankTransfer bankTransfer = repository.save(BankTransfer.builder()
@@ -183,20 +223,18 @@ class BankTransferControllerIT {
         UpdateBankTransferRequest request = new UpdateBankTransferRequest(
                 source.getId(),
                 newDestination.getId(),
-                new BigDecimal("145.20"),
-                LocalDate.of(2026, 7, 6),
+                new BigDecimal("90.00"),
+                LocalDate.of(2026, 7, 1),
                 "Ajuste de caixa"
         );
 
         mockMvc.perform(put("/bank-transfers/{id}", bankTransfer.getId())
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(bankTransfer.getId()))
-                .andExpect(jsonPath("$.destinationBankAccountId").value(newDestination.getId()))
-                .andExpect(jsonPath("$.amount").value(145.20))
-                .andExpect(jsonPath("$.transferDate").value("2026-07-06"))
-                .andExpect(jsonPath("$.observation").value("Ajuste de caixa"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Bank transfer cash fields cannot be changed. Use a cancellation adjustment."
+                ));
     }
 
     @Test
@@ -212,7 +250,42 @@ class BankTransferControllerIT {
                 .build());
 
         mockMvc.perform(delete("/bank-transfers/{id}", bankTransfer.getId()))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Bank transfer cannot be deleted. Use a cancellation adjustment."
+                ));
+    }
+
+    @Test
+    void shouldCancelBankTransferWithAdjustmentTransfer() throws Exception {
+        BankAccount source = createBankAccount("Conta Caixa", "500.00", "2026-07-01");
+        BankAccount destination = createBankAccount("Conta Reserva", "50.00", "2026-07-01");
+
+        BankTransfer bankTransfer = repository.save(BankTransfer.builder()
+                .sourceBankAccount(source)
+                .destinationBankAccount(destination)
+                .amount(new BigDecimal("60.00"))
+                .transferDate(LocalDate.of(2026, 7, 3))
+                .build());
+        CancelBankTransferRequest request = new CancelBankTransferRequest(
+                LocalDate.of(2026, 7, 4),
+                "Estorno"
+        );
+
+        mockMvc.perform(post("/bank-transfers/{id}/cancel", bankTransfer.getId())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.sourceBankAccountId").value(destination.getId()))
+                .andExpect(jsonPath("$.destinationBankAccountId").value(source.getId()))
+                .andExpect(jsonPath("$.amount").value(60.00))
+                .andExpect(jsonPath("$.transferDate").value("2026-07-04"))
+                .andExpect(jsonPath("$.status").value("ADJUSTMENT"))
+                .andExpect(jsonPath("$.cancelId").value(bankTransfer.getId()));
+
+        List<BankTransfer> savedTransfers = repository.findAll();
+        assertEquals(2, savedTransfers.size());
+        assertEquals(CashMovementStatus.CANCELED, repository.findById(bankTransfer.getId()).orElseThrow().getStatus());
     }
 
     @Test

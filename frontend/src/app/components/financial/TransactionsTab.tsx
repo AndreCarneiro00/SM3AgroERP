@@ -61,6 +61,7 @@ import { EmptyTableRow } from '../shared/EmptyTableRow';
 import { PageHeader } from '../shared/PageHeader';
 import { RowActions } from '../shared/RowActions';
 import { ResponsiveTableFrame } from '../shared/table';
+import { todayIsoDate } from '../../forms/valueParsers';
 import { FulfillmentDialog } from './FulfillmentDialog';
 import { TransactionAttachmentDialog } from './TransactionAttachmentDialog';
 import {
@@ -89,6 +90,12 @@ const STATUS_LABEL: Record<string, string> = {
   PENDING: 'Pendente',
   CANCELED: 'Cancelado',
   PARTIAL: 'Parcial',
+};
+
+const CASH_STATUS_LABEL: Record<string, string> = {
+  ACTIVE: 'Ativo',
+  CANCELED: 'Cancelado',
+  ADJUSTMENT: 'Ajuste',
 };
 
 function labelStockMovement(type?: string) {
@@ -162,7 +169,10 @@ function buildFulfillmentAllocationsByItemId(
   const allocatedByItemId = new Map<number, number>();
 
   fulfillments
-    .filter((fulfillment) => fulfillment.id !== editingFulfillmentId)
+    .filter(
+      (fulfillment) =>
+        fulfillment.status === 'ACTIVE' && fulfillment.id !== editingFulfillmentId,
+    )
     .forEach((fulfillment) => {
       fulfillment.allocations.forEach((allocation) => {
         if (!allocation.itemId) {
@@ -239,7 +249,7 @@ export function TransactionsTab() {
     deleteFinancialTransaction,
     createFinancialTransactionFulfillment,
     updateFinancialTransactionFulfillment,
-    deleteFinancialTransactionFulfillment,
+    cancelFinancialTransactionFulfillment,
     createFinancialTransactionAttachment,
     updateFinancialTransactionAttachment,
     replaceFinancialTransactionAttachmentFile,
@@ -366,12 +376,14 @@ export function TransactionsTab() {
     const transactionFulfillments = financialTransactionFulfillments.filter(
       (fulfillment) => fulfillment.financialTransactionId === fulfillTarget.id,
     );
-    const allocations = buildFulfillmentAllocationsByItemId(
-      transactionItems,
-      transactionFulfillments,
-      amount,
-      editingFulfillment?.id,
-    );
+    const allocations = editingFulfillment
+      ? editingFulfillment.allocations
+      : buildFulfillmentAllocationsByItemId(
+          transactionItems,
+          transactionFulfillments,
+          amount,
+          editingFulfillment?.id,
+        );
 
     if (!allocations) {
       window.alert('O valor pago nao pode exceder o saldo dos items.');
@@ -403,6 +415,67 @@ export function TransactionsTab() {
       window.alert(
         extractApiErrorMessage(error) ??
           'Nao foi possivel registrar o pagamento.',
+      );
+    }
+  };
+
+  const promptAdjustmentDate = (message: string) => {
+    const adjustmentDate = window.prompt(message, todayIsoDate());
+    return adjustmentDate?.trim() || undefined;
+  };
+
+  const handleCancelTransaction = async (
+    financialTransaction: FinancialTransaction,
+  ) => {
+    const adjustmentDate = promptAdjustmentDate(
+      'Data do ajuste de cancelamento da transacao',
+    );
+
+    if (!adjustmentDate) {
+      return;
+    }
+
+    try {
+      await deleteFinancialTransaction.mutateAsync({
+        id: financialTransaction.id,
+        input: {
+          adjustmentDate,
+          observation: `Cancelamento da transacao ${financialTransaction.id}`,
+        },
+      });
+    } catch (error) {
+      window.alert(
+        extractApiErrorMessage(error) ??
+          'Nao foi possivel cancelar a transacao.',
+      );
+    }
+  };
+
+  const handleCancelFulfillment = async (
+    financialTransaction: FinancialTransaction,
+    fulfillment: FinancialTransactionFulfillment,
+  ) => {
+    const adjustmentDate = promptAdjustmentDate(
+      'Data do ajuste de cancelamento do pagamento',
+    );
+
+    if (!adjustmentDate) {
+      return;
+    }
+
+    try {
+      await cancelFinancialTransactionFulfillment.mutateAsync({
+        financialTransactionId: financialTransaction.id,
+        id: fulfillment.id,
+        input: {
+          adjustmentDate,
+          observation: `Cancelamento do pagamento ${fulfillment.id}`,
+        },
+      });
+    } catch (error) {
+      window.alert(
+        extractApiErrorMessage(error) ??
+          'Nao foi possivel cancelar o pagamento.',
       );
     }
   };
@@ -704,14 +777,13 @@ export function TransactionsTab() {
                       <RowActions
                         disabled={isCanceled}
                         deleteConfirmMessage="Cancelar esta transacao?"
+                        deleteTooltip="Cancelar"
                         onEdit={() => {
                           setEditing(financialTransaction);
                           setDialogOpen(true);
                         }}
                         onDelete={() => {
-                          void deleteFinancialTransaction.mutateAsync(
-                            financialTransaction.id,
-                          );
+                          void handleCancelTransaction(financialTransaction);
                         }}
                         extraActions={
                           isPending && !isCanceled ? (
@@ -869,6 +941,7 @@ export function TransactionsTab() {
                                   <TableRow>
                                     <TableCell>Conta</TableCell>
                                     <TableCell>Data</TableCell>
+                                    <TableCell>Status</TableCell>
                                     <TableCell align="right">Valor</TableCell>
                                     <TableCell>Itens pagos</TableCell>
                                     <TableCell align="center">Acoes</TableCell>
@@ -885,6 +958,32 @@ export function TransactionsTab() {
                                       </TableCell>
                                       <TableCell>
                                         {fmtDate(fulfillment.paymentDate)}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Chip
+                                          size="small"
+                                          label={
+                                            CASH_STATUS_LABEL[fulfillment.status] ??
+                                            fulfillment.status
+                                          }
+                                          color={
+                                            fulfillment.status === 'ACTIVE'
+                                              ? 'success'
+                                              : fulfillment.status === 'ADJUSTMENT'
+                                                ? 'info'
+                                                : 'default'
+                                          }
+                                          sx={{ height: 20 }}
+                                        />
+                                        {fulfillment.cancelId && (
+                                          <Typography
+                                            variant="caption"
+                                            color="text.secondary"
+                                            display="block"
+                                          >
+                                            ref. #{fulfillment.cancelId}
+                                          </Typography>
+                                        )}
                                       </TableCell>
                                       <TableCell align="right">
                                         {fmtBRL(fulfillment.amountPaid)}
@@ -939,7 +1038,12 @@ export function TransactionsTab() {
                                       </TableCell>
                                       <TableCell align="center">
                                         <RowActions
-                                          disabled={isCanceled}
+                                          disabled={
+                                            isCanceled ||
+                                            fulfillment.status !== 'ACTIVE'
+                                          }
+                                          deleteConfirmMessage="Cancelar este pagamento por ajuste?"
+                                          deleteTooltip="Cancelar por ajuste"
                                           onEdit={() => {
                                             setFulfillTarget(
                                               financialTransaction,
@@ -947,12 +1051,9 @@ export function TransactionsTab() {
                                             setEditingFulfillment(fulfillment);
                                           }}
                                           onDelete={() => {
-                                            void deleteFinancialTransactionFulfillment.mutateAsync(
-                                              {
-                                                financialTransactionId:
-                                                  financialTransaction.id,
-                                                id: fulfillment.id,
-                                              },
+                                            void handleCancelFulfillment(
+                                              financialTransaction,
+                                              fulfillment,
                                             );
                                           }}
                                         />
@@ -961,7 +1062,7 @@ export function TransactionsTab() {
                                   ))}
                                   {transactionFulfillments.length === 0 && (
                                     <EmptyTableRow
-                                      colSpan={5}
+                                      colSpan={6}
                                       message="Nenhum pagamento."
                                     />
                                   )}

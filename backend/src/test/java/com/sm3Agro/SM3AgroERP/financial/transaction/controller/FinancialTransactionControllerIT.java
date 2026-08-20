@@ -2,6 +2,9 @@ package com.sm3Agro.SM3AgroERP.financial.transaction.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sm3Agro.SM3AgroERP.financial.cashMovement.enums.CashMovementStatus;
+import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CancelFinancialTransactionFulfillmentRequest;
+import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CancelFinancialTransactionRequest;
 import com.sm3Agro.SM3AgroERP.masterData.bankAccount.entity.BankAccount;
 import com.sm3Agro.SM3AgroERP.masterData.chartOfAccount.entity.ChartOfAccount;
 import com.sm3Agro.SM3AgroERP.masterData.costCenter.entity.CostCenter;
@@ -34,6 +37,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.hamcrest.Matchers.hasSize;
@@ -94,6 +98,7 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                 .andExpect(jsonPath("$.attachments", hasSize(1)))
                 .andExpect(jsonPath("$.attachments[0].storageProvider").value("LOCAL"))
                 .andExpect(jsonPath("$.fulfillments", hasSize(1)))
+                .andExpect(jsonPath("$.fulfillments[0].status").value("ACTIVE"))
                 .andExpect(jsonPath("$.fulfillments[0].allocations", hasSize(1)));
     }
 
@@ -188,9 +193,24 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                 .andExpect(jsonPath("$.status").value("PAID"))
                 .andExpect(jsonPath("$.totalAmount").value(100.00));
 
-        mockMvc.perform(post("/financial-transactions/{id}/cancel", transactionId))
+        CancelFinancialTransactionRequest cancelRequest = new CancelFinancialTransactionRequest(
+                LocalDate.of(2026, 7, 1),
+                "cancelamento"
+        );
+
+        mockMvc.perform(post("/financial-transactions/{id}/cancel", transactionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(cancelRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("CANCELED"));
+                .andExpect(jsonPath("$.status").value("CANCELED"))
+                .andExpect(jsonPath("$.fulfillments", hasSize(2)));
+
+        assertEquals(1, financialTransactionFulfillmentRepository
+                .findByFinancialTransactionIdAndStatus(transactionId, CashMovementStatus.CANCELED)
+                .size());
+        assertEquals(1, financialTransactionFulfillmentRepository
+                .findByFinancialTransactionIdAndStatus(transactionId, CashMovementStatus.ADJUSTMENT)
+                .size());
 
         mockMvc.perform(patch("/financial-transactions/{id}", transactionId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -433,6 +453,26 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
         UpdateFinancialTransactionFulfillmentRequest updateFulfillmentRequest =
                 new UpdateFinancialTransactionFulfillmentRequest(
                         bankAccount.getId(),
+                        LocalDate.of(2026, 7, 2),
+                        new BigDecimal("40.00"),
+                        "updated observation",
+                        List.of(new FinancialTransactionFulfillmentAllocationRequest(
+                                itemId,
+                                null,
+                                new BigDecimal("40.00")
+                        ))
+                );
+
+        mockMvc.perform(patch("/financial-transactions/{id}/fulfillments/{fulfillmentId}", transactionId, fulfillmentId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(updateFulfillmentRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.amountPaid").value(40.00))
+                .andExpect(jsonPath("$.observation").value("updated observation"));
+
+        UpdateFinancialTransactionFulfillmentRequest cashChangeRequest =
+                new UpdateFinancialTransactionFulfillmentRequest(
+                        bankAccount.getId(),
                         LocalDate.of(2026, 7, 3),
                         new BigDecimal("100.00"),
                         "full payment",
@@ -445,23 +485,48 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
 
         mockMvc.perform(patch("/financial-transactions/{id}/fulfillments/{fulfillmentId}", transactionId, fulfillmentId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsBytes(updateFulfillmentRequest)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.amountPaid").value(100.00));
-
-        mockMvc.perform(get("/financial-transactions/{id}", transactionId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("PAID"))
-                .andExpect(jsonPath("$.remainingAmount").value(0));
+                        .content(objectMapper.writeValueAsBytes(cashChangeRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Paid fulfillment cash fields cannot be changed. Use a cancellation adjustment."
+                ));
 
         mockMvc.perform(delete("/financial-transactions/{id}/fulfillments/{fulfillmentId}", transactionId, fulfillmentId))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Paid fulfillment cannot be deleted. Use a cancellation adjustment."
+                ));
+
+        CancelFinancialTransactionFulfillmentRequest cancelFulfillmentRequest =
+                new CancelFinancialTransactionFulfillmentRequest(
+                        LocalDate.of(2026, 7, 4),
+                        "cancel partial payment"
+                );
+
+        mockMvc.perform(post(
+                        "/financial-transactions/{id}/fulfillments/{fulfillmentId}/cancel",
+                        transactionId,
+                        fulfillmentId
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(cancelFulfillmentRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("ADJUSTMENT"))
+                .andExpect(jsonPath("$.cancelId").value(fulfillmentId));
 
         mockMvc.perform(get("/financial-transactions/{id}", transactionId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.paidAmount").value(0))
-                .andExpect(jsonPath("$.remainingAmount").value(100.00));
+                .andExpect(jsonPath("$.remainingAmount").value(100.00))
+                .andExpect(jsonPath("$.fulfillments", hasSize(2)));
+
+        assertEquals(1, financialTransactionFulfillmentRepository
+                .findByFinancialTransactionIdAndStatus(transactionId, CashMovementStatus.CANCELED)
+                .size());
+        assertEquals(1, financialTransactionFulfillmentRepository
+                .findByFinancialTransactionIdAndStatus(transactionId, CashMovementStatus.ADJUSTMENT)
+                .size());
     }
 
     @Test
