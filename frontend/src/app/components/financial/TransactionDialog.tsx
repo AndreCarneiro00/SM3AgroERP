@@ -1590,7 +1590,7 @@ export function TransactionDialog({
                           />
                           {paymentMode === 'partial' ? (
                             <TextField
-                              label="Valor Pago"
+                              label="Valor do Pagamento"
                               type="number"
                               size="small"
                               value={toInputValue(fulfillment.amountPaid)}
@@ -1604,11 +1604,12 @@ export function TransactionDialog({
                             />
                           ) : (
                             <TextField
-                              label="Valor Pago"
+                              label="Valor Total do lançamento"
                               type="number"
                               size="small"
                               value={toInputValue(paymentAmount)}
                               InputProps={{ readOnly: true }}
+                              disabled={true}
                               fullWidth
                             />
                           )}

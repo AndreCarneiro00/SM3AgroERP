@@ -342,14 +342,14 @@ export function FulfillmentDialog({
               {transaction.description}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Total: {fmtBRL(transaction.totalAmount ?? 0)}
+              Total da transação: {fmtBRL(transaction.totalAmount ?? 0)}
             </Typography>
             <Typography
               variant="caption"
               color="text.secondary"
               display="block"
             >
-              {fulfillment ? 'Limite deste pagamento' : 'Saldo disponivel'}:{' '}
+              {fulfillment ? 'Limite deste pagamento' : 'Pagamento pendente'}:{' '}
               {fmtBRL(maximumPayableAmount)}
             </Typography>
           </Box>
@@ -380,7 +380,7 @@ export function FulfillmentDialog({
           <FormTextField
             control={control}
             name="amount"
-            label="Valor Pago (R$)"
+            label="Valor total deste pagamento(R$)"
             type="number"
             fullWidth
             inputProps={{

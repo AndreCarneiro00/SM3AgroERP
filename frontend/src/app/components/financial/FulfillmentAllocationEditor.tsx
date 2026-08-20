@@ -93,7 +93,7 @@ export function FulfillmentAllocationEditor({
             <Typography variant="caption" color="text.secondary">
               Ja alocado {fmtBRL(row.alreadyAllocatedAmount)}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color={row.allocatedAmount > row.availableAmount ? "error" : "text.secondary"}>
               Disponivel {fmtBRL(row.availableAmount)}
             </Typography>
             <TextField
@@ -102,6 +102,7 @@ export function FulfillmentAllocationEditor({
               size="small"
               value={toInputValue(row.allocatedAmount)}
               disabled={disabled}
+              error={row.allocatedAmount > row.availableAmount}
               onChange={(event) =>
                 onAllocationChange(
                   row.itemKey,
