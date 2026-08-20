@@ -1,6 +1,8 @@
 package com.sm3Agro.SM3AgroERP.financial.transaction.usecase.create;
 
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.CreateFinancialTransactionRequest;
+import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentAllocationRequest;
+import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionFulfillmentRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.dto.request.FinancialTransactionItemRequest;
 import com.sm3Agro.SM3AgroERP.financial.transaction.entity.FinancialTransaction;
 import com.sm3Agro.SM3AgroERP.financial.transaction.enums.FinancialTransactionType;
@@ -46,6 +48,58 @@ class CreateFinancialTransactionUseCaseIT extends AbstractFinancialTransactionIT
         assertEquals(1, result.attachments().size());
         assertEquals(1, result.fulfillments().size());
         assertEquals(new BigDecimal("100.00"), result.totalAmount());
+    }
+
+    @Test
+    void shouldCreateManualFulfillmentAllocationsByItemIndex() {
+        CreateFinancialTransactionRequest valid = createValidRequest();
+        FinancialTransactionItemRequest firstItem = valid.items().getFirst();
+        FinancialTransactionItemRequest secondItem = new FinancialTransactionItemRequest(
+                firstItem.chartOfAccountId(),
+                firstItem.costCenterId(),
+                BigDecimal.ONE,
+                new BigDecimal("60.00"),
+                new BigDecimal("60.00"),
+                firstItem.productId()
+        );
+        CreateFinancialTransactionRequest request = new CreateFinancialTransactionRequest(
+                valid.description(),
+                valid.counterpartyId(),
+                valid.issueDate(),
+                valid.dueDate(),
+                valid.documentNumber(),
+                valid.type(),
+                valid.observation(),
+                valid.hasNf(),
+                List.of(firstItem, secondItem),
+                valid.attachments(),
+                List.of(new FinancialTransactionFulfillmentRequest(
+                        valid.fulfillments().getFirst().bankAccountId(),
+                        valid.fulfillments().getFirst().paymentDate(),
+                        new BigDecimal("160.00"),
+                        "manual split",
+                        List.of(
+                                new FinancialTransactionFulfillmentAllocationRequest(
+                                        null,
+                                        0,
+                                        new BigDecimal("100.00")
+                                ),
+                                new FinancialTransactionFulfillmentAllocationRequest(
+                                        null,
+                                        1,
+                                        new BigDecimal("60.00")
+                                )
+                        )
+                ))
+        );
+
+        CreateFinancialTransactionResult result = useCase.execute(request, createAttachmentFiles());
+
+        assertEquals(2, result.items().size());
+        assertEquals(1, result.fulfillments().size());
+        assertEquals(2, result.fulfillments().getFirst().allocations().size());
+        assertEquals(2, financialTransactionFulfillmentAllocationRepository.count());
+        assertEquals(new BigDecimal("160.00"), result.totalAmount());
     }
 
     @Test

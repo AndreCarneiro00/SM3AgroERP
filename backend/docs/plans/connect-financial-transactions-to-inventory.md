@@ -217,6 +217,9 @@ O resultado esperado e:
 ### Atualizacao, exclusao e cancelamento
 
 - Primeira implementacao deve cobrir criacao de lancamento completo.
+- A reconciliacao de cancelamento de transacao financeira com estoque esta
+  detalhada em
+  [ajustes de estoque no cancelamento financeiro](financial-transaction-stock-cancel-adjustments.md).
 - Antes de liberar edicao de item estocavel em transacao existente, implementar
   reconciliacao:
   - atualizar item financeiro deve recalcular/reverter movimento anterior;
@@ -227,6 +230,9 @@ O resultado esperado e:
   estocaveis ja vinculados a movimentos.
 - Enquanto a reconciliacao nao estiver pronta, bloquear cancelamento de
   transacao que possua item com movimento de estoque.
+- Quando a reconciliacao for implementada, substituir esse bloqueio por
+  movimentos compensatorios auditaveis e validacao cronologica para impedir
+  estoque negativo.
 - Enquanto a reconciliacao nao estiver pronta, bloquear alteracao de `type` de
   transacao que possua item com movimento de estoque, porque isso inverteria a
   regra de entrada/saida.

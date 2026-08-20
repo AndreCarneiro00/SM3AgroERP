@@ -34,6 +34,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.hamcrest.Matchers.hasSize;
@@ -398,7 +399,7 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
     @Test
     void shouldManageFulfillmentsAndRecalculateStatus() throws Exception {
         Long transactionId = createTransaction(createUnpaidRequest());
-        var bankAccount = createBankAccount();
+        BankAccount bankAccount = createBankAccount();
         Long itemId = financialTransactionItemRepository
                 .findByFinancialTransactionId(transactionId)
                 .getFirst()
@@ -462,6 +463,195 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.paidAmount").value(0))
                 .andExpect(jsonPath("$.remainingAmount").value(100.00));
+    }
+
+    @Test
+    void shouldRejectFulfillmentWithoutManualAllocations() throws Exception {
+        Long transactionId = createTransaction(createUnpaidRequest());
+        BankAccount bankAccount = createBankAccount();
+
+        FinancialTransactionFulfillmentRequest request = new FinancialTransactionFulfillmentRequest(
+                bankAccount.getId(),
+                LocalDate.of(2026, 7, 2),
+                new BigDecimal("40.00"),
+                "missing allocations",
+                List.of()
+        );
+
+        mockMvc.perform(post("/financial-transactions/{id}/fulfillments", transactionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Validation error"));
+    }
+
+    @Test
+    void shouldRejectFulfillmentWhenManualAllocationsDoNotMatchPaidAmount() throws Exception {
+        Long transactionId = createTransaction(createUnpaidRequest());
+        BankAccount bankAccount = createBankAccount();
+        Long itemId = financialTransactionItemRepository
+                .findByFinancialTransactionId(transactionId)
+                .getFirst()
+                .getId();
+
+        FinancialTransactionFulfillmentRequest request = new FinancialTransactionFulfillmentRequest(
+                bankAccount.getId(),
+                LocalDate.of(2026, 7, 2),
+                new BigDecimal("40.00"),
+                "divergent allocation",
+                List.of(new FinancialTransactionFulfillmentAllocationRequest(
+                        itemId,
+                        null,
+                        new BigDecimal("39.99")
+                ))
+        );
+
+        mockMvc.perform(post("/financial-transactions/{id}/fulfillments", transactionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Fulfillment allocations must match the paid amount."
+                ));
+    }
+
+    @Test
+    void shouldRejectFulfillmentWhenManualAllocationExceedsItemAmount() throws Exception {
+        Long transactionId = createTransaction(createTwoItemUnpaidRequest());
+        BankAccount bankAccount = createBankAccount();
+        Long itemId = financialTransactionItemRepository
+                .findByFinancialTransactionId(transactionId)
+                .getFirst()
+                .getId();
+
+        FinancialTransactionFulfillmentRequest request = new FinancialTransactionFulfillmentRequest(
+                bankAccount.getId(),
+                LocalDate.of(2026, 7, 2),
+                new BigDecimal("120.00"),
+                "over allocated item",
+                List.of(new FinancialTransactionFulfillmentAllocationRequest(
+                        itemId,
+                        null,
+                        new BigDecimal("120.00")
+                ))
+        );
+
+        mockMvc.perform(post("/financial-transactions/{id}/fulfillments", transactionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Allocated amount cannot exceed financial transaction item amount."
+                ));
+    }
+
+    @Test
+    void shouldReplaceManualAllocationsWhenEditingFulfillment() throws Exception {
+        Long transactionId = createTransaction(createTwoItemUnpaidRequest());
+        BankAccount bankAccount = createBankAccount();
+        List<Long> itemIds = financialTransactionItemRepository
+                .findByFinancialTransactionIdOrderByIdAsc(transactionId)
+                .stream()
+                .map(item -> item.getId())
+                .toList();
+
+        FinancialTransactionFulfillmentRequest createRequest = new FinancialTransactionFulfillmentRequest(
+                bankAccount.getId(),
+                LocalDate.of(2026, 7, 2),
+                new BigDecimal("100.00"),
+                "first allocation",
+                List.of(new FinancialTransactionFulfillmentAllocationRequest(
+                        itemIds.getFirst(),
+                        null,
+                        new BigDecimal("100.00")
+                ))
+        );
+
+        MvcResult createResult = mockMvc.perform(post("/financial-transactions/{id}/fulfillments", transactionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(createRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.allocations", hasSize(1)))
+                .andReturn();
+        Long fulfillmentId = readId(createResult);
+
+        UpdateFinancialTransactionFulfillmentRequest updateRequest =
+                new UpdateFinancialTransactionFulfillmentRequest(
+                        bankAccount.getId(),
+                        LocalDate.of(2026, 7, 3),
+                        new BigDecimal("100.00"),
+                        "redistributed allocation",
+                        List.of(
+                                new FinancialTransactionFulfillmentAllocationRequest(
+                                        itemIds.getFirst(),
+                                        null,
+                                        new BigDecimal("40.00")
+                                ),
+                                new FinancialTransactionFulfillmentAllocationRequest(
+                                        itemIds.get(1),
+                                        null,
+                                        new BigDecimal("60.00")
+                                )
+                        )
+                );
+
+        mockMvc.perform(patch("/financial-transactions/{id}/fulfillments/{fulfillmentId}", transactionId, fulfillmentId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.allocations", hasSize(2)));
+
+        assertEquals(2, financialTransactionFulfillmentAllocationRepository.findByFulfillmentId(fulfillmentId).size());
+    }
+
+    @Test
+    void shouldRejectInvalidAllocationItemReferenceShape() throws Exception {
+        Long transactionId = createTransaction(createUnpaidRequest());
+        BankAccount bankAccount = createBankAccount();
+        Long itemId = financialTransactionItemRepository
+                .findByFinancialTransactionId(transactionId)
+                .getFirst()
+                .getId();
+
+        FinancialTransactionFulfillmentRequest bothReferences = new FinancialTransactionFulfillmentRequest(
+                bankAccount.getId(),
+                LocalDate.of(2026, 7, 2),
+                new BigDecimal("40.00"),
+                "both references",
+                List.of(new FinancialTransactionFulfillmentAllocationRequest(
+                        itemId,
+                        0,
+                        new BigDecimal("40.00")
+                ))
+        );
+
+        mockMvc.perform(post("/financial-transactions/{id}/fulfillments", transactionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(bothReferences)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Allocation must reference exactly one itemId or itemIndex."
+                ));
+
+        FinancialTransactionFulfillmentRequest noReference = new FinancialTransactionFulfillmentRequest(
+                bankAccount.getId(),
+                LocalDate.of(2026, 7, 2),
+                new BigDecimal("40.00"),
+                "no reference",
+                List.of(new FinancialTransactionFulfillmentAllocationRequest(
+                        null,
+                        null,
+                        new BigDecimal("40.00")
+                ))
+        );
+
+        mockMvc.perform(post("/financial-transactions/{id}/fulfillments", transactionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(noReference)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "Allocation must reference exactly one itemId or itemIndex."
+                ));
     }
 
     @Test
@@ -564,6 +754,38 @@ class FinancialTransactionControllerIT extends AbstractFinancialTransactionIT {
                 valid.observation(),
                 false,
                 valid.items(),
+                null,
+                List.of()
+        );
+    }
+
+    private CreateFinancialTransactionRequest createTwoItemUnpaidRequest() {
+        CreateFinancialTransactionRequest valid = createValidRequest();
+        FinancialTransactionItemRequest firstItem = valid.items().getFirst();
+        ChartOfAccount secondChartOfAccount = createChartOfAccount();
+        CostCenter secondCostCenter = createCostCenter();
+        Product secondProduct = createProduct();
+
+        return new CreateFinancialTransactionRequest(
+                valid.description(),
+                valid.counterpartyId(),
+                valid.issueDate(),
+                valid.dueDate(),
+                valid.documentNumber(),
+                valid.type(),
+                valid.observation(),
+                valid.hasNf(),
+                List.of(
+                        firstItem,
+                        new FinancialTransactionItemRequest(
+                                secondChartOfAccount.getId(),
+                                secondCostCenter.getId(),
+                                BigDecimal.ONE,
+                                new BigDecimal("60.00"),
+                                new BigDecimal("60.00"),
+                                secondProduct.getId()
+                        )
+                ),
                 null,
                 List.of()
         );

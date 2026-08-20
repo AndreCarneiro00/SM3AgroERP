@@ -147,13 +147,6 @@ function getTransactionItems(financialTransactionId: number) {
   );
 }
 
-function getAllocatedAmountForItem(itemId: number) {
-  return fixtures.financialTransactionFulfillments
-    .flatMap((fulfillment) => fulfillment.allocations ?? [])
-    .filter((allocation) => allocation.itemId === itemId)
-    .reduce((sum, allocation) => sum + allocation.amount, 0);
-}
-
 function nextAllocationId() {
   return (
     fixtures.financialTransactionFulfillments
@@ -217,38 +210,7 @@ function resolveFulfillmentAllocations(
   const incomingAllocations = allocations ?? [];
 
   if (incomingAllocations.length === 0) {
-    let remainingPayment = roundCurrency(amountPaid);
-    const generatedAllocations: FinancialTransactionFulfillmentAllocationDto[] =
-      [];
-
-    [...items]
-      .sort((left, right) => left.id - right.id)
-      .forEach((item) => {
-        if (remainingPayment <= 0) {
-          return;
-        }
-
-        const itemAmount = roundCurrency(item.amount ?? 0);
-        const alreadyAllocated = allocatedByItemId.get(item.id) ?? 0;
-        const availableAmount = roundCurrency(itemAmount - alreadyAllocated);
-
-        if (availableAmount <= 0) {
-          return;
-        }
-
-        const allocatedAmount = roundCurrency(
-          Math.min(availableAmount, remainingPayment),
-        );
-
-        generatedAllocations.push({
-          id: nextAllocationId() + generatedAllocations.length,
-          itemId: item.id,
-          amount: allocatedAmount,
-        });
-        remainingPayment = roundCurrency(remainingPayment - allocatedAmount);
-      });
-
-    return remainingPayment > 0.009 ? undefined : generatedAllocations;
+    return undefined;
   }
 
   const resolvedAllocations = incomingAllocations
@@ -361,23 +323,10 @@ function buildTransactionDetail(financialTransaction: FinancialTransactionDto) {
   const items = getTransactionItems(financialTransaction.id);
   const fulfillments = fixtures.financialTransactionFulfillments
     .filter((item) => item.financialTransactionId === financialTransaction.id)
-    .map((fulfillment) => {
-      if (!fulfillment.allocations) {
-        fulfillment.allocations =
-          resolveFulfillmentAllocations(
-            financialTransaction.id,
-            fulfillment.amountPaid,
-            undefined,
-            items,
-            fulfillment.id,
-          ) ?? [];
-      }
-
-      return {
-        ...fulfillment,
-        allocations: fulfillment.allocations ?? [],
-      };
-    });
+    .map((fulfillment) => ({
+      ...fulfillment,
+      allocations: fulfillment.allocations ?? [],
+    }));
 
   return {
     ...financialTransaction,

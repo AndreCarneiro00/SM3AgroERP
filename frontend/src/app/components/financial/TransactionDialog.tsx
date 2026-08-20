@@ -41,8 +41,17 @@ import {
   calculateFinancialItemAmount,
   resolveFinancialItemAmount,
 } from './itemAmount';
+import { FulfillmentAllocationEditor } from './FulfillmentAllocationEditor';
+import {
+  buildSuggestedAllocations,
+  roundCurrency,
+  validateAllocationRows,
+  type AllocationEditorRow,
+  type AllocationKey,
+} from './fulfillmentAllocation';
 
 export interface TransactionItemFormData {
+  clientItemKey: string;
   chartOfAccountId?: number;
   costCenterId?: number;
   quantity?: number;
@@ -62,9 +71,10 @@ export interface TransactionFulfillmentFormData {
 }
 
 export interface TransactionFulfillmentAllocationFormData {
+  clientItemKey?: string;
   itemIndex?: number;
   itemId?: number;
-  amount: number;
+  amount?: number;
 }
 
 export interface TransactionAttachmentFormData {
@@ -107,6 +117,13 @@ const transactionSchema = z.object({
 
 type TransactionDialogValues = z.infer<typeof transactionSchema>;
 
+let clientItemKeySequence = 0;
+
+function createClientItemKey() {
+  clientItemKeySequence += 1;
+  return `draft-item-${clientItemKeySequence}`;
+}
+
 function getDefaultValues(
   editing?: FinancialTransaction,
 ): TransactionDialogValues {
@@ -123,7 +140,9 @@ function getDefaultValues(
 }
 
 function emptyItem(): TransactionItemFormData {
-  return {};
+  return {
+    clientItemKey: createClientItemKey(),
+  };
 }
 
 function emptyFulfillment(): TransactionFulfillmentFormData {
@@ -140,10 +159,6 @@ function emptyAttachment(): TransactionAttachmentFormData {
 
 function parseOptionalNumber(value: string) {
   return value.trim() ? Number(value) : undefined;
-}
-
-function roundCurrency(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function getProduct(products: Product[], productId?: number) {
@@ -409,47 +424,6 @@ function getItemStockError(params: {
   return undefined;
 }
 
-function allocateFulfillmentsByItemIndex(
-  items: TransactionItemFormData[],
-  paymentAmounts: number[],
-) {
-  const remainingByItem = items.map((item) => roundCurrency(item.amount ?? 0));
-
-  return paymentAmounts.map((paymentAmount) => {
-    let remainingPayment = roundCurrency(paymentAmount);
-    const allocations: TransactionFulfillmentAllocationFormData[] = [];
-
-    remainingByItem.forEach((availableAmount, itemIndex) => {
-      if (remainingPayment <= 0 || availableAmount <= 0) {
-        return;
-      }
-
-      const allocatedAmount = roundCurrency(
-        Math.min(availableAmount, remainingPayment),
-      );
-
-      if (allocatedAmount <= 0) {
-        return;
-      }
-
-      allocations.push({
-        itemIndex,
-        amount: allocatedAmount,
-      });
-      remainingByItem[itemIndex] = roundCurrency(
-        availableAmount - allocatedAmount,
-      );
-      remainingPayment = roundCurrency(remainingPayment - allocatedAmount);
-    });
-
-    if (remainingPayment > 0.009) {
-      return undefined;
-    }
-
-    return allocations;
-  });
-}
-
 function getEntityLabel(entity: { code?: string; name: string }) {
   return entity.code ? `${entity.code} - ${entity.name}` : entity.name;
 }
@@ -528,6 +502,33 @@ export function TransactionDialog({
     setAttachments([]);
   }, [editing, open, reset]);
 
+  useEffect(() => {
+    const validItemKeys = new Set(items.map((item) => item.clientItemKey));
+
+    setFulfillments((current) => {
+      let changed = false;
+      const nextFulfillments = current.map((fulfillment) => {
+        const allocations = (fulfillment.allocations ?? []).filter(
+          (allocation) =>
+            allocation.clientItemKey &&
+            validItemKeys.has(allocation.clientItemKey),
+        );
+
+        if (allocations.length !== (fulfillment.allocations ?? []).length) {
+          changed = true;
+          return {
+            ...fulfillment,
+            allocations,
+          };
+        }
+
+        return fulfillment;
+      });
+
+      return changed ? nextFulfillments : current;
+    });
+  }, [items]);
+
   const totalAmount = useMemo(
     () => items.reduce((sum, item) => sum + (resolveFinancialItemAmount(item) ?? 0), 0),
     [items],
@@ -568,6 +569,30 @@ export function TransactionDialog({
       }),
     [inventoryBatches, issueDate, items, products, transactionType],
   );
+  const draftAllocationItems = useMemo(
+    () =>
+      items.flatMap((item, index) => {
+        const amount = resolveFinancialItemAmount(item);
+
+        if (!item.chartOfAccountId || !amount || amount <= 0) {
+          return [];
+        }
+
+        const productLabel = getProduct(products, item.productId)?.name;
+        const accountLabel = chartOfAccounts.find(
+          (account) => account.id === item.chartOfAccountId,
+        );
+
+        return [{
+          itemKey: item.clientItemKey,
+          label:
+            productLabel ??
+            (accountLabel ? getEntityLabel(accountLabel) : `Item ${index + 1}`),
+          itemAmount: roundCurrency(amount),
+        }];
+      }),
+    [chartOfAccounts, items, products],
+  );
   const hasValidItem = items.some(
     (item, index) => {
       const amount = resolveFinancialItemAmount(item);
@@ -596,6 +621,85 @@ export function TransactionDialog({
           fulfillment.amountPaid > 0,
       ) &&
       partialPaidAmount <= totalAmount);
+  const getFulfillmentPaymentAmount = (
+    fulfillment: TransactionFulfillmentFormData,
+  ) =>
+    paymentMode === 'paid'
+      ? roundCurrency(totalAmount)
+      : roundCurrency(fulfillment.amountPaid ?? 0);
+  const getDraftAllocatedAmount = (
+    clientItemKey: string,
+    excludedFulfillmentIndex: number,
+    sourceFulfillments = fulfillments,
+  ) =>
+    roundCurrency(
+      sourceFulfillments.reduce((sum, fulfillment, fulfillmentIndex) => {
+        if (fulfillmentIndex === excludedFulfillmentIndex) {
+          return sum;
+        }
+
+        return sum + (fulfillment.allocations ?? [])
+          .filter((allocation) => allocation.clientItemKey === clientItemKey)
+          .reduce(
+            (allocationSum, allocation) =>
+              allocationSum + (allocation.amount ?? 0),
+            0,
+          );
+      }, 0),
+    );
+  const buildDraftAllocationRows = (
+    fulfillmentIndex: number,
+    fulfillment: TransactionFulfillmentFormData,
+    sourceFulfillments = fulfillments,
+  ): AllocationEditorRow[] =>
+    draftAllocationItems.map((item) => {
+      const alreadyAllocatedAmount = getDraftAllocatedAmount(
+        item.itemKey,
+        fulfillmentIndex,
+        sourceFulfillments,
+      );
+      const allocatedAmount = (fulfillment.allocations ?? []).find(
+        (allocation) => allocation.clientItemKey === item.itemKey,
+      )?.amount;
+
+      return {
+        itemKey: item.itemKey,
+        label: item.label,
+        itemAmount: item.itemAmount,
+        alreadyAllocatedAmount,
+        availableAmount: roundCurrency(
+          item.itemAmount - alreadyAllocatedAmount,
+        ),
+        allocatedAmount,
+      };
+    });
+  const createSuggestedDraftAllocations = (
+    fulfillmentIndex: number,
+    paymentAmount: number,
+    sourceFulfillments = fulfillments,
+  ): TransactionFulfillmentAllocationFormData[] =>
+    buildSuggestedAllocations(
+      buildDraftAllocationRows(
+        fulfillmentIndex,
+        sourceFulfillments[fulfillmentIndex] ?? emptyFulfillment(),
+        sourceFulfillments,
+      ),
+      paymentAmount,
+    ).map((allocation) => ({
+      clientItemKey: String(allocation.itemKey),
+      amount: allocation.amount,
+    }));
+  const allocationValidationMessage =
+    !editing && paymentMode !== 'unpaid'
+      ? fulfillments
+          .map((fulfillment, index) =>
+            validateAllocationRows(
+              buildDraftAllocationRows(index, fulfillment),
+              getFulfillmentPaymentAmount(fulfillment),
+            ),
+          )
+          .find((message) => !!message)
+      : undefined;
   const attachmentsAreValid =
     editing ||
     attachments.every(
@@ -608,6 +712,7 @@ export function TransactionDialog({
       (!hasValidItem ||
         !stockItemsAreValid ||
         !paymentIsValid ||
+        !!allocationValidationMessage ||
         !attachmentsAreValid));
 
   const updateItem = (index: number, patch: Partial<TransactionItemFormData>) => {
@@ -677,6 +782,7 @@ export function TransactionDialog({
       const splitQuantity = Math.min(availableQuantity, remainingQuantity);
       splitItems.push({
         ...currentItem,
+        clientItemKey: createClientItemKey(),
         quantity: splitQuantity,
         inventoryBatchId: batch.id,
         amount: calculateFinancialItemAmount(splitQuantity, currentItem.unitPrice),
@@ -710,6 +816,79 @@ export function TransactionDialog({
     );
   };
 
+  const updateFulfillmentAmount = (index: number, amountPaid?: number) => {
+    setFulfillments((current) =>
+      current.map((fulfillment, fulfillmentIndex) => {
+        if (fulfillmentIndex !== index) {
+          return fulfillment;
+        }
+
+        const hasAllocations = (fulfillment.allocations ?? []).length > 0;
+
+        return {
+          ...fulfillment,
+          amountPaid,
+          allocations:
+            hasAllocations || !amountPaid
+              ? fulfillment.allocations
+              : createSuggestedDraftAllocations(
+                  index,
+                  amountPaid,
+                  current,
+                ),
+        };
+      }),
+    );
+  };
+
+  const updateFulfillmentAllocation = (
+    fulfillmentIndex: number,
+    itemKey: AllocationKey,
+    amount?: number,
+  ) => {
+    setFulfillments((current) =>
+      current.map((fulfillment, index) => {
+        if (index !== fulfillmentIndex) {
+          return fulfillment;
+        }
+
+        const clientItemKey = String(itemKey);
+        const allocations = (fulfillment.allocations ?? []).filter(
+          (allocation) => allocation.clientItemKey !== clientItemKey,
+        );
+
+        if (amount !== undefined) {
+          allocations.push({
+            clientItemKey,
+            amount,
+          });
+        }
+
+        return {
+          ...fulfillment,
+          allocations,
+        };
+      }),
+    );
+  };
+
+  const suggestFulfillmentAllocations = (index: number) => {
+    setFulfillments((current) =>
+      current.map((fulfillment, fulfillmentIndex) =>
+        fulfillmentIndex === index
+          ? {
+              ...fulfillment,
+              allocations: createSuggestedDraftAllocations(
+                index,
+                getFulfillmentPaymentAmount(fulfillment),
+                current,
+              ),
+            }
+          : fulfillment,
+      ),
+    );
+  };
+
   const updateAttachment = (
     index: number,
     patch: Partial<TransactionAttachmentFormData>,
@@ -735,6 +914,7 @@ export function TransactionDialog({
       }
 
       return [{
+        clientItemKey: item.clientItemKey,
         chartOfAccountId: item.chartOfAccountId,
         costCenterId: item.costCenterId,
         quantity: item.quantity,
@@ -758,6 +938,7 @@ export function TransactionDialog({
               bankAccountId: fulfillments[0]?.bankAccountId,
               paymentDate: fulfillments[0]?.paymentDate || todayIsoDate(),
               amountPaid: normalizedTotalAmount,
+              allocations: fulfillments[0]?.allocations ?? [],
               observation: fulfillments[0]?.observation,
             },
           ]
@@ -771,23 +952,79 @@ export function TransactionDialog({
                 bankAccountId: fulfillment.bankAccountId,
                 paymentDate: fulfillment.paymentDate,
                 amountPaid: fulfillment.amountPaid,
+                allocations: fulfillment.allocations ?? [],
                 observation: fulfillment.observation,
               }))
           : [];
-    const allocationGroups = allocateFulfillmentsByItemIndex(
-      normalizedItems,
-      fulfillmentDrafts.map((fulfillment) => fulfillment.amountPaid ?? 0),
+    const itemIndexByClientKey = new Map(
+      normalizedItems.map((item, index) => [item.clientItemKey, index]),
     );
 
-    if (allocationGroups.some((allocations) => !allocations)) {
-      window.alert('O valor pago nao pode exceder o total dos items.');
-      return;
+    for (let index = 0; index < fulfillmentDrafts.length; index++) {
+      const fulfillment = fulfillmentDrafts[index];
+      const validationMessage = validateAllocationRows(
+        normalizedItems.map((item) => {
+          const alreadyAllocatedAmount = roundCurrency(
+            fulfillmentDrafts.reduce((sum, candidate, candidateIndex) => {
+              if (candidateIndex === index) {
+                return sum;
+              }
+
+              return sum + (candidate.allocations ?? [])
+                .filter(
+                  (allocation) =>
+                    allocation.clientItemKey === item.clientItemKey,
+                )
+                .reduce(
+                  (allocationSum, allocation) =>
+                    allocationSum + (allocation.amount ?? 0),
+                  0,
+                );
+            }, 0),
+          );
+
+          return {
+            itemKey: item.clientItemKey,
+            label: item.productId
+              ? getProduct(products, item.productId)?.name ?? item.clientItemKey
+              : item.clientItemKey,
+            itemAmount: roundCurrency(item.amount ?? 0),
+            alreadyAllocatedAmount,
+            availableAmount: roundCurrency(
+              (item.amount ?? 0) - alreadyAllocatedAmount,
+            ),
+            allocatedAmount: (fulfillment.allocations ?? []).find(
+              (allocation) => allocation.clientItemKey === item.clientItemKey,
+            )?.amount,
+          };
+        }),
+        roundCurrency(fulfillment.amountPaid ?? 0),
+      );
+
+      if (validationMessage) {
+        window.alert(validationMessage);
+        return;
+      }
     }
 
     const normalizedFulfillments = fulfillmentDrafts.map(
-      (fulfillment, index) => ({
+      (fulfillment) => ({
         ...fulfillment,
-        allocations: allocationGroups[index] ?? [],
+        allocations: (fulfillment.allocations ?? []).flatMap((allocation) => {
+          const itemIndex = allocation.clientItemKey
+            ? itemIndexByClientKey.get(allocation.clientItemKey)
+            : undefined;
+          const amount = roundCurrency(allocation.amount ?? 0);
+
+          if (itemIndex === undefined || amount <= 0) {
+            return [];
+          }
+
+          return [{
+            itemIndex,
+            amount,
+          }];
+        }),
       }),
     );
     const normalizedAttachments = attachments
@@ -1204,8 +1441,22 @@ export function TransactionDialog({
                   label="Situacao do pagamento"
                   onChange={(event) => {
                     const mode = event.target.value as PaymentMode;
+                    const fulfillment = emptyFulfillment();
+                    const paymentAmount = roundCurrency(totalAmount);
                     setPaymentMode(mode);
-                    setFulfillments([emptyFulfillment()]);
+                    setFulfillments(
+                      mode === 'paid' && paymentAmount > 0
+                        ? [{
+                            ...fulfillment,
+                            amountPaid: paymentAmount,
+                            allocations: createSuggestedDraftAllocations(
+                              0,
+                              paymentAmount,
+                              [fulfillment],
+                            ),
+                          }]
+                        : [fulfillment],
+                    );
                   }}
                 >
                   <MenuItem value="unpaid">Ainda nao pago</MenuItem>
@@ -1243,95 +1494,164 @@ export function TransactionDialog({
                         startIcon={<AddIcon />}
                         size="small"
                         onClick={() =>
-                          setFulfillments((current) => [
-                            ...current,
-                            emptyFulfillment(),
-                          ])
+                          setFulfillments((current) => {
+                            const alreadyPaid = current.reduce(
+                              (sum, fulfillment) =>
+                                sum + (fulfillment.amountPaid ?? 0),
+                              0,
+                            );
+                            const remainingAmount = roundCurrency(
+                              totalAmount - alreadyPaid,
+                            );
+                            const fulfillment = {
+                              ...emptyFulfillment(),
+                              amountPaid:
+                                remainingAmount > 0
+                                  ? remainingAmount
+                                  : undefined,
+                            };
+                            const nextFulfillments = [
+                              ...current,
+                              fulfillment,
+                            ];
+
+                            return fulfillment.amountPaid
+                              ? [
+                                  ...current,
+                                  {
+                                    ...fulfillment,
+                                    allocations:
+                                      createSuggestedDraftAllocations(
+                                        current.length,
+                                        fulfillment.amountPaid,
+                                        nextFulfillments,
+                                      ),
+                                  },
+                                ]
+                              : nextFulfillments;
+                          })
                         }
                       >
                         Pagamento
                       </Button>
                     </Stack>
                   )}
-                  {fulfillments.map((fulfillment, index) => (
-                    <Stack key={index} direction="row" spacing={1.5}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Conta Bancaria</InputLabel>
-                        <Select
-                          value={String(fulfillment.bankAccountId ?? '')}
-                          label="Conta Bancaria"
-                          onChange={(event) =>
-                            updateFulfillment(index, {
-                              bankAccountId: Number(event.target.value),
-                            })
-                          }
-                        >
-                          {activeBankAccounts.map((bankAccount) => (
-                            <MenuItem
-                              key={bankAccount.id}
-                              value={String(bankAccount.id)}
+                  {fulfillments.map((fulfillment, index) => {
+                    const paymentAmount = getFulfillmentPaymentAmount(
+                      fulfillment,
+                    );
+
+                    return (
+                      <Stack
+                        key={index}
+                        spacing={1.25}
+                        sx={{
+                          p: 1.5,
+                          bgcolor: '#FFFFFF',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                        }}
+                      >
+                        <Stack direction="row" spacing={1.5}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Conta Bancaria</InputLabel>
+                            <Select
+                              value={String(fulfillment.bankAccountId ?? '')}
+                              label="Conta Bancaria"
+                              onChange={(event) =>
+                                updateFulfillment(index, {
+                                  bankAccountId: Number(event.target.value),
+                                })
+                              }
                             >
-                              {bankAccount.name}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                      <TextField
-                        label="Data"
-                        type="date"
-                        size="small"
-                        value={fulfillment.paymentDate}
-                        onChange={(event) =>
-                          updateFulfillment(index, {
-                            paymentDate: event.target.value,
-                          })
-                        }
-                        fullWidth
-                        InputLabelProps={{ shrink: true }}
-                      />
-                      {paymentMode === 'partial' && (
-                        <TextField
-                          label="Valor Pago"
-                          type="number"
-                          size="small"
-                          value={toInputValue(fulfillment.amountPaid)}
-                          onChange={(event) =>
-                            updateFulfillment(index, {
-                              amountPaid: parseOptionalNumber(event.target.value),
-                            })
+                              {activeBankAccounts.map((bankAccount) => (
+                                <MenuItem
+                                  key={bankAccount.id}
+                                  value={String(bankAccount.id)}
+                                >
+                                  {bankAccount.name}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                          <TextField
+                            label="Data"
+                            type="date"
+                            size="small"
+                            value={fulfillment.paymentDate}
+                            onChange={(event) =>
+                              updateFulfillment(index, {
+                                paymentDate: event.target.value,
+                              })
+                            }
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                          />
+                          {paymentMode === 'partial' ? (
+                            <TextField
+                              label="Valor Pago"
+                              type="number"
+                              size="small"
+                              value={toInputValue(fulfillment.amountPaid)}
+                              onChange={(event) =>
+                                updateFulfillmentAmount(
+                                  index,
+                                  parseOptionalNumber(event.target.value),
+                                )
+                              }
+                              fullWidth
+                            />
+                          ) : (
+                            <TextField
+                              label="Valor Pago"
+                              type="number"
+                              size="small"
+                              value={toInputValue(paymentAmount)}
+                              InputProps={{ readOnly: true }}
+                              fullWidth
+                            />
+                          )}
+                          <TextField
+                            label="Observacao"
+                            size="small"
+                            value={fulfillment.observation ?? ''}
+                            onChange={(event) =>
+                              updateFulfillment(index, {
+                                observation: event.target.value || undefined,
+                              })
+                            }
+                            fullWidth
+                          />
+                          {paymentMode === 'partial' && (
+                            <IconButton
+                              color="error"
+                              disabled={fulfillments.length === 1}
+                              onClick={() =>
+                                setFulfillments((current) =>
+                                  current.filter(
+                                    (_, fulfillmentIndex) =>
+                                      fulfillmentIndex !== index,
+                                  ),
+                                )
+                              }
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          )}
+                        </Stack>
+                        <FulfillmentAllocationEditor
+                          rows={buildDraftAllocationRows(index, fulfillment)}
+                          paymentAmount={paymentAmount}
+                          disabled={busy}
+                          onAllocationChange={(itemKey, amount) =>
+                            updateFulfillmentAllocation(index, itemKey, amount)
                           }
-                          fullWidth
+                          onSuggest={() => suggestFulfillmentAllocations(index)}
                         />
-                      )}
-                      <TextField
-                        label="Observacao"
-                        size="small"
-                        value={fulfillment.observation ?? ''}
-                        onChange={(event) =>
-                          updateFulfillment(index, {
-                            observation: event.target.value || undefined,
-                          })
-                        }
-                        fullWidth
-                      />
-                      {paymentMode === 'partial' && (
-                        <IconButton
-                          color="error"
-                          disabled={fulfillments.length === 1}
-                          onClick={() =>
-                            setFulfillments((current) =>
-                              current.filter(
-                                (_, fulfillmentIndex) =>
-                                  fulfillmentIndex !== index,
-                              ),
-                            )
-                          }
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      )}
-                    </Stack>
-                  ))}
+                      </Stack>
+                    );
+                  })}
                 </Stack>
               )}
 

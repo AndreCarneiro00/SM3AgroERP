@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -19,14 +19,20 @@ import type { BankAccount } from '../../../domains/banking/model/entities';
 import type {
   FinancialTransaction,
   FinancialTransactionFulfillment,
+  FinancialTransactionFulfillmentAllocationInput,
+  FinancialTransactionItem,
 } from '../../../domains/financial/model/entities';
+import { FulfillmentAllocationEditor } from './FulfillmentAllocationEditor';
+import {
+  buildSuggestedAllocations,
+  roundCurrency,
+  validateAllocationRows,
+  type AllocationEditorRow,
+  type AllocationKey,
+} from './fulfillmentAllocation';
 
 const fmtBRL = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-function roundCurrency(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
 
 function getMaximumPayableAmount(
   transaction?: FinancialTransaction,
@@ -71,17 +77,26 @@ interface Props {
   onClose: () => void;
   transaction?: FinancialTransaction;
   fulfillment?: FinancialTransactionFulfillment;
+  transactionItems: FinancialTransactionItem[];
+  transactionFulfillments: FinancialTransactionFulfillment[];
   activeBankAccounts: BankAccount[];
+  getItemLabel: (item: FinancialTransactionItem) => string;
   onSave: (
     bankId: number,
     date: string,
     amount: number,
+    allocations: FinancialTransactionFulfillmentAllocationInput[],
     observation: string,
   ) => void | Promise<void>;
   saving?: boolean;
 }
 
 type FulfillmentFormValues = z.infer<ReturnType<typeof createFulfillmentSchema>>;
+
+interface FulfillmentAllocationFormData {
+  itemId: number;
+  amount?: number;
+}
 
 function getDefaultValues(
   transaction?: FinancialTransaction,
@@ -99,15 +114,82 @@ function getDefaultValues(
   };
 }
 
+function getInitialAllocations(
+  fulfillment?: FinancialTransactionFulfillment,
+): FulfillmentAllocationFormData[] {
+  return (fulfillment?.allocations ?? []).flatMap((allocation) => {
+    if (!allocation.itemId) {
+      return [];
+    }
+
+    return [{
+      itemId: allocation.itemId,
+      amount: allocation.amount,
+    }];
+  });
+}
+
+function getAllocatedAmountForItem(
+  itemId: number,
+  fulfillments: FinancialTransactionFulfillment[],
+  excludedFulfillmentId?: number,
+) {
+  return roundCurrency(
+    fulfillments
+      .filter((fulfillment) => fulfillment.id !== excludedFulfillmentId)
+      .flatMap((fulfillment) => fulfillment.allocations ?? [])
+      .filter((allocation) => allocation.itemId === itemId)
+      .reduce((sum, allocation) => sum + allocation.amount, 0),
+  );
+}
+
+function buildAllocationRows(params: {
+  transactionItems: FinancialTransactionItem[];
+  transactionFulfillments: FinancialTransactionFulfillment[];
+  fulfillment?: FinancialTransactionFulfillment;
+  allocations: FulfillmentAllocationFormData[];
+  getItemLabel: (item: FinancialTransactionItem) => string;
+}): AllocationEditorRow[] {
+  return params.transactionItems
+    .filter((item) => (item.amount ?? 0) > 0)
+    .map((item) => {
+      const alreadyAllocatedAmount = getAllocatedAmountForItem(
+        item.id,
+        params.transactionFulfillments,
+        params.fulfillment?.id,
+      );
+      const allocatedAmount = params.allocations.find(
+        (allocation) => allocation.itemId === item.id,
+      )?.amount;
+
+      return {
+        itemKey: item.id,
+        label: params.getItemLabel(item),
+        itemAmount: roundCurrency(item.amount ?? 0),
+        alreadyAllocatedAmount,
+        availableAmount: roundCurrency(
+          (item.amount ?? 0) - alreadyAllocatedAmount,
+        ),
+        allocatedAmount,
+      };
+    });
+}
+
 export function FulfillmentDialog({
   open,
   onClose,
   transaction,
   fulfillment,
+  transactionItems,
+  transactionFulfillments,
   activeBankAccounts,
+  getItemLabel,
   onSave,
   saving = false,
 }: Props) {
+  const [allocations, setAllocations] = useState<
+    FulfillmentAllocationFormData[]
+  >([]);
   const maximumPayableAmount = useMemo(
     () => getMaximumPayableAmount(transaction, fulfillment),
     [fulfillment, transaction],
@@ -116,33 +198,140 @@ export function FulfillmentDialog({
     () => createFulfillmentSchema(maximumPayableAmount),
     [maximumPayableAmount],
   );
-  const { control, formState, handleSubmit, reset } =
+  const { control, formState, handleSubmit, reset, watch } =
     useForm<FulfillmentFormValues>({
       defaultValues: getDefaultValues(transaction, fulfillment),
       resolver: zodResolver(fulfillmentSchema),
     });
+  const amountValue = watch('amount');
+  const amount = Number(amountValue || 0);
+  const paymentAmount = roundCurrency(Number.isFinite(amount) ? amount : 0);
+  const allocationRows = useMemo(
+    () =>
+      buildAllocationRows({
+        transactionItems,
+        transactionFulfillments,
+        fulfillment,
+        allocations,
+        getItemLabel,
+      }),
+    [
+      allocations,
+      fulfillment,
+      getItemLabel,
+      transactionFulfillments,
+      transactionItems,
+    ],
+  );
 
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    reset(getDefaultValues(transaction, fulfillment));
-  }, [fulfillment, open, reset, transaction]);
+    const defaultValues = getDefaultValues(transaction, fulfillment);
+    const initialAllocations = getInitialAllocations(fulfillment);
+    reset(defaultValues);
+    setAllocations(
+      initialAllocations.length > 0
+        ? initialAllocations
+        : buildSuggestedAllocations(
+            buildAllocationRows({
+              transactionItems,
+              transactionFulfillments,
+              fulfillment,
+              allocations: [],
+              getItemLabel,
+            }),
+            Number(defaultValues.amount || 0),
+          ).map((allocation) => ({
+            itemId: Number(allocation.itemKey),
+            amount: allocation.amount,
+          })),
+    );
+  }, [
+    fulfillment,
+    getItemLabel,
+    open,
+    reset,
+    transaction,
+    transactionFulfillments,
+    transactionItems,
+  ]);
 
   const disabled = saving || formState.isSubmitting;
 
+  const updateAllocation = (itemKey: AllocationKey, amount?: number) => {
+    const itemId = Number(itemKey);
+
+    setAllocations((current) => {
+      const nextAllocations = current.filter(
+        (allocation) => allocation.itemId !== itemId,
+      );
+
+      if (amount !== undefined) {
+        nextAllocations.push({
+          itemId,
+          amount,
+        });
+      }
+
+      return nextAllocations;
+    });
+  };
+
+  const suggestAllocations = () => {
+    setAllocations(
+      buildSuggestedAllocations(allocationRows, paymentAmount).map(
+        (allocation) => ({
+          itemId: Number(allocation.itemKey),
+          amount: allocation.amount,
+        }),
+      ),
+    );
+  };
+
   const handleFormSubmit = handleSubmit(async (values) => {
+    const amountPaid = Number(values.amount);
+    const rows = buildAllocationRows({
+      transactionItems,
+      transactionFulfillments,
+      fulfillment,
+      allocations,
+      getItemLabel,
+    });
+    const validationMessage = validateAllocationRows(rows, amountPaid);
+
+    if (validationMessage) {
+      window.alert(validationMessage);
+      return;
+    }
+
+    const validItemIds = new Set(transactionItems.map((item) => item.id));
+    const payloadAllocations = allocations.flatMap((allocation) => {
+      const allocationAmount = roundCurrency(allocation.amount ?? 0);
+
+      if (!validItemIds.has(allocation.itemId) || allocationAmount <= 0) {
+        return [];
+      }
+
+      return [{
+        itemId: allocation.itemId,
+        amount: allocationAmount,
+      }];
+    });
+
     await onSave(
       Number(values.bankId),
       values.date,
-      Number(values.amount),
+      amountPaid,
+      payloadAllocations,
       values.observation.trim(),
     );
   });
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         {fulfillment ? 'Editar Pagamento' : 'Registrar Pagamento'}
       </DialogTitle>
@@ -201,6 +390,13 @@ export function FulfillmentDialog({
                 : undefined,
               step: '0.01',
             }}
+          />
+          <FulfillmentAllocationEditor
+            rows={allocationRows}
+            paymentAmount={paymentAmount}
+            disabled={disabled}
+            onAllocationChange={updateAllocation}
+            onSuggest={suggestAllocations}
           />
           <FormTextField
             control={control}

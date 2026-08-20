@@ -41,7 +41,6 @@ import type {
   FinancialTransactionAttachment,
   FinancialTransactionAttachmentInput,
   FinancialTransactionFulfillment,
-  FinancialTransactionFulfillmentAllocationInput,
   FinancialTransactionFulfillmentInput,
   FinancialTransactionInput,
   FinancialTransactionItem,
@@ -134,7 +133,19 @@ function toCreateFinancialTransactionInput(
       bankAccountId: fulfillment.bankAccountId ?? 0,
       paymentDate: fulfillment.paymentDate,
       amountPaid: fulfillment.amountPaid ?? 0,
-      allocations: fulfillment.allocations ?? [],
+      allocations: (fulfillment.allocations ?? []).flatMap((allocation) => {
+        const amount = allocation.amount ?? 0;
+
+        if (amount <= 0) {
+          return [];
+        }
+
+        return [{
+          itemId: allocation.itemId,
+          itemIndex: allocation.itemIndex,
+          amount,
+        }];
+      }),
       observation: fulfillment.observation,
     })),
     attachments: form.attachments,
@@ -146,72 +157,6 @@ function getProductName(
   productId?: number,
 ) {
   return productsCatalog.products.byId[productId ?? -1]?.name ?? '-';
-}
-
-function roundCurrency(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-function buildFulfillmentAllocationsByItemId(
-  items: FinancialTransactionItem[],
-  fulfillments: FinancialTransactionFulfillment[],
-  paymentAmount: number,
-  editingFulfillmentId?: number,
-): FinancialTransactionFulfillmentAllocationInput[] | undefined {
-  let remainingPayment = roundCurrency(paymentAmount);
-  const allocatedByItemId = new Map<number, number>();
-
-  fulfillments
-    .filter((fulfillment) => fulfillment.id !== editingFulfillmentId)
-    .forEach((fulfillment) => {
-      fulfillment.allocations.forEach((allocation) => {
-        if (!allocation.itemId) {
-          return;
-        }
-
-        allocatedByItemId.set(
-          allocation.itemId,
-          roundCurrency(
-            (allocatedByItemId.get(allocation.itemId) ?? 0) +
-              allocation.amount,
-          ),
-        );
-      });
-    });
-
-  const allocations: FinancialTransactionFulfillmentAllocationInput[] = [];
-
-  [...items]
-    .sort((left, right) => left.id - right.id)
-    .forEach((item) => {
-      if (remainingPayment <= 0) {
-        return;
-      }
-
-      const itemAmount = roundCurrency(item.amount ?? 0);
-      const alreadyAllocated = allocatedByItemId.get(item.id) ?? 0;
-      const availableAmount = roundCurrency(itemAmount - alreadyAllocated);
-
-      if (availableAmount <= 0) {
-        return;
-      }
-
-      const allocatedAmount = roundCurrency(
-        Math.min(availableAmount, remainingPayment),
-      );
-
-      allocations.push({
-        itemId: item.id,
-        amount: allocatedAmount,
-      });
-      remainingPayment = roundCurrency(remainingPayment - allocatedAmount);
-    });
-
-  if (remainingPayment > 0.009) {
-    return undefined;
-  }
-
-  return allocations;
 }
 
 export function TransactionsTab() {
@@ -356,27 +301,10 @@ export function TransactionsTab() {
     bankId: number,
     date: string,
     amount: number,
+    allocations: FinancialTransactionFulfillmentInput['allocations'],
     observation: string,
   ) => {
     if (!fulfillTarget) return;
-
-    const transactionItems = financialTransactionItems.filter(
-      (item) => item.financialTransactionId === fulfillTarget.id,
-    );
-    const transactionFulfillments = financialTransactionFulfillments.filter(
-      (fulfillment) => fulfillment.financialTransactionId === fulfillTarget.id,
-    );
-    const allocations = buildFulfillmentAllocationsByItemId(
-      transactionItems,
-      transactionFulfillments,
-      amount,
-      editingFulfillment?.id,
-    );
-
-    if (!allocations) {
-      window.alert('O valor pago nao pode exceder o saldo dos items.');
-      return;
-    }
 
     const input: FinancialTransactionFulfillmentInput = {
       financialTransactionId: fulfillTarget.id,
@@ -1084,13 +1012,28 @@ export function TransactionsTab() {
         }}
         transaction={fulfillTarget}
         fulfillment={editingFulfillment}
+        transactionItems={financialTransactionItems.filter(
+          (item) => item.financialTransactionId === fulfillTarget?.id,
+        )}
+        transactionFulfillments={financialTransactionFulfillments.filter(
+          (fulfillment) =>
+            fulfillment.financialTransactionId === fulfillTarget?.id,
+        )}
         activeBankAccounts={activeBankAccounts}
+        getItemLabel={(item) =>
+          item.productId
+            ? getProductName(productsCatalog, item.productId)
+            : selectChartOfAccountLabelById(
+                accountingCatalog,
+                item.chartOfAccountId,
+              )
+        }
         saving={
           createFinancialTransactionFulfillment.isPending ||
           updateFinancialTransactionFulfillment.isPending
         }
-        onSave={(bankId, date, amount, observation) => {
-          void handleFulfill(bankId, date, amount, observation);
+        onSave={(bankId, date, amount, allocations, observation) => {
+          void handleFulfill(bankId, date, amount, allocations, observation);
         }}
       />
       <TransactionAttachmentDialog

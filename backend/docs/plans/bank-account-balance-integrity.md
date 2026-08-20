@@ -645,3 +645,10 @@ Se a UI for ajustada:
    criacao da conta.
 11. Conta com movimentos pode ser inativada.
 12. Mensagens podem continuar em ingles no backend.
+
+## Related Plans
+
+- [Ajustes de estoque no cancelamento financeiro](financial-transaction-stock-cancel-adjustments.md)
+  cobre a reconciliacao de estoque quando o cancelamento de uma transacao
+  financeira precisa reverter itens estocaveis. Pagamentos/baixas continuam
+  afetando somente caixa.

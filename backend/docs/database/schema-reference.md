@@ -371,6 +371,12 @@ Attachment location rule: at least one of `storage_path`, `external_file_id`, or
 
 `financial_transaction_fulfillment_item_allocation`
 
+Stores the user-confirmed distribution of a fulfillment amount across the
+financial transaction items. The UI may suggest values, but the saved rows must
+come from explicit fulfillment input. Service rules keep the allocation sum equal
+to `financial_transaction_fulfillment.amount_paid` and prevent the accumulated
+allocation for an item from exceeding that item amount.
+
 | Column | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `id` | `INTEGER` | yes | Primary key, autoincrement. |
@@ -482,7 +488,7 @@ Financial transaction:
 3. Attach files in `financial_transaction_attachment` when documents exist. At least
    one storage locator is required.
 4. Register payments/receipts in `financial_transaction_fulfillment`.
-5. Allocate each fulfillment to one or more items through
+5. Allocate each fulfillment to one or more items through explicit user input in
    `financial_transaction_fulfillment_item_allocation`.
 6. Keep `financial_transaction.status` aligned with paid totals in service logic:
    `PENDING`, `PARTIAL`, `PAID`, or `CANCELED`.
@@ -591,7 +597,7 @@ When changing persistence behavior:
 - `bank_transfer.amount` and `inventory_movement.quantity` have no positive `CHECK`.
 - `financial_transaction.total_amount` is not constrained to equal the sum of
   `financial_transaction_items.amount`.
-- Fulfillment allocations are not constrained to stay within the paid amount or item
-  amount.
+- Fulfillment allocations are not constrained by SQL to stay within the paid
+  amount or item amount. The service validates both rules.
 - `inventory_batch.quantity` is not automatically derived from movements.
 - No table has audit columns except `financial_transaction_attachment.uploaded_at`.
